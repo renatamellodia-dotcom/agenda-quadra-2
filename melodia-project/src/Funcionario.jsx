@@ -63,7 +63,60 @@ function tocarSom(){
   }catch(e){}
 }
 
+// LOGIN COMPONENT — FUNCIONARIO
+const USUARIOS = {
+  admin: { user: "renata", pass: "proprietaria" },
+  funcionario: { user: "melodia", pass: "melodia123" }
+};
+
+function Login({ tipo, onLogin }) {
+  const [u, setU] = useState("");
+  const [p, setP] = useState("");
+  const [erro, setErro] = useState(false);
+  const cfg = USUARIOS[tipo];
+
+  function tentar() {
+    if (u === cfg.user && p === cfg.pass) {
+      sessionStorage.setItem("auth_" + tipo, "1");
+      onLogin();
+    } else {
+      setErro(true);
+      setTimeout(() => setErro(false), 2000);
+    }
+  }
+
+  return (
+    <div style={{fontFamily:"system-ui,sans-serif",background:"#1a5248",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+      <div style={{background:"white",borderRadius:20,padding:32,width:"100%",maxWidth:360,boxShadow:"0 8px 40px rgba(0,0,0,0.3)"}}>
+        <div style={{textAlign:"center",marginBottom:28}}>
+          <div style={{fontSize:48,marginBottom:8}}>{tipo==="admin"?"🔐":"👤"}</div>
+          <div style={{fontWeight:800,fontSize:22,color:"#1a5248"}}>Complexo Melodia</div>
+          <div style={{fontSize:13,color:"#6b7280",marginTop:4}}>{tipo==="admin"?"Painel Administrativo":"App do Funcionário"}</div>
+        </div>
+        <div style={{marginBottom:14}}>
+          <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase"}}>Usuário</label>
+          <input style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none"}}
+            value={u} onChange={e=>setU(e.target.value)} placeholder="usuário" autoCapitalize="none"/>
+        </div>
+        <div style={{marginBottom:20}}>
+          <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase"}}>Senha</label>
+          <input type="password" style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none"}}
+            value={p} onChange={e=>setP(e.target.value)} placeholder="senha"
+            onKeyDown={e=>e.key==="Enter"&&tentar()}/>
+        </div>
+        {erro && <div style={{background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:13,color:"#dc2626",textAlign:"center"}}>⚠️ Usuário ou senha incorretos</div>}
+        <button onClick={tentar} style={{width:"100%",padding:"14px",background:"#2E7D6B",color:"white",border:"none",borderRadius:10,fontSize:16,fontWeight:700,cursor:"pointer"}}>
+          Entrar →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
 export default function App(){
+  const [autenticado, setAutenticado] = useState(!!sessionStorage.getItem("auth_funcionario"));
+  if (!autenticado) return <Login tipo="funcionario" onLogin={()=>setAutenticado(true)} />;
   const [dia,setDia]=useState(hoje());
   const [aberto,setAberto]=useState(null);
   const [finalizados,setFinalizados]=useState([]);
