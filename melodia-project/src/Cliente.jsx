@@ -15,7 +15,6 @@ const db = getFirestore(fbApp);
 
 const V = "#2E7D6B", VE = "#1a5248", LA = "#E8861A", BG = "#f4f5f7";
 
-const PAGBANK_TOKEN = "38c03145-fb02-4054-903c-dce5d1392a95ebcbe6d747e1ad0490a1f0b8e17bced83753-8594-460c-90b2-09b6ecd7bc61";
 
 
 async function gerarLinkPagamento(dados) {
@@ -26,43 +25,7 @@ async function gerarLinkPagamento(dados) {
       body: JSON.stringify(dados)
     });
     const json = await resp.json();
-    return { link: json.link, qrCode: json.qr_code, qrImage: json.qr_image };
-  } catch(e) {
-    return { link: null, qrCode: null, qrImage: null };
-  }
-}`
-      },
-      body: JSON.stringify({
-        reference_id: `${dados.quadraId}-${dados.data}-${dados.ini}-${Date.now()}`,
-        customer: {
-          name: dados.nome,
-          email: "cliente@complexomelodia.com.br",
-          tax_id: dados.cpf ? dados.cpf.replace(/\D/g,"") : "00000000000",
-          phones: [{ country: "55", area: dados.tel.replace(/\D/g,"").slice(0,2), number: dados.tel.replace(/\D/g,"").slice(2), type: "MOBILE" }]
-        },
-        items: [{
-          reference_id: dados.quadraId,
-          name: `${dados.quadraNome} — ${dados.data} ${dados.ini}`,
-          quantity: 1,
-          unit_amount: Math.round(parseFloat(dados.valor) * 100)
-        }],
-        qr_codes: [{
-          amount: { value: Math.round(parseFloat(dados.valor) * 100) },
-          expiration_date: new Date(Date.now() + 30*60*1000).toISOString()
-        }],
-        charges: [{
-          reference_id: `charge-${Date.now()}`,
-          description: `Complexo Melodia — ${dados.quadraNome}`,
-          amount: { value: Math.round(parseFloat(dados.valor) * 100), currency: "BRL" },
-          payment_method: { type: "PIX", installments: 1, capture: true }
-        }],
-        notification_urls: ["https://complexomelodia.com.br/api/pagbank-webhook"]
-      })
-    });
-    const json = await resp.json();
-    // Pega o link de pagamento
-    const link = json.links?.find(l => l.rel === "PAY")?.href;
-    return link || null;
+    return json.link || null;
   } catch(e) {
     return null;
   }
@@ -141,27 +104,11 @@ const REGRAS_AREIA = [
 ];
 
 const REGRAS_SOCIETY = [
-  {
-    titulo:"⚠️ REGRAS GERAIS DO COMPLEXO",
-    tipo:"header",
-  },
-  {
-    num:"1",
-    titulo:"Consumo no Local",
-    texto:"Não é permitida a entrada de bebidas. O consumo deverá ser realizado através do bar do complexo.",
-  },
-  {
-    num:"2",
-    titulo:"Crianças",
-    texto:"Por questões de segurança, não é permitida a permanência de crianças nas quadras durante os jogos.",
-  },
-  {
-    num:"3",
-    titulo:"Eventos e Comemorações",
-    texto:"A locação das quadras destina-se à prática esportiva e confraternização entre os participantes da reserva. Aniversários, confraternizações, eventos corporativos, comemorações e reuniões com convidados externos possuem condições e valores específicos e devem ser contratados separadamente.",
-  },
+  { titulo:"⚠️ REGRAS GERAIS DO COMPLEXO", tipo:"header" },
+  { num:"1", titulo:"Consumo no Local", texto:"Não é permitida a entrada de bebidas. O consumo deverá ser realizado através do bar do complexo." },
+  { num:"2", titulo:"Crianças", texto:"Por questões de segurança, não é permitida a permanência de crianças nas quadras durante os jogos." },
+  { num:"3", titulo:"Eventos e Comemorações", texto:"A locação das quadras destina-se à prática esportiva e confraternização entre os participantes da reserva. Aniversários, confraternizações, eventos corporativos, comemorações e reuniões com convidados externos possuem condições e valores específicos e devem ser contratados separadamente." },
 ];
-
 export default function App() {
   const [etapa, setEtapa] = useState("inicio");
   const [quadra, setQuadra] = useState(null);
@@ -311,18 +258,18 @@ export default function App() {
     } catch(e){ console.log("Erro Firebase:", e); }
 
     const valorCobrar = parseFloat((valor * (porcPag/100)).toFixed(2));
-    const result = await gerarLinkPagamento({
+    const link = await gerarLinkPagamento({
       quadraNome: quadra.nome,
       quadraId: quadra.id,
       data: toDS(dia),
       ini: slot.ini,
       valor: valorCobrar,
-      nome, tel, cpf,
+      nome, tel,
       descricao: porcPag === 50 ? `50% — restante na chegada` : `100% — pago total`
     });
     setLoadingPag(false);
-    if (result.link) {
-      window.location.href = result.link;
+    if (link) {
+      window.location.href = link;
     } else {
       setEtapa("pix");
     }
