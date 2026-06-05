@@ -19,10 +19,15 @@ export default async function handler(req, res) {
           unit_price: parseFloat(dados.valor)
         }],
         payer: {
-          name: dados.nome,
+          name: dados.nome || "",
+          email: dados.email || "",
+          identification: {
+            type: "CPF",
+            number: (dados.cpf || "").replace(/\D/g, "")
+          },
           phone: {
-            area_code: (dados.tel||"").replace(/\D/g,"").slice(0,2),
-            number: (dados.tel||"").replace(/\D/g,"").slice(2)
+            area_code: (dados.tel || "").replace(/\D/g, "").slice(0, 2),
+            number: (dados.tel || "").replace(/\D/g, "").slice(2)
           }
         },
         payment_methods: {
