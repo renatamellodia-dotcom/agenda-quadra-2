@@ -84,7 +84,7 @@ function gerarDias(){
   return dias;
 }
 
-const REGRAS = [
+const REGRAS_AREIA = [
   {
     titulo:"🏖️ REGRAS EXCLUSIVAS DA QUADRA DE AREIA",
     tipo:"header",
@@ -115,6 +115,28 @@ const REGRAS = [
   },
   {
     num:"5",
+    titulo:"Eventos e Comemorações",
+    texto:"A locação das quadras destina-se à prática esportiva e confraternização entre os participantes da reserva. Aniversários, confraternizações, eventos corporativos, comemorações e reuniões com convidados externos possuem condições e valores específicos e devem ser contratados separadamente.",
+  },
+];
+
+const REGRAS_SOCIETY = [
+  {
+    titulo:"⚠️ REGRAS GERAIS DO COMPLEXO",
+    tipo:"header",
+  },
+  {
+    num:"1",
+    titulo:"Consumo no Local",
+    texto:"Não é permitida a entrada de bebidas. O consumo deverá ser realizado através do bar do complexo.",
+  },
+  {
+    num:"2",
+    titulo:"Crianças",
+    texto:"Por questões de segurança, não é permitida a permanência de crianças nas quadras durante os jogos.",
+  },
+  {
+    num:"3",
     titulo:"Eventos e Comemorações",
     texto:"A locação das quadras destina-se à prática esportiva e confraternização entre os participantes da reserva. Aniversários, confraternizações, eventos corporativos, comemorações e reuniões com convidados externos possuem condições e valores específicos e devem ser contratados separadamente.",
   },
@@ -672,14 +694,14 @@ export default function App() {
         {/* Regras */}
         <div style={{background:"white",borderRadius:14,padding:16,boxShadow:"0 2px 12px rgba(0,0,0,.08)",marginBottom:16}}>
           <div style={{fontWeight:700,fontSize:15,marginBottom:14,color:VE}}>📋 Leia com atenção antes de confirmar</div>
-          {REGRAS.map((r,i)=>{
+          {(quadra?.id==="q2" ? REGRAS_AREIA : REGRAS_SOCIETY).map((r,i)=>{
             if(r.tipo==="header") return(
               <div key={i} style={{background:r.titulo.startsWith("🏖️")?"#fff7ed":"#fffbeb",borderRadius:10,padding:"10px 14px",margin:"14px 0 8px",fontWeight:800,fontSize:14,color:r.titulo.startsWith("🏖️")?"#9a3412":"#92400e"}}>
                 {r.titulo}
               </div>
             );
             return(
-              <div key={i} style={{display:"flex",gap:12,padding:"12px 0",borderBottom:i<REGRAS.length-1?"1px solid #f3f4f6":"none"}}>
+              <div key={i} style={{display:"flex",gap:12,padding:"12px 0",borderBottom:i<(quadra?.id==="q2" ? REGRAS_AREIA : REGRAS_SOCIETY).length-1?"1px solid #f3f4f6":"none"}}>
                 <div style={{width:26,height:26,borderRadius:"50%",background:VE,color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,flexShrink:0,marginTop:1}}>{r.num}</div>
                 <div>
                   <div style={{fontWeight:700,fontSize:14,color:"#1a1f2e",marginBottom:4}}>{r.titulo}</div>
