@@ -633,7 +633,7 @@ export default function App() {
           </div>
           <div style={{marginBottom:14}}>
             <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase",letterSpacing:0.5}}>CPF (para nota fiscal)</label>
-            <input style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}} value={cpf} onChange={e=>{setCpf(e.target.value);setErros(v=>({...v,cpf:null}));}} placeholder="000.000.000-00" style={{width:"100%",padding:"12px",border:`1.5px solid ${erros.cpf?"#ef4444":"#e0e3e8"}`,borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}}/>
+            <input style={{width:"100%",padding:"12px",border:`1.5px solid ${erros.cpf?"#ef4444":"#e0e3e8"}`,borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}} value={cpf} onChange={e=>{setCpf(e.target.value);setErros(v=>({...v,cpf:null}));}} placeholder="000.000.000-00"/>
               {erros.cpf && <div style={{color:"#ef4444",fontSize:12,marginTop:4}}>⚠️ {erros.cpf}</div>}
           </div>
           <div style={{marginBottom:14}}>
