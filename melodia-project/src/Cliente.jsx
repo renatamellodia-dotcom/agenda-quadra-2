@@ -15,7 +15,7 @@ const db = getFirestore(fbApp);
 
 const V = "#2E7D6B", VE = "#1a5248", LA = "#E8861A", BG = "#f4f5f7";
 
-
+const MP_ACCESS_TOKEN = "APP_USR-6072226638550144-060413-d83b1b373f8d5638dcd1391941826a23-237821225";
 
 async function gerarLinkPagamento(dados) {
   try {
@@ -25,7 +25,7 @@ async function gerarLinkPagamento(dados) {
       body: JSON.stringify(dados)
     });
     const json = await resp.json();
-    return json.link || null;
+    return json.init_point || null;
   } catch(e) {
     return null;
   }
@@ -248,7 +248,7 @@ export default function App() {
       sauna: sauna||false,
       val: parseFloat(valor),
       pag: "pendente",
-      st: "confirmado",
+      st: "aguardando_pagamento",
       tp: "avulso",
       criadoEm: serverTimestamp()
     };
@@ -258,10 +258,12 @@ export default function App() {
     } catch(e){ console.log("Erro Firebase:", e); }
 
     const valorCobrar = parseFloat((valor * (porcPag/100)).toFixed(2));
+    const extRef = `${quadra.id}-${toDS(dia)}-${slot.ini}-${Date.now()}`;
     const link = await gerarLinkPagamento({
       quadraNome: quadra.nome,
       quadraId: quadra.id,
       data: toDS(dia),
+      extRef,
       ini: slot.ini,
       valor: valorCobrar,
       nome, tel,
