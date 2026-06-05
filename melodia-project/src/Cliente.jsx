@@ -207,10 +207,12 @@ export default function App() {
     if (q.cob === "areia") {
       const num = parseInt(n)||0;
       const baseSlots = calcValorSlots(slotsSel, q);
-      const extraPessoas = num > q.pessoasBase ? (num - q.pessoasBase) * q.acrescimoPessoa : 0;
+      const numSlots = slotsSel.length;
+      // Cobrança extra de pessoas só na hora cheia (2 slots = 1h)
+      const extraPessoas = (numSlots >= 2 && num > q.pessoasBase) ? (num - q.pessoasBase) * q.acrescimoPessoa : 0;
       const total = baseSlots + extraPessoas;
       if (extraPessoas > 0) setHintPess(`${num} pessoas → base R$${baseSlots} + ${num-q.pessoasBase}×R$10 = R$${total}`);
-      else setHintPess(`${num} pessoa${num>1?"s":""} (até ${q.pessoasBase} incluso) → R$${total}`);
+      else setHintPess(`${num} pessoa${num>1?"s":""} → R$${total}`);
       return total;
     }
     if (!n || n <= 0) return 0;
