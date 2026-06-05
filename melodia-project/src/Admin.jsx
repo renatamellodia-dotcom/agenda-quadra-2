@@ -529,10 +529,24 @@ export default function App(){
 
       {/* ── FINANCEIRO ── */}
       {pg==="fin"&&<div style={{padding:16,paddingBottom:80}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
+        {/* Cards totais */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}}>
           <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}><div style={{fontWeight:800,fontSize:22,color:"#065f46"}}>R${finRec.toFixed(0)}</div><div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Quitado</div></div>
           <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}><div style={{fontWeight:800,fontSize:22,color:"#854d0e"}}>R${finParcial.toFixed(0)}</div><div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Falta 50%</div></div>
           <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}><div style={{fontWeight:800,fontSize:22,color:VM}}>R${finPend.toFixed(0)}</div><div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Não pago</div></div>
+        </div>
+        {/* Site vs Balcão */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+          <div style={{background:"#eff6ff",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.06)",textAlign:"center",border:"1.5px solid #bfdbfe"}}>
+            <div style={{fontSize:16,marginBottom:4}}>💻</div>
+            <div style={{fontWeight:800,fontSize:20,color:"#1e40af"}}>R${finL.filter(a=>["mp_total","mp_50"].includes(a.pag)).reduce((s,a)=>s+(a.pag==="mp_50"?a.val*0.5:a.val||0),0).toFixed(0)}</div>
+            <div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Recebido pelo Site</div>
+          </div>
+          <div style={{background:"#f0fdf4",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.06)",textAlign:"center",border:"1.5px solid #bbf7d0"}}>
+            <div style={{fontSize:16,marginBottom:4}}>🏟️</div>
+            <div style={{fontWeight:800,fontSize:20,color:"#065f46"}}>R${finL.filter(a=>["mp_total_pix","mp_total_cartao","mp_total_dinheiro"].includes(a.pag)).reduce((s,a)=>s+(a.val||0),0).toFixed(0)}</div>
+            <div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Recebido no Balcão</div>
+          </div>
         </div>
         <div style={{marginBottom:12}}>
           <label style={lbl}>Mês</label>
