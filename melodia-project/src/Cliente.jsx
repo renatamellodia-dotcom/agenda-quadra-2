@@ -17,6 +17,7 @@ const V = "#2E7D6B", VE = "#1a5248", LA = "#E8861A", BG = "#f4f5f7";
 
 const MP_ACCESS_TOKEN = "APP_USR-6072226638550144-060413-d83b1b373f8d5638dcd1391941826a23-237821225";
 
+
 async function gerarLinkPagamento(dados) {
   try {
     const resp = await fetch("/api/pagar", {
@@ -30,6 +31,24 @@ async function gerarLinkPagamento(dados) {
     return null;
   }
 }
+
+function validarCPF(c) {
+  c = c.replace(/[^0-9]/g,"");
+  if (c.length !== 11) return false;
+  if (/^(.)+$/.test(c)) return false;
+  let s=0;
+  for(let i=0;i<9;i++) s+=parseInt(c[i])*(10-i);
+  let r=(s*10)%11; if(r>=10) r=0;
+  if(r!==parseInt(c[9])) return false;
+  s=0;
+  for(let i=0;i<10;i++) s+=parseInt(c[i])*(11-i);
+  r=(s*10)%11; if(r>=10) r=0;
+  return r===parseInt(c[10]);
+}
+function validarEmail(e) { return /^[^@]+@[^@]+[.][^@]+$/.test(e); }
+function validarTel(t) { return t.replace(/[^0-9]/g,"").length >= 10; }
+function validarNome(n) { return n.trim().split(" ").filter(p=>p.length>0).length >= 2; }
+
 
 const QUADRAS = [
   { id:"q1", nome:"Campo Society", tipo:"Futebol Society", cor:V, preco:120, precoNoite:130, horarioNoite:"16:00", cob:"horario", fx:null },
@@ -105,9 +124,9 @@ const REGRAS_AREIA = [
 
 const REGRAS_SOCIETY = [
   { titulo:"⚠️ REGRAS GERAIS DO COMPLEXO", tipo:"header" },
-  { num:"1", titulo:"Consumo no Local", texto:"Não é permitida a entrada de bebidas. O consumo deverá ser realizado através do bar do complexo." },
+  { num:"1", titulo:"Consumo no Local", texto:"Não é permitida a entrada de bebidas." },
   { num:"2", titulo:"Crianças", texto:"Por questões de segurança, não é permitida a permanência de crianças nas quadras durante os jogos." },
-  { num:"3", titulo:"Eventos e Comemorações", texto:"A locação das quadras destina-se à prática esportiva e confraternização entre os participantes da reserva. Aniversários, confraternizações, eventos corporativos, comemorações e reuniões com convidados externos possuem condições e valores específicos e devem ser contratados separadamente." },
+  { num:"3", titulo:"Eventos e Comemorações", texto:"A locação das quadras destina-se à prática esportiva. Eventos com convidados externos possuem condições específicas." },
 ];
 export default function App() {
   const [etapa, setEtapa] = useState("inicio");
@@ -122,6 +141,8 @@ export default function App() {
   const [obs, setObs] = useState("");
   const [sauna, setSauna] = useState(false);
   const [cpf, setCpf] = useState("");
+  const [email, setEmail] = useState("");
+  const [erros, setErros] = useState({});
   const [ciente, setCiente] = useState(false);
   const [loadingPag, setLoadingPag] = useState(false);
   const [linkMP, setLinkMP] = useState(null);
@@ -249,6 +270,7 @@ export default function App() {
       val: parseFloat(valor),
       pag: "pendente",
       st: "aguardando_pagamento",
+      email,
       tp: "avulso",
       criadoEm: serverTimestamp()
     };
@@ -258,12 +280,13 @@ export default function App() {
     } catch(e){ console.log("Erro Firebase:", e); }
 
     const valorCobrar = parseFloat((valor * (porcPag/100)).toFixed(2));
-    const extRef = `${quadra.id}-${toDS(dia)}-${slot.ini}-${Date.now()}`;
+    const extRef = quadra.id+"-"+toDS(dia)+"-"+slot.ini+"-"+Date.now();
     const link = await gerarLinkPagamento({
       quadraNome: quadra.nome,
       quadraId: quadra.id,
       data: toDS(dia),
       extRef,
+      email,
       ini: slot.ini,
       valor: valorCobrar,
       nome, tel,
@@ -603,7 +626,7 @@ export default function App() {
         <div style={{background:"white",borderRadius:14,padding:16,boxShadow:"0 2px 12px rgba(0,0,0,0.08)",marginBottom:16}}>
           <div style={{marginBottom:14}}>
             <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase",letterSpacing:0.5}}>Seu nome *</label>
-            <input style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}} value={nome} onChange={e=>setNome(e.target.value)} placeholder="Nome completo"/>
+            <input style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}} value={nome} onChange={e=>{setNome(e.target.value);setErros(v=>({...v,nome:null}));}} placeholder="Nome completo"/>
           </div>
           <div style={{marginBottom:14}}>
             <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase",letterSpacing:0.5}}>WhatsApp *</label>
@@ -611,7 +634,13 @@ export default function App() {
           </div>
           <div style={{marginBottom:14}}>
             <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase",letterSpacing:0.5}}>CPF (para nota fiscal)</label>
-            <input style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}} value={cpf} onChange={e=>setCpf(e.target.value)} placeholder="000.000.000-00"/>
+            <input style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}} value={cpf} onChange={e=>{setCpf(e.target.value);setErros(v=>({...v,cpf:null}));}} placeholder="000.000.000-00" style={{width:"100%",padding:"12px",border:`1.5px solid ${erros.cpf?"#ef4444":"#e0e3e8"}`,borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}}/>
+              {erros.cpf && <div style={{color:"#ef4444",fontSize:12,marginTop:4}}>⚠️ {erros.cpf}</div>}
+          </div>
+          <div style={{marginBottom:14}}>
+            <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase"}}>E-mail *</label>
+            <input type="email" style={{width:"100%",padding:"12px",border:`1.5px solid ${erros.email?"#ef4444":"#e0e3e8"}`,borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}} value={email} onChange={e=>{setEmail(e.target.value);setErros(v=>({...v,email:null}));}} placeholder="seu@email.com"/>
+            {erros.email && <div style={{color:"#ef4444",fontSize:12,marginTop:4}}>⚠️ {erros.email}</div>}
           </div>
           <div style={{background:"#f0fdf4",border:"1.5px solid #bbf7d0",borderRadius:10,padding:"12px 14px",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer"}} onClick={()=>setSauna(v=>!v)}>
             <div>
