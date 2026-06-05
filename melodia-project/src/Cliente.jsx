@@ -17,7 +17,6 @@ const V = "#2E7D6B", VE = "#1a5248", LA = "#E8861A", BG = "#f4f5f7";
 
 const MP_ACCESS_TOKEN = "APP_USR-6072226638550144-060413-d83b1b373f8d5638dcd1391941826a23-237821225";
 
-
 async function gerarLinkPagamento(dados) {
   try {
     const resp = await fetch("/api/pagar", {
@@ -27,27 +26,20 @@ async function gerarLinkPagamento(dados) {
     });
     const json = await resp.json();
     return json.init_point || null;
-  } catch(e) {
-    return null;
-  }
+  } catch(e) { return null; }
 }
 
 function validarCPF(c) {
   c = c.replace(/[^0-9]/g,"");
-  if (c.length !== 11) return false;
-  if (/^(.)+$/.test(c)) return false;
-  let s=0;
-  for(let i=0;i<9;i++) s+=parseInt(c[i])*(10-i);
-  let r=(s*10)%11; if(r>=10) r=0;
-  if(r!==parseInt(c[9])) return false;
-  s=0;
-  for(let i=0;i<10;i++) s+=parseInt(c[i])*(11-i);
-  r=(s*10)%11; if(r>=10) r=0;
-  return r===parseInt(c[10]);
+  if (c.length !== 11 || /^(.)+$/.test(c)) return false;
+  let s=0; for(let i=0;i<9;i++) s+=parseInt(c[i])*(10-i);
+  let r=(s*10)%11; if(r>=10) r=0; if(r!==parseInt(c[9])) return false;
+  s=0; for(let i=0;i<10;i++) s+=parseInt(c[i])*(11-i);
+  r=(s*10)%11; if(r>=10) r=0; return r===parseInt(c[10]);
 }
-function validarEmail(e) { return /^[^@]+@[^@]+[.][^@]+$/.test(e); }
+function validarEmail(e) { return /^[^@\s]+@[^@\s]+[.][^@\s]+$/.test(e); }
 function validarTel(t) { return t.replace(/[^0-9]/g,"").length >= 10; }
-function validarNome(n) { return n.trim().split(" ").filter(p=>p.length>0).length >= 2; }
+function validarNome(n) { return n.trim().split(" ").filter(p=>p.length>1).length >= 2; }
 
 
 const QUADRAS = [
@@ -124,7 +116,7 @@ const REGRAS_AREIA = [
 
 const REGRAS_SOCIETY = [
   { titulo:"⚠️ REGRAS GERAIS DO COMPLEXO", tipo:"header" },
-  { num:"1", titulo:"Consumo no Local", texto:"Não é permitida a entrada de bebidas." },
+  { num:"1", titulo:"Consumo no Local", texto:"Não é permitida a entrada de bebidas. O consumo deverá ser realizado através do bar do complexo." },
   { num:"2", titulo:"Crianças", texto:"Por questões de segurança, não é permitida a permanência de crianças nas quadras durante os jogos." },
   { num:"3", titulo:"Eventos e Comemorações", texto:"A locação das quadras destina-se à prática esportiva. Eventos com convidados externos possuem condições específicas." },
 ];
@@ -252,6 +244,14 @@ export default function App() {
 
   async function confirmarRegras() {
     if (!ciente) return;
+    // Validações
+    const errsNovos = {};
+    if (!validarNome(nome)) errsNovos.nome = "Digite seu nome e sobrenome";
+    if (!validarTel(tel)) errsNovos.tel = "Telefone inválido — informe com DDD";
+    if (cpf && !validarCPF(cpf)) errsNovos.cpf = "CPF inválido — verifique os números";
+    if (!validarEmail(email)) errsNovos.email = "E-mail inválido — ex: nome@gmail.com";
+    if (Object.keys(errsNovos).length > 0) { setErros(errsNovos); return; }
+    setErros({});
     setLoadingPag(true);
 
     // Salva reserva no Firebase com status pendente
@@ -270,7 +270,8 @@ export default function App() {
       val: parseFloat(valor),
       pag: "pendente",
       st: "aguardando_pagamento",
-      email,
+      email: email,
+      extRef: extRef,
       tp: "avulso",
       criadoEm: serverTimestamp()
     };
@@ -285,11 +286,9 @@ export default function App() {
       quadraNome: quadra.nome,
       quadraId: quadra.id,
       data: toDS(dia),
-      extRef,
-      email,
       ini: slot.ini,
       valor: valorCobrar,
-      nome, tel,
+      nome, tel, email, extRef,
       descricao: porcPag === 50 ? `50% — restante na chegada` : `100% — pago total`
     });
     setLoadingPag(false);
@@ -626,7 +625,7 @@ export default function App() {
         <div style={{background:"white",borderRadius:14,padding:16,boxShadow:"0 2px 12px rgba(0,0,0,0.08)",marginBottom:16}}>
           <div style={{marginBottom:14}}>
             <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase",letterSpacing:0.5}}>Seu nome *</label>
-            <input style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}} value={nome} onChange={e=>{setNome(e.target.value);setErros(v=>({...v,nome:null}));}} placeholder="Nome completo"/>
+            <input style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}} value={nome} onChange={e=>{setNome(e.target.value);setErros(v=>({...v,nome:null}));}} placeholder="Nome e Sobrenome"/>
           </div>
           <div style={{marginBottom:14}}>
             <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase",letterSpacing:0.5}}>WhatsApp *</label>
@@ -638,7 +637,7 @@ export default function App() {
               {erros.cpf && <div style={{color:"#ef4444",fontSize:12,marginTop:4}}>⚠️ {erros.cpf}</div>}
           </div>
           <div style={{marginBottom:14}}>
-            <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase"}}>E-mail *</label>
+            <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase"}}>E-MAIL *</label>
             <input type="email" style={{width:"100%",padding:"12px",border:`1.5px solid ${erros.email?"#ef4444":"#e0e3e8"}`,borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}} value={email} onChange={e=>{setEmail(e.target.value);setErros(v=>({...v,email:null}));}} placeholder="seu@email.com"/>
             {erros.email && <div style={{color:"#ef4444",fontSize:12,marginTop:4}}>⚠️ {erros.email}</div>}
           </div>
