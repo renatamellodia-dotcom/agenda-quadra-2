@@ -37,9 +37,9 @@ function validarCPF(c) {
   s=0; for(let i=0;i<10;i++) s+=parseInt(c[i])*(11-i);
   r=(s*10)%11; if(r>=10) r=0; return r===parseInt(c[10]);
 }
-function validarEmail(e) { return /^[^@\s]+@[^@\s]+[.][^@\s]+$/.test(e); }
+function validarEmail(em) { return /^[^@ ]+@[^@ ]+[.][^@ ]+$/.test(em.trim()); }
 function validarTel(t) { return t.replace(/[^0-9]/g,"").length >= 10; }
-function validarNome(n) { return n.trim().split(/\s+/).filter(p=>p.length>0).length >= 2; }
+function validarNome(nm) { return nm.trim().split(" ").filter(function(p){return p.length>0;}).length >= 2; }
 
 
 const QUADRAS = [
@@ -160,11 +160,11 @@ export default function App() {
   function toHr(min){ return Math.floor(min/60).toString().padStart(2,"0")+":"+((min%60).toString().padStart(2,"0")); }
 
   function calcValorSlots(slots, q) {
-    // Soma o valor de cada slot de 30min
     return slots.reduce((total, hr) => {
       if (q.cob === "horario") return total + precoSociety(hr, q);
       if (q.cob === "fixo") return total + q.preco / 2;
-      return total; // areia calcula por pessoas depois
+      if (q.cob === "areia") return total + q.preco / 2; // R$30 por slot de 30min
+      return total;
     }, 0);
   }
 
@@ -204,6 +204,15 @@ export default function App() {
 
   function calcValor(q, n) {
     if (q.cob === "fixo") return q.preco;
+    if (q.cob === "areia") {
+      const num = parseInt(n)||0;
+      const baseSlots = calcValorSlots(slotsSel, q);
+      const extraPessoas = num > q.pessoasBase ? (num - q.pessoasBase) * q.acrescimoPessoa : 0;
+      const total = baseSlots + extraPessoas;
+      if (extraPessoas > 0) setHintPess(`${num} pessoas → base R$${baseSlots} + ${num-q.pessoasBase}×R$10 = R$${total}`);
+      else setHintPess(`${num} pessoa${num>1?"s":""} (até ${q.pessoasBase} incluso) → R$${total}`);
+      return total;
+    }
     if (!n || n <= 0) return 0;
     const num = parseInt(n);
     const faixa = (q.fx||[]).find(x => num <= x.a);
@@ -226,7 +235,7 @@ export default function App() {
     setPessoas(""); setHintPess("");
     const val = q.cob==="horario" ? precoSociety(hr, q) : (q.cob==="fixo" ? q.preco/2 : 0);
     setValor(val);
-    setEtapa(q.cob==="pessoas" ? "pessoas" : "form");
+    setEtapa((q.cob==="pessoas"||q.cob==="areia") ? "pessoas" : "form");
   }
 
   function confirmarPessoas() {
