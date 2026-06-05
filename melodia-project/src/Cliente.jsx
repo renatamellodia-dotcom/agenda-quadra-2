@@ -37,6 +37,10 @@ async function gerarLinkPagamento(dados) {
           name: dados.nome,
           phone: { area_code: dados.tel.replace(/\D/g,"").slice(0,2), number: dados.tel.replace(/\D/g,"").slice(2) }
         },
+        payment_methods: {
+          default_payment_method_id: "pix",
+          excluded_payment_types: []
+        },
         statement_descriptor: "COMPLEXO MELODIA",
         external_reference: `${dados.quadraId}-${dados.data}-${dados.ini}-${Date.now()}`
       })
