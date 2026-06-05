@@ -237,7 +237,13 @@ export default function App() {
   }
 
   function confirmarReserva() {
-    if (!nome.trim() || !tel.trim()) return;
+    const errsNovos = {};
+    if (!validarNome(nome)) errsNovos.nome = "Digite seu nome e sobrenome";
+    if (!validarTel(tel)) errsNovos.tel = "Telefone inválido — informe com DDD";
+    if (cpf && !validarCPF(cpf)) errsNovos.cpf = "CPF inválido — verifique os números";
+    if (!validarEmail(email)) errsNovos.email = "E-mail inválido — ex: nome@gmail.com";
+    if (Object.keys(errsNovos).length > 0) { setErros(errsNovos); return; }
+    setErros({});
     setCiente(false);
     setEtapa("regras");
   }
