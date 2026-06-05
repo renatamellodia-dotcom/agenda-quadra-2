@@ -15,38 +15,54 @@ const db = getFirestore(fbApp);
 
 const V = "#2E7D6B", VE = "#1a5248", LA = "#E8861A", BG = "#f4f5f7";
 
-const MP_ACCESS_TOKEN = "APP_USR-6072226638550144-060413-d83b1b373f8d5638dcd1391941826a23-237821225";
-const MP_PUBLIC_KEY = "APP_USR-435a45f8-8846-4c56-9074-c38f9bb89bfd";
+const PAGBANK_TOKEN = "38c03145-fb02-4054-903c-dce5d1392a95ebcbe6d747e1ad0490a1f0b8e17bced83753-8594-460c-90b2-09b6ecd7bc61";
+
 
 async function gerarLinkPagamento(dados) {
   try {
-    const resp = await fetch("https://api.mercadopago.com/checkout/preferences", {
+    const resp = await fetch("/api/pagar", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${MP_ACCESS_TOKEN}`
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dados)
+    });
+    const json = await resp.json();
+    return { link: json.link, qrCode: json.qr_code, qrImage: json.qr_image };
+  } catch(e) {
+    return { link: null, qrCode: null, qrImage: null };
+  }
+}`
       },
       body: JSON.stringify({
-        items: [{
-          title: `Complexo Melodia — ${dados.quadraNome} ${dados.data} ${dados.ini}`,
-          quantity: 1,
-          currency_id: "BRL",
-          unit_price: parseFloat(dados.valor)
-        }],
-        payer: {
+        reference_id: `${dados.quadraId}-${dados.data}-${dados.ini}-${Date.now()}`,
+        customer: {
           name: dados.nome,
-          phone: { area_code: dados.tel.replace(/\D/g,"").slice(0,2), number: dados.tel.replace(/\D/g,"").slice(2) }
+          email: "cliente@complexomelodia.com.br",
+          tax_id: dados.cpf ? dados.cpf.replace(/\D/g,"") : "00000000000",
+          phones: [{ country: "55", area: dados.tel.replace(/\D/g,"").slice(0,2), number: dados.tel.replace(/\D/g,"").slice(2), type: "MOBILE" }]
         },
-        payment_methods: {
-          default_payment_method_id: "pix",
-          excluded_payment_types: []
-        },
-        statement_descriptor: "COMPLEXO MELODIA",
-        external_reference: `${dados.quadraId}-${dados.data}-${dados.ini}-${Date.now()}`
+        items: [{
+          reference_id: dados.quadraId,
+          name: `${dados.quadraNome} — ${dados.data} ${dados.ini}`,
+          quantity: 1,
+          unit_amount: Math.round(parseFloat(dados.valor) * 100)
+        }],
+        qr_codes: [{
+          amount: { value: Math.round(parseFloat(dados.valor) * 100) },
+          expiration_date: new Date(Date.now() + 30*60*1000).toISOString()
+        }],
+        charges: [{
+          reference_id: `charge-${Date.now()}`,
+          description: `Complexo Melodia — ${dados.quadraNome}`,
+          amount: { value: Math.round(parseFloat(dados.valor) * 100), currency: "BRL" },
+          payment_method: { type: "PIX", installments: 1, capture: true }
+        }],
+        notification_urls: ["https://complexomelodia.com.br/api/pagbank-webhook"]
       })
     });
     const json = await resp.json();
-    return json.init_point;
+    // Pega o link de pagamento
+    const link = json.links?.find(l => l.rel === "PAY")?.href;
+    return link || null;
   } catch(e) {
     return null;
   }
@@ -295,18 +311,18 @@ export default function App() {
     } catch(e){ console.log("Erro Firebase:", e); }
 
     const valorCobrar = parseFloat((valor * (porcPag/100)).toFixed(2));
-    const link = await gerarLinkPagamento({
+    const result = await gerarLinkPagamento({
       quadraNome: quadra.nome,
       quadraId: quadra.id,
       data: toDS(dia),
       ini: slot.ini,
       valor: valorCobrar,
-      nome, tel,
+      nome, tel, cpf,
       descricao: porcPag === 50 ? `50% — restante na chegada` : `100% — pago total`
     });
     setLoadingPag(false);
-    if (link) {
-      window.location.href = link;
+    if (result.link) {
+      window.location.href = result.link;
     } else {
       setEtapa("pix");
     }
