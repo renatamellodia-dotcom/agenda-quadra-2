@@ -90,7 +90,7 @@ export default async function handler(req, res) {
     );
     
     // Envia via CallMeBot para a Renata
-    const CALLMEBOT_KEY = ""; // será preenchido após ativar
+    const CALLMEBOT_KEY = "3912259";
     const RENATA_TEL = "5522999008085";
     
     if (CALLMEBOT_KEY) {
