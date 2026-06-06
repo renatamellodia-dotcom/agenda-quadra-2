@@ -97,7 +97,7 @@ export default function App(){
     const hh=hora.getHours().toString().padStart(2,"0");
     const mm=hora.getMinutes().toString().padStart(2,"0");
     const agoraMin=parseInt(hh)*60+parseInt(mm);
-    const agsDia=agendamentos.filter(a=>a.data===ds&&a.st!=="cancelado"&&!finalizados.includes(a.id));
+    const agsDia=agendamentos.filter(a=>a.data===ds&&a.st!=="cancelado"&&a.st!=="aguardando_pagamento"&&!finalizados.includes(a.id));
     for(const ag of agsDia){
       const[fH,fM]=ag.fim.split(":").map(Number);
       if(fH*60+fM===agoraMin&&!alarme){tocarSom();setAlarme(ag);break;}
@@ -105,7 +105,7 @@ export default function App(){
   },[hora,dia,finalizados]);
 
   const ds=toDS(dia);
-  const agsDia=agendamentos.filter(a=>a.data===ds&&a.st!=="cancelado").sort((a,b)=>a.ini.localeCompare(b.ini));
+  const agsDia=agendamentos.filter(a=>a.data===ds&&a.st!=="cancelado"&&a.st!=="aguardando_pagamento").sort((a,b)=>a.ini.localeCompare(b.ini));
 
   function getAg(id){
     const ag=agendamentos.find(x=>x.id===id);
