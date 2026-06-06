@@ -28,7 +28,6 @@ async function gerarLinkPagamento(dados) {
     return json.init_point || null;
   } catch(e) { return null; }
 }
-
 function validarCPF(c) {
   c = c.replace(/[^0-9]/g,"");
   if (c.length !== 11 || /^(.)+$/.test(c)) return false;
@@ -44,8 +43,7 @@ function validarNome(nm) { return nm.trim().split(" ").filter(function(p){return
 
 const QUADRAS = [
   { id:"q1", nome:"Campo Society", tipo:"Futebol Society", cor:V, preco:120, precoNoite:130, horarioNoite:"16:00", cob:"horario", fx:null },
-  { id:"q2", nome:"Quadra de Areia", tipo:"Futevôlei · Vôlei · Beach Tennis", cor:LA, cob:"pessoas", preco:60,
-    fx:[{a:8,v:60},{a:12,v:70}], fxExtra:{base:12,valorBase:70,acrescimo:10} }
+  { id:"q2", nome:"Quadra de Areia", tipo:"Futevôlei · Vôlei · Beach Tennis", cor:LA, cob:"areia", preco:60, pessoasBase:12, acrescimoPessoa:10 }
 ];
 
 const HORARIOS_OCUPADOS = [
@@ -163,7 +161,7 @@ export default function App() {
     return slots.reduce((total, hr) => {
       if (q.cob === "horario") return total + precoSociety(hr, q);
       if (q.cob === "fixo") return total + q.preco / 2;
-      if (q.cob === "areia") return total + q.preco / 2; // R$30 por slot de 30min
+      if (q.cob === "areia") return total + q.preco / 2;
       return total;
     }, 0);
   }
@@ -208,20 +206,19 @@ export default function App() {
       const num = parseInt(n)||0;
       const baseSlots = calcValorSlots(slotsSel, q);
       const numSlots = slotsSel.length;
-      // Cobrança extra de pessoas só na hora cheia (2 slots = 1h)
       const extraPessoas = (numSlots >= 2 && num > q.pessoasBase) ? (num - q.pessoasBase) * q.acrescimoPessoa : 0;
       const total = baseSlots + extraPessoas;
-      if (extraPessoas > 0) setHintPess(`${num} pessoas → base R$${baseSlots} + ${num-q.pessoasBase}×R$10 = R$${total}`);
-      else setHintPess(`${num} pessoa${num>1?"s":""} → R$${total}`);
+      if (extraPessoas > 0) setHintPess(num+" pessoas → R$"+baseSlots+" + "+(num-q.pessoasBase)+"×R$10 = R$"+total);
+      else setHintPess(num+" pessoa"+(num>1?"s":"")+" → R$"+total);
       return total;
     }
     if (!n || n <= 0) return 0;
     const num = parseInt(n);
     const faixa = (q.fx||[]).find(x => num <= x.a);
-    if (faixa) { setHintPess(`${num} pessoa${num>1?"s":""} → R$${faixa.v}/hora`); return faixa.v; }
+    if (faixa) { setHintPess(num+" pessoa"+(num>1?"s":"")+" → R$"+faixa.v+"/hora"); return faixa.v; }
     const extra = num - 12;
     const total = 70 + (extra * 10);
-    setHintPess(`${num} pessoas → R$70 + ${extra}×R$10 = R$${total}/hora`);
+    setHintPess(num+" pessoas → R$70 + "+extra+"×R$10 = R$"+total+"/hora");
     return total;
   }
 
@@ -261,13 +258,6 @@ export default function App() {
 
   async function confirmarRegras() {
     if (!ciente) return;
-    const errsNovos = {};
-    if (!validarNome(nome)) errsNovos.nome = "Digite seu nome e sobrenome";
-    if (!validarTel(tel)) errsNovos.tel = "Telefone inválido — informe com DDD";
-    if (cpf && !validarCPF(cpf)) errsNovos.cpf = "CPF inválido — verifique os números";
-    if (!validarEmail(email)) errsNovos.email = "E-mail inválido — ex: nome@gmail.com";
-    if (Object.keys(errsNovos).length > 0) { setErros(errsNovos); return; }
-    setErros({});
     setLoadingPag(true);
 
     // Salva reserva no Firebase com status pendente
@@ -646,7 +636,7 @@ export default function App() {
           </div>
           <div style={{marginBottom:14}}>
             <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase",letterSpacing:0.5}}>WhatsApp *</label>
-            <input type="tel" style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}} value={tel} onChange={e=>{setTel(e.target.value);setErros(v=>({...v,tel:null}));}} placeholder="(22) 9xxxx-xxxx"/>
+            <input type="tel" style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}} value={tel} onChange={e=>setTel(e.target.value)} placeholder="(22) 9xxxx-xxxx"/>
           </div>
           <div style={{marginBottom:14}}>
             <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase",letterSpacing:0.5}}>CPF (para nota fiscal)</label>
@@ -654,7 +644,7 @@ export default function App() {
               {erros.cpf && <div style={{color:"#ef4444",fontSize:12,marginTop:4}}>⚠️ {erros.cpf}</div>}
           </div>
           <div style={{marginBottom:14}}>
-            <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase",letterSpacing:0.5}}>E-MAIL *</label>
+            <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase"}}>E-MAIL *</label>
             <input type="email" style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}} value={email} onChange={e=>{setEmail(e.target.value);setErros(v=>({...v,email:null}));}} placeholder="seu@email.com"/>
             {erros.email && <div style={{color:"#ef4444",fontSize:12,marginTop:4}}>⚠️ {erros.email}</div>}
           </div>
