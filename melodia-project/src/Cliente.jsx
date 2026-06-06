@@ -261,6 +261,7 @@ export default function App() {
     setLoadingPag(true);
 
     // Salva reserva no Firebase com status pendente
+    const extRef = quadra.id+"-"+toDS(dia)+"-"+slot.ini+"-"+Date.now();
     const novaReserva = {
       qid: quadra.id,
       qnm: quadra.nome,
@@ -287,7 +288,6 @@ export default function App() {
     } catch(e){ console.log("Erro Firebase:", e); }
 
     const valorCobrar = parseFloat((valor * (porcPag/100)).toFixed(2));
-    const extRef = quadra.id+"-"+toDS(dia)+"-"+slot.ini+"-"+Date.now();
     const link = await gerarLinkPagamento({
       quadraNome: quadra.nome,
       quadraId: quadra.id,
