@@ -17,9 +17,18 @@ const V = "#2E7D6B", VE = "#1a5248", LA = "#E8861A", BG = "#f4f5f7";
 
 const MP_ACCESS_TOKEN = "APP_USR-6072226638550144-060413-d83b1b373f8d5638dcd1391941826a23-237821225";
 
-async function gerarLinkPagamento(dados) {
+async function gerarPixPagamento(dados) {
   try {
     const resp = await fetch("/api/pagar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dados)
+    });
+    const json = await resp.json();
+    if (json.qrCode) return json;
+    return null;
+  } catch (e) { return null; }
+}
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(dados)
