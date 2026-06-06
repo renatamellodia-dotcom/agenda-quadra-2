@@ -284,7 +284,30 @@ export default function App() {
     };
 
     try {
-      await addDoc(collection(db,"agendamentos"), novaReserva);
+      let slotOcupado = false;
+await runTransaction(db, async (transaction) => {
+  const q = query(
+    collection(db, "agendamentos"),
+    where("qid", "==", quadra.id),
+    where("data", "==", toDS(dia)),
+    where("ini", "==", slot.ini),
+    where("st", "in", ["aguardando_pagamento", "confirmado"])
+  );
+  const snap = await getDocs(q);
+  if (!snap.empty) {
+    slotOcupado = true;
+    return;
+  }
+  const novoRef = doc(collection(db, "agendamentos"));
+  transaction.set(novoRef, novaReserva);
+});
+
+if (slotOcupado) {
+  alert("⚠️ Este horário acabou de ser reservado. Por favor, escolha outro.");
+  setEtapa("horario");
+  setLoadingPag(false);
+  return;
+}
     } catch(e){ console.log("Erro Firebase:", e); }
 
     const valorCobrar = parseFloat((valor * (porcPag/100)).toFixed(2));
