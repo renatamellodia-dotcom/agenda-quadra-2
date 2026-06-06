@@ -798,8 +798,23 @@ if (slotOcupado) {
     </div>
   );
 
-  // ── TELA PIX (fallback) ──
-  if (etapa === "pix") return (
+  const valorCobrar = parseFloat((valor * (porcPag/100)).toFixed(2));
+    const pix = await gerarPixPagamento({
+      quadraNome: quadra.nome,
+      quadraId: quadra.id,
+      data: toDS(dia),
+      ini: slot.ini,
+      valor: valorCobrar,
+      nome, tel, email, extRef, cpf
+    });
+    setLoadingPag(false);
+    if (pix) {
+      setDadosPix(pix);
+      setEtapa("pix");
+    } else {
+      setEtapa("pix");
+    }
+  }
     <div style={{fontFamily:"system-ui,sans-serif",background:BG,minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
       <div style={{background:VE,padding:"16px",textAlign:"center"}}>
         <div style={{fontWeight:700,color:"white",fontSize:16}}>Pagamento</div>
