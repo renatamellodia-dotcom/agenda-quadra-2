@@ -27,11 +27,10 @@ async function gerarPixPagamento(dados) {
     const json = await resp.json();
     if (json.qrCode) return json;
     return null;
-  } catch (e) { return null; }
-}
-    
+  } catch (e) { return null; } 
 }
 function validarCPF(c) {
+}
   c = c.replace(/[^0-9]/g,"");
   if (c.length !== 11 || /^(.)+$/.test(c)) return false;
   let s=0; for(let i=0;i<9;i++) s+=parseInt(c[i])*(10-i);
