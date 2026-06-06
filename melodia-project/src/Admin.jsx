@@ -62,8 +62,8 @@ const inp={width:"100%",padding:"10px 12px",border:"1.5px solid #e0e3e8",borderR
 const lbl={display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.5px"};
 
 function Btn({c="o",full,sm,onClick,children,disabled}){
-  const bg=c==="v"?V:c==="l"?LA:c==="r"?VM:c==="cinza"?"#6b7280":"white";
-  const cl=c==="o"?"#1a1f2e":"white";
+  const bg=c==="v"?V:c==="l"?LA:c==="r"?VM:c==="cinza"?"#6b7280":c==="azul"?"#1d4ed8":"white";
+  const cl=(c==="o")?"#1a1f2e":"white";
   const bd=c==="o"?"1.5px solid #e0e3e8":"none";
   return <button disabled={disabled} onClick={onClick} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6,padding:sm?"6px 12px":full?"13px 18px":"9px 14px",borderRadius:8,fontSize:sm?12:14,fontWeight:600,cursor:disabled?"not-allowed":"pointer",border:bd,background:disabled?"#e0e3e8":bg,color:disabled?"#9ca3af":cl,width:full?"100%":undefined,opacity:disabled?0.7:1}}>{children}</button>;
 }
@@ -116,60 +116,7 @@ function Switch({on,onChange,label}){
   </div>;
 }
 
-// LOGIN COMPONENT — ADMIN
-const USUARIOS = {
-  admin: { user: "renata", pass: "proprietaria" },
-  funcionario: { user: "melodia", pass: "melodia123" }
-};
-
-function Login({ tipo, onLogin }) {
-  const [u, setU] = useState("");
-  const [p, setP] = useState("");
-  const [erro, setErro] = useState(false);
-  const cfg = USUARIOS[tipo];
-
-  function tentar() {
-    if (u === cfg.user && p === cfg.pass) {
-      sessionStorage.setItem("auth_" + tipo, "1");
-      onLogin();
-    } else {
-      setErro(true);
-      setTimeout(() => setErro(false), 2000);
-    }
-  }
-
-  return (
-    <div style={{fontFamily:"system-ui,sans-serif",background:"#1a5248",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-      <div style={{background:"white",borderRadius:20,padding:32,width:"100%",maxWidth:360,boxShadow:"0 8px 40px rgba(0,0,0,0.3)"}}>
-        <div style={{textAlign:"center",marginBottom:28}}>
-          <div style={{fontSize:48,marginBottom:8}}>{tipo==="admin"?"🔐":"👤"}</div>
-          <div style={{fontWeight:800,fontSize:22,color:"#1a5248"}}>Complexo Melodia</div>
-          <div style={{fontSize:13,color:"#6b7280",marginTop:4}}>{tipo==="admin"?"Painel Administrativo":"App do Funcionário"}</div>
-        </div>
-        <div style={{marginBottom:14}}>
-          <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase"}}>Usuário</label>
-          <input style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none"}}
-            value={u} onChange={e=>setU(e.target.value)} placeholder="usuário" autoCapitalize="none"/>
-        </div>
-        <div style={{marginBottom:20}}>
-          <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase"}}>Senha</label>
-          <input type="password" style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none"}}
-            value={p} onChange={e=>setP(e.target.value)} placeholder="senha"
-            onKeyDown={e=>e.key==="Enter"&&tentar()}/>
-        </div>
-        {erro && <div style={{background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:13,color:"#dc2626",textAlign:"center"}}>⚠️ Usuário ou senha incorretos</div>}
-        <button onClick={tentar} style={{width:"100%",padding:"14px",background:"#2E7D6B",color:"white",border:"none",borderRadius:10,fontSize:16,fontWeight:700,cursor:"pointer"}}>
-          Entrar →
-        </button>
-      </div>
-    </div>
-  );
-}
-
-
 export default function App(){
-  const [autenticado, setAutenticado] = useState(!!sessionStorage.getItem("auth_admin"));
-  if (!autenticado) return <Login tipo="admin" onLogin={()=>setAutenticado(true)} />;
   const [pg,setPg]=useState("agenda");
   const [ags,setAgs]=useState([]);
   const [bloqueios,setBloqueios]=useState([]);
@@ -317,7 +264,30 @@ export default function App(){
     } catch(e){ showToast("❌ Erro ao excluir!"); }
   }
 
-  async function cancelarAg(){
+  
+  async function remarcarAg(){
+    const novaData = prompt("Nova data (AAAA-MM-DD):", editAg?.data||"");
+    if (!novaData) return;
+    const novoIni = prompt("Novo horário início (HH:MM):", editAg?.ini||"");
+    if (!novoIni) return;
+    const novoFim = prompt("Novo horário fim (HH:MM):", editAg?.fim||"");
+    if (!novoFim) return;
+    const a = ags.find(x=>x.id===editAg.id);
+    try {
+      await updateDoc(doc(db,"agendamentos",editAg.id),{
+        data: novaData,
+        ini: novoIni,
+        fim: novoFim,
+        remarcado: true,
+        dataOriginal: a?.data||"",
+        iniOriginal: a?.ini||""
+      });
+      addLog("🔄 Agendamento remarcado: "+(a?.cli||"Avulso")+" — "+a?.qnm+" de "+fd(a?.data)+" "+a?.ini+" para "+fd(novaData)+" "+novoIni);
+      setModalA(false);
+      showToast("🔄 Agendamento remarcado!");
+    } catch(e){ showToast("❌ Erro ao remarcar"); }
+  }
+async function cancelarAg(){
     if(!confirm("Cancelar este agendamento?"))return;
     const a=ags.find(x=>x.id===editAg.id);
     try {
@@ -529,24 +499,10 @@ export default function App(){
 
       {/* ── FINANCEIRO ── */}
       {pg==="fin"&&<div style={{padding:16,paddingBottom:80}}>
-        {/* Cards totais */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
           <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}><div style={{fontWeight:800,fontSize:22,color:"#065f46"}}>R${finRec.toFixed(0)}</div><div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Quitado</div></div>
           <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}><div style={{fontWeight:800,fontSize:22,color:"#854d0e"}}>R${finParcial.toFixed(0)}</div><div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Falta 50%</div></div>
           <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}><div style={{fontWeight:800,fontSize:22,color:VM}}>R${finPend.toFixed(0)}</div><div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Não pago</div></div>
-        </div>
-        {/* Site vs Balcão */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
-          <div style={{background:"#eff6ff",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.06)",textAlign:"center",border:"1.5px solid #bfdbfe"}}>
-            <div style={{fontSize:16,marginBottom:4}}>💻</div>
-            <div style={{fontWeight:800,fontSize:20,color:"#1e40af"}}>R${finL.filter(a=>["mp_total","mp_50"].includes(a.pag)).reduce((s,a)=>s+(a.pag==="mp_50"?a.val*0.5:a.val||0),0).toFixed(0)}</div>
-            <div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Recebido pelo Site</div>
-          </div>
-          <div style={{background:"#f0fdf4",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.06)",textAlign:"center",border:"1.5px solid #bbf7d0"}}>
-            <div style={{fontSize:16,marginBottom:4}}>🏟️</div>
-            <div style={{fontWeight:800,fontSize:20,color:"#065f46"}}>R${finL.filter(a=>["mp_total_pix","mp_total_cartao","mp_total_dinheiro"].includes(a.pag)).reduce((s,a)=>s+(a.val||0),0).toFixed(0)}</div>
-            <div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Recebido no Balcão</div>
-          </div>
         </div>
         <div style={{marginBottom:12}}>
           <label style={lbl}>Mês</label>
@@ -714,7 +670,7 @@ export default function App(){
         <Btn c="v" full onClick={salvarAg}>Salvar Agendamento</Btn>
         <div style={{height:8}}/>
         <Btn full onClick={()=>setModalA(false)}>Cancelar</Btn>
-        {editAg&&<><div style={{height:8}}/><Btn c="cinza" full onClick={cancelarAg}>❌ Cancelar Agendamento</Btn><div style={{height:8}}/><Btn c="r" full onClick={deletarAg}>🗑️ Excluir</Btn></>}
+        {editAg&&<><div style={{height:8}}/><Btn c="azul" full onClick={remarcarAg}>🔄 Remarcar</Btn><div style={{height:8}}/><Btn c="cinza" full onClick={cancelarAg}>❌ Cancelar Agendamento</Btn><div style={{height:8}}/><Btn c="r" full onClick={deletarAg}>🗑️ Excluir</Btn></>}
       </Modal>
 
       {/* ── MODAL DETALHE ── */}
