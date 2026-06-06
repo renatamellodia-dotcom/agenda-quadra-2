@@ -29,13 +29,7 @@ async function gerarPixPagamento(dados) {
     return null;
   } catch (e) { return null; }
 }
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(dados)
-    });
-    const json = await resp.json();
-    return json.init_point || null;
-  } catch(e) { return null; }
+    
 }
 function validarCPF(c) {
   c = c.replace(/[^0-9]/g,"");
