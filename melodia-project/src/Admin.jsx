@@ -356,6 +356,20 @@ async function cancelarAg(){
   const finParcial=finL.filter(a=>isParcial(a.pag)).reduce((s,a)=>s+(a.val*0.5),0);
   const finPend=finL.filter(a=>a.pag==="pendente"&&a.st!=="cancelado").reduce((s,a)=>s+(a.val||0),0);
 
+  // Site vs Balcão — mês
+  const finSite=finL.filter(a=>["mp_pix","mp_cartao","mp_total","mp_50"].includes(a.pag)&&isPago(a.pag)).reduce((s,a)=>s+(a.val||0),0);
+  const finBalcao=finL.filter(a=>["mp_total_pix","mp_total_cartao","mp_total_dinheiro"].includes(a.pag)).reduce((s,a)=>s+(a.val||0),0);
+
+  // Por dia — agrupa pagamentos confirmados por data
+  const finPorDia = {};
+  finL.filter(a=>isPago(a.pag)||["mp_total_pix","mp_total_cartao","mp_total_dinheiro"].includes(a.pag)).forEach(a=>{
+    const d = a.data||"";
+    if(!finPorDia[d]) finPorDia[d]={site:0,balcao:0};
+    if(["mp_pix","mp_cartao","mp_total","mp_50"].includes(a.pag)) finPorDia[d].site+=(a.val||0);
+    else finPorDia[d].balcao+=(a.val||0);
+  });
+  const finDias = Object.entries(finPorDia).sort((a,b)=>b[0].localeCompare(a[0]));
+
   // contatos
   const ctMap={};
   ags.forEach(a=>{if(a.cli)ctMap[a.cli]={tel:a.tel||"",cpf:a.cpf||""};});
@@ -500,11 +514,38 @@ async function cancelarAg(){
 
       {/* ── FINANCEIRO ── */}
       {pg==="fin"&&<div style={{padding:16,paddingBottom:80}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
+        {/* Cards totais mês */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
           <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}><div style={{fontWeight:800,fontSize:22,color:"#065f46"}}>R${finRec.toFixed(0)}</div><div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Quitado</div></div>
           <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}><div style={{fontWeight:800,fontSize:22,color:"#854d0e"}}>R${finParcial.toFixed(0)}</div><div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Falta 50%</div></div>
           <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}><div style={{fontWeight:800,fontSize:22,color:VM}}>R${finPend.toFixed(0)}</div><div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Não pago</div></div>
         </div>
+        {/* Site vs Balcão mês */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+          <div style={{background:"#eff6ff",borderRadius:12,padding:14,border:"1.5px solid #bfdbfe",textAlign:"center"}}>
+            <div style={{fontSize:14,marginBottom:2}}>💻</div>
+            <div style={{fontWeight:800,fontSize:20,color:"#1e40af"}}>R${finSite.toFixed(0)}</div>
+            <div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Site — mês</div>
+          </div>
+          <div style={{background:"#f0fdf4",borderRadius:12,padding:14,border:"1.5px solid #bbf7d0",textAlign:"center"}}>
+            <div style={{fontSize:14,marginBottom:2}}>🏟️</div>
+            <div style={{fontWeight:800,fontSize:20,color:"#065f46"}}>R${finBalcao.toFixed(0)}</div>
+            <div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Balcão — mês</div>
+          </div>
+        </div>
+        {/* Por dia */}
+        {finDias.length>0&&<div style={{marginBottom:16}}>
+          <div style={{fontWeight:700,fontSize:13,color:"#6b7280",marginBottom:8,textTransform:"uppercase"}}>Por dia</div>
+          {finDias.map(([d,v])=>(
+            <div key={d} style={{background:"white",borderRadius:10,padding:"10px 14px",marginBottom:6,boxShadow:"0 1px 6px rgba(0,0,0,.06)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{fontWeight:600,fontSize:13,color:"#1a1f2e"}}>{new Date(d+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"short",day:"numeric",month:"short"})}</div>
+              <div style={{display:"flex",gap:12,fontSize:12}}>
+                {v.site>0&&<span style={{color:"#1e40af",fontWeight:700}}>💻 R${v.site.toFixed(0)}</span>}
+                {v.balcao>0&&<span style={{color:"#065f46",fontWeight:700}}>🏟️ R${v.balcao.toFixed(0)}</span>}
+              </div>
+            </div>
+          ))}
+        </div>}
         <div style={{marginBottom:12}}>
           <label style={lbl}>Mês</label>
           <input type="month" style={inp} value={finMes} onChange={e=>setFinMes(e.target.value)}/>
