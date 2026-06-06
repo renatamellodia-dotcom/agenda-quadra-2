@@ -147,7 +147,7 @@ export default function App() {
   const [linkMP, setLinkMP] = useState(null);
   const [porcPag, setPorcPag] = useState(100);
   const [reservas, setReservas] = useState([]);
-
+const [dadosPix, setDadosPix] = useState(null);
   const dias = gerarDias();
 
   // Carrega reservas do Firebase em tempo real
