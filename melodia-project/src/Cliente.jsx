@@ -320,7 +320,22 @@ if (slotOcupado) {
     } catch(e){ console.log("Erro Firebase:", e); }
 
     const valorCobrar = parseFloat((valor * (porcPag/100)).toFixed(2));
-    const link = await gerarLinkPagamento({
+    const pix = await gerarPixPagamento({
+      quadraNome: quadra.nome,
+      quadraId: quadra.id,
+      data: toDS(dia),
+      ini: slot.ini,
+      valor: valorCobrar,
+      nome, tel, email, extRef, cpf
+    });
+    setLoadingPag(false);
+    if (pix) {
+      setDadosPix(pix);
+      setEtapa("pix");
+    } else {
+      setEtapa("pix");
+    }
+  }
       quadraNome: quadra.nome,
       quadraId: quadra.id,
       data: toDS(dia),
