@@ -118,7 +118,6 @@ const REGRAS_SOCIETY = [
   { num:"2", titulo:"Crianças", texto:"Por questões de segurança, não é permitida a permanência de crianças nas quadras durante os jogos." },
   { num:"3", titulo:"Eventos e Comemorações", texto:"A locação das quadras destina-se à prática esportiva. Eventos com convidados externos possuem condições específicas." },
 ];
-export default function App() {
   const [etapa, setEtapa] = useState("inicio");
   const [quadra, setQuadra] = useState(null);
   const [dia, setDia] = useState(hoje());
