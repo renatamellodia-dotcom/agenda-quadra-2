@@ -74,6 +74,7 @@ function CardH({title,right}){return <div style={{padding:"14px 16px",borderBott
 function Badge({t,children}){
   const map={
     confirmado:["#d1fae5","#065f46"],
+    aguardando_pagamento:["#fff7ed","#c2410c"],
     pendente:["#fef3c7","#92400e"],
     cancelado:["#fee2e2","#991b1b"],
     pago:["#dbeafe","#1e40af"],
