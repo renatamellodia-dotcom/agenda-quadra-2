@@ -106,6 +106,7 @@ export default async function handler(req, res) {
       "📱 *Tel:* " + telCliente
     );
     await fetch(`https://api.callmebot.com/whatsapp.php?phone=${RENATA_TEL}&text=${msgRenata}&apikey=${CALLMEBOT_KEY}`);
+    await fetch(`https://api.callmebot.com/whatsapp.php?phone=${FUNC_TEL}&text=${msgRenata}&apikey=${CALLMEBOT_KEY}`);
 
     // WhatsApp cliente
     if (telCliente) {
