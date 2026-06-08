@@ -119,6 +119,7 @@ export default function App() {
   const [metodoPag, setMetodoPag] = useState("pix");
   const [pagamentoConfirmado, setPagamentoConfirmado] = useState(false);
   const [slotsSel, setSlotsSel] = useState([]);
+  const [slotsSalvos, setSlotsSalvos] = useState([]); // slots confirmados para cálculo
 
   const dias = gerarDias();
 
@@ -236,18 +237,20 @@ export default function App() {
     const fim = toHr(toMin(sorted[sorted.length-1]) + 30);
     setSlot({ini, fim});
     setPessoas(""); setHintPess("");
-    const val = quadra.cob === "pessoas" ? 0 : calcValorSlots(sorted, quadra);
+    const val = (quadra.cob === "pessoas" || quadra.cob === "areia") ? 0 : calcValorSlots(sorted, quadra);
     setValor(val);
+    setSlotsSalvos(sorted); // salva para calcValor usar
     setSlotsSel([]);
-    setEtapa(quadra.cob === "pessoas" ? "pessoas" : "form");
+    setEtapa((quadra.cob === "pessoas" || quadra.cob === "areia") ? "pessoas" : "form");
   }
 
   function calcValor(q, n) {
     if (q.cob === "fixo") return q.preco;
     if (q.cob === "areia") {
       const num = parseInt(n)||0;
-      const baseSlots = calcValorSlots(slotsSel, q);
-      const numSlots = slotsSel.length;
+      const slotsRef = slotsSalvos.length > 0 ? slotsSalvos : slotsSel;
+      const baseSlots = calcValorSlots(slotsRef, q);
+      const numSlots = slotsRef.length;
       // Extra por pessoa: só em reservas de 1h ou mais, cobrado por hora COMPLETA
       const horasCompletas = Math.floor(numSlots / 2);
       const extraPessoas = (numSlots >= 2 && num > q.pessoasBase) ? (num - q.pessoasBase) * q.acrescimoPessoa * horasCompletas : 0;
@@ -445,7 +448,7 @@ export default function App() {
         {[
           ["🏟️","Campo Society",""],
           ["🏖️","Quadra de Areia","Futevôlei, vôlei e beach tennis"],
-          ["🌿","Sauna","R$ 15,00 por pessoa ·"],
+          ["🌿","Sauna","R$ 15,00 por pessoa"],
           ["🍖","Churrasqueira","Mediante reserva antecipada via WhatsApp"],
           ["🚗","Estacionamento gratuito",""],
           ["📶","Wi-Fi gratuito",""],
@@ -646,8 +649,8 @@ export default function App() {
             </div>
           )}
         </div>
-        <button onClick={confirmarPessoas} disabled={!pessoas||parseInt(pessoas)<1||valor<=0}
-          style={{width:"100%",padding:"16px",background:(!pessoas||parseInt(pessoas)<1||valor<=0)?"#cbd5e1":V,color:"white",border:"none",borderRadius:12,fontSize:16,fontWeight:700,cursor:"pointer"}}>
+        <button onClick={confirmarPessoas} disabled={!pessoas||parseInt(pessoas)<1}
+          style={{width:"100%",padding:"16px",background:(!pessoas||parseInt(pessoas)<1)?"#cbd5e1":V,color:"white",border:"none",borderRadius:12,fontSize:16,fontWeight:700,cursor:"pointer"}}>
           Continuar →
         </button>
       </div>
