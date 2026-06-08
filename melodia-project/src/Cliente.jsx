@@ -445,7 +445,7 @@ export default function App() {
         {[
           ["🏟️","Campo Society",""],
           ["🏖️","Quadra de Areia","Futevôlei, vôlei e beach tennis"],
-          ["🌿","Sauna","R$ 15,00 por pessoa ·"],
+          ["🌿","Sauna","R$ 15,00 por pessoa · cobrado na chegada"],
           ["🍖","Churrasqueira","Mediante reserva antecipada via WhatsApp"],
           ["🚗","Estacionamento gratuito",""],
           ["📶","Wi-Fi gratuito",""],
@@ -893,14 +893,14 @@ export default function App() {
       <div style={{background:"rgba(255,255,255,0.1)",borderRadius:20,padding:20,width:"100%",marginBottom:20,backdropFilter:"blur(10px)"}}>
         <div style={{fontWeight:700,fontSize:11,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:1,marginBottom:14}}>Detalhes da reserva</div>
         {[
-          ["📅", "Data", nomeDia(dia)],
+          ["📅", "Data", dia.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"2-digit",year:"numeric"})],
           ["🕐", "Horário", `${slot?.ini} às ${slot?.fim}`],
-          ["🏟️", "Quadra", quadra?.nome],
-          ["👤", "Nome", nome],
+          ["🏟️", "Espaço reservado", quadra?.nome],
+          ["👤", "Responsável pela reserva", nome.split(" ").map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(" ")],
           ...(pessoas?[["👥","Pessoas",`${pessoas} pessoas`]]:[]),
-          ["💰", "Valor pago", `R$ ${(valor*(porcPag/100)).toFixed(2)}${porcPag===50?" (50%)":""}`],
-          ...(porcPag===50?[["⏳","Na chegada",`R$ ${(valor*0.5).toFixed(2)}`]]:[]),
-          ...(sauna?[["🧖","Sauna","R$ 15,00"]]:[]),
+          ["💰", "Pago online", `R$ ${(valor*(porcPag/100)).toFixed(2)}`],
+          ...(porcPag===50?[["⏳","Saldo na chegada",`R$ ${(valor*0.5).toFixed(2)}`]]:[]),
+          ...(sauna?[["🧖","Sauna reservada","R$ 15,00 (pagamento no local)"]]:[]),
         ].filter(x=>x[0]).map(([ic,l,v])=>(
           <div key={l} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:"1px solid rgba(255,255,255,0.08)"}}>
             <span style={{fontSize:18,width:26,textAlign:"center",flexShrink:0}}>{ic}</span>
@@ -914,9 +914,9 @@ export default function App() {
         <div style={{background:"rgba(232,134,26,0.25)",border:"1.5px solid rgba(232,134,26,0.5)",borderRadius:14,padding:"14px 16px",width:"100%",marginBottom:16,display:"flex",gap:12,alignItems:"center"}}>
           <span style={{fontSize:22,flexShrink:0}}>⚠️</span>
           <div>
-            <div style={{fontWeight:700,color:"white",fontSize:14}}>Restante na chegada</div>
+            <div style={{fontWeight:700,color:"white",fontSize:14}}>Valor a pagar no Complexo</div>
             <div style={{color:"rgba(255,255,255,0.7)",fontSize:13,marginTop:2}}>
-              Pague R$ {(valor*0.5).toFixed(2)} ao chegar no complexo.
+              Saldo pendente: R$ {(valor*0.5).toFixed(2)} — pague ao chegar.
             </div>
           </div>
         </div>
