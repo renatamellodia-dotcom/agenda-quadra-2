@@ -137,7 +137,6 @@ export default function App() {
   useEffect(()=>{
     if (!extRefAtual || etapa !== "pix") return;
     try {
-      const { query: q2, collection: col2, where: wh2, onSnapshot: snap2 } = require !== undefined ? {} : {};
       const unsub = onSnapshot(
         query(collection(db,"agendamentos"), where("extRef","==",extRefAtual)),
         (snap) => {
@@ -150,7 +149,7 @@ export default function App() {
         }
       );
       return ()=>unsub();
-    } catch(e){}
+    } catch(e){ console.log("Listener erro:", e); }
   },[extRefAtual, etapa]);
 
   function toMin(hr){ const[h,m]=hr.split(":").map(Number); return h*60+m; }
