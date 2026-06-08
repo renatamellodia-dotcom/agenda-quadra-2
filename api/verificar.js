@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     }
 
     const extRef = payment.external_reference;
-    const metodo = payment.payment_type_id === "pix" ? "pix" : "cartao";
+    const tipoPag = payment.payment_type_id === "pix" ? "pix" : "cartao";
 
     // Busca agendamento pelo extRef
     const queryResp = await fetch(
@@ -45,8 +45,7 @@ export default async function handler(req, res) {
 
     const queryResult = await queryResp.json();
     const doc = queryResult[0]?.document;
-
-    if (!doc) return res.status(200).json({ aprovado: true, metodo, agId: null });
+    if (!doc) return res.status(200).json({ aprovado: true, tipoPag, agId: null });
 
     const fields = doc.fields || {};
     const docPath = doc.name;
@@ -54,8 +53,23 @@ export default async function handler(req, res) {
 
     // Se já confirmado, não processa de novo
     if (fields.st?.stringValue === "confirmado") {
-      return res.status(200).json({ aprovado: true, metodo, agId });
+      return res.status(200).json({ aprovado: true, tipoPag, agId });
     }
+
+    // Detecta se foi pagamento parcial (50%) ou total
+    const valorTotal = fields.val?.doubleValue || fields.val?.integerValue || 0;
+    const valorPago = payment.transaction_amount || 0;
+    const isParcial = Math.abs(valorPago - valorTotal * 0.5) < 1; // margem de R$1
+
+    // Define o código de pagamento correto
+    let pagCod;
+    if (isParcial) {
+      pagCod = tipoPag === "pix" ? "mp_50" : "mp_50";
+    } else {
+      pagCod = tipoPag === "pix" ? "mp_pix" : "mp_cartao";
+    }
+
+    const valorRestante = isParcial ? valorTotal * 0.5 : 0;
 
     // Atualiza Firebase
     await fetch(
@@ -66,29 +80,29 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           fields: {
             st: { stringValue: "confirmado" },
-            pag: { stringValue: metodo === "pix" ? "mp_pix" : "mp_cartao" },
+            pag: { stringValue: pagCod },
             pagamentoId: { stringValue: String(id) }
           }
         })
       }
     );
 
-    // WhatsApp Renata
     const nomeCliente = fields.cli?.stringValue || "Cliente";
     const quadraNome = fields.qnm?.stringValue || "Quadra";
     const dataAg = fields.data?.stringValue || "";
     const ini = fields.ini?.stringValue || "";
     const fim = fields.fim?.stringValue || "";
-    const valor = fields.val?.doubleValue || fields.val?.integerValue || "";
     const telCliente = (fields.tel?.stringValue || "").replace(/\D/g, "");
 
+    // WhatsApp Renata
     const msgRenata = encodeURIComponent(
       "🎾 *Novo agendamento confirmado!*\n\n" +
       "👤 *Cliente:* " + nomeCliente + "\n" +
       "🏟️ *Quadra:* " + quadraNome + "\n" +
       "📅 *Data:* " + dataAg + "\n" +
       "⏰ *Horário:* " + ini + " às " + fim + "\n" +
-      "💰 *Valor pago:* R$ " + valor + "\n" +
+      "💰 *Valor pago agora:* R$ " + valorPago.toFixed(2) +
+      (isParcial ? "\n⏳ *Restante na chegada:* R$ " + valorRestante.toFixed(2) : "\n✅ *Pago total*") + "\n" +
       "📱 *Tel:* " + telCliente
     );
     await fetch(`https://api.callmebot.com/whatsapp.php?phone=${RENATA_TEL}&text=${msgRenata}&apikey=${CALLMEBOT_KEY}`);
@@ -101,13 +115,15 @@ export default async function handler(req, res) {
         "Olá, " + nomeCliente + "! Seu pagamento foi aprovado.\n\n" +
         "🏟️ *Quadra:* " + quadraNome + "\n" +
         "📅 *Data:* " + dataAg + "\n" +
-        "⏰ *Horário:* " + ini + " às " + fim + "\n\n" +
+        "⏰ *Horário:* " + ini + " às " + fim + "\n" +
+        "💰 *Pago agora:* R$ " + valorPago.toFixed(2) +
+        (isParcial ? "\n⏳ *Restante na chegada:* R$ " + valorRestante.toFixed(2) : "") + "\n\n" +
         "Qualquer dúvida entre em contato. Até lá! 🎾"
       );
       await fetch(`https://api.callmebot.com/whatsapp.php?phone=${telIntl}&text=${msgCliente}&apikey=${CALLMEBOT_KEY}`);
     }
 
-    return res.status(200).json({ aprovado: true, metodo, agId });
+    return res.status(200).json({ aprovado: true, tipoPag, agId });
 
   } catch(e) {
     console.error("Verificar erro:", e.message);
