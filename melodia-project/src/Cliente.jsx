@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, onSnapshot, query, where, serverTimestamp, runTransaction, doc, getDocs } from "firebase/firestore";
+import { getFirestore, collection, addDoc, onSnapshot, query, where, runTransaction, doc, getDocs } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAX5kKNmUsqs6g0eD_wpbRAalcu1A8ViWI",
@@ -130,6 +130,24 @@ export default function App() {
       });
       return ()=>unsub();
     } catch(e){ console.log("Firebase offline",e); }
+  },[]);
+
+  // Limpa agendamentos aguardando_pagamento com mais de 5 minutos
+  useEffect(()=>{
+    async function limparExpirados() {
+      try {
+        const cincoMinAtras = Date.now() - 5 * 60 * 1000;
+        const q = query(collection(db,"agendamentos"), where("st","==","aguardando_pagamento"));
+        const snap = await getDocs(q);
+        snap.docs.forEach(async d => {
+          const criadoEm = d.data().criadoEm;
+          if (criadoEm && typeof criadoEm === "number" && criadoEm < cincoMinAtras) {
+            try { await updateDoc(doc(db,"agendamentos",d.id),{st:"cancelado"}); } catch(e){}
+          }
+        });
+      } catch(e){ console.log("Erro limpeza:",e); }
+    }
+    limparExpirados();
   },[]);
 
   // Polling: verifica pagamento a cada 5s direto no backend
@@ -295,7 +313,7 @@ export default function App() {
       email: email,
       extRef: extRef,
       tp: "avulso",
-      criadoEm: serverTimestamp()
+      criadoEm: Date.now()
     };
 
     try {
@@ -424,7 +442,7 @@ export default function App() {
         {[
           ["🏟️","Campo Society",""],
           ["🏖️","Quadra de Areia","Futevôlei, vôlei e beach tennis"],
-          ["🌿","Sauna",""],
+          ["🌿","Sauna","R$ 15,00 por pessoa · cobrado na chegada"],
           ["🍖","Churrasqueira","Mediante reserva antecipada via WhatsApp"],
           ["🚗","Estacionamento gratuito",""],
           ["📶","Wi-Fi gratuito",""],
@@ -675,10 +693,11 @@ export default function App() {
             <input type="email" style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}} value={email} onChange={e=>{setEmail(e.target.value);setErros(v=>({...v,email:null}));}} placeholder="seu@email.com"/>
             {erros.email && <div style={{color:"#ef4444",fontSize:12,marginTop:4}}>⚠️ {erros.email}</div>}
           </div>
-          <div style={{background:"#f0fdf4",border:"1.5px solid #bbf7d0",borderRadius:10,padding:"12px 14px",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer"}} onClick={()=>setSauna(v=>!v)}>
+          <div style={{background:sauna?"#f0fdf4":"white",border:`1.5px solid ${sauna?"#86efac":"#e0e3e8"}`,borderRadius:10,padding:"12px 14px",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",transition:"all .2s"}} onClick={()=>setSauna(v=>!v)}>
             <div>
               <div style={{fontWeight:700,fontSize:14,color:"#1a1f2e"}}>🧖 Banho de Sauna</div>
-              <div style={{fontSize:12,color:"#6b7280",marginTop:2}}>Disponível Seg–Sex 17h–22h · Sáb 9h–16h</div>
+              <div style={{fontSize:12,color:"#6b7280",marginTop:2}}>Seg–Sex 18h–22h · Sáb–Dom 10h–17h</div>
+              <div style={{fontSize:12,color:"#16a34a",fontWeight:700,marginTop:3}}>+ R$ 15,00 cobrado na chegada</div>
             </div>
             <div style={{width:44,height:24,borderRadius:12,background:sauna?"#2E7D6B":"#e0e3e8",position:"relative",transition:"background .2s",flexShrink:0}}>
               <div style={{position:"absolute",width:18,height:18,borderRadius:"50%",background:"white",top:3,left:sauna?23:3,transition:"left .2s"}}/>
@@ -878,7 +897,7 @@ export default function App() {
           ...(pessoas?[["👥","Pessoas",`${pessoas} pessoas`]]:[]),
           ["💰", "Valor pago", `R$ ${(valor*(porcPag/100)).toFixed(2)}${porcPag===50?" (50%)":""}`],
           ...(porcPag===50?[["⏳","Na chegada",`R$ ${(valor*0.5).toFixed(2)}`]]:[]),
-          ...(sauna?[["🧖","Sauna","Confirmada"]]:[]),
+          ...(sauna?[["🧖","Sauna","R$ 15,00 na chegada"]]:[]),
         ].filter(x=>x[0]).map(([ic,l,v])=>(
           <div key={l} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:"1px solid rgba(255,255,255,0.08)"}}>
             <span style={{fontSize:18,width:26,textAlign:"center",flexShrink:0}}>{ic}</span>
