@@ -35,7 +35,6 @@ function hoje(){const d=new Date();d.setHours(0,0,0,0);return d;}
 function toDS(d){return d.toISOString().split("T")[0];}
 function agora(){return new Date().toISOString();}
 
-// Calcula saldo a receber na chegada
 function saldoRestante(ag){
   if(!ag) return 0;
   const val=parseFloat(ag.val)||0;
@@ -45,17 +44,31 @@ function saldoRestante(ag){
   return 0;
 }
 
+function pagoPeloSite(ag){
+  if(!ag) return 0;
+  const val=parseFloat(ag.val)||0;
+  const pag=ag.pag||"";
+  if(["mp_pix","mp_cartao","mp_total"].includes(pag)) return val;
+  if(pag==="mp_50") return val*0.5;
+  return 0;
+}
+
 function labelPag(pag,val){
   const v=parseFloat(val)||0;
   const map={
     pendente:"⏳ Pendente",
     mp_50:`💛 50% pago — falta R$${(v*0.5).toFixed(2)}`,
     mp_total:"✅ Quitado",
+    mp_pix:"✅ Pago — Pix",
+    mp_cartao:"✅ Pago — Cartão",
+    mp_total_pix:"✅ Pago — Pix",
+    mp_total_cartao:"✅ Pago — Cartão",
+    mp_total_dinheiro:"✅ Pago — Dinheiro",
   };
   return map[pag]||pag;
 }
 
-function isPago(pag){ return pag==="mp_total"; }
+function isPago(pag){ return ["mp_total","mp_pix","mp_cartao","mp_total_pix","mp_total_cartao","mp_total_dinheiro"].includes(pag); }
 function isParcial(pag){ return pag==="mp_50"; }
 
 const inp={width:"100%",padding:"10px 12px",border:"1.5px solid #e0e3e8",borderRadius:8,fontSize:15,background:"white",color:"#1a1f2e",outline:"none"};
@@ -74,7 +87,7 @@ function CardH({title,right}){return <div style={{padding:"14px 16px",borderBott
 function Badge({t,children}){
   const map={
     confirmado:["#d1fae5","#065f46"],
-   aguardando_pagamento:["#e0f2fe","#0369a1"],
+    aguardando_pagamento:["#e0f2fe","#0369a1"],
     pendente:["#fef3c7","#92400e"],
     cancelado:["#fee2e2","#991b1b"],
     pago:["#dbeafe","#1e40af"],
@@ -135,7 +148,6 @@ export default function App(){
   const [finMes,setFinMes]=useState(new Date().toISOString().slice(0,7));
   const [busca,setBusca]=useState("");
 
-  // Carrega agendamentos do Firebase em tempo real
   useEffect(()=>{
     try {
       const unsub = onSnapshot(collection(db,"agendamentos"), snap=>{
@@ -145,7 +157,6 @@ export default function App(){
     } catch(e){ console.log("Firebase offline",e); }
   },[]);
 
-  // form agendamento
   const [fTipo,setFTipo]=useState("avulso");
   const [fQid,setFQid]=useState(qds[0]?.id||"");
   const [fData,setFData]=useState(toDS(hoje()));
@@ -162,56 +173,42 @@ export default function App(){
   const [fChurr,setFChurr]=useState(false);
   const [hintP,setHintP]=useState("");
 
-  // form bloqueio
   const [bQid,setBQid]=useState(qds[0]?.id||"");
   const [bData,setBData]=useState(toDS(hoje()));
   const [bIni,setBIni]=useState("");
   const [bFim,setBFim]=useState("");
   const [bMotivo,setBMotivo]=useState("");
 
-  // form quadra
   const [qNm,setQNm]=useState("");const [qTp,setQTp]=useState("Futebol Society");
   const [qPr,setQPr]=useState("");const [qCr,setQCr]=useState(V);const [qCob,setQCob]=useState("fixo");
   const [qF1a,setQF1a]=useState(8);const [qF1v,setQF1v]=useState(60);
   const [qF2a,setQF2a]=useState(12);const [qF2v,setQF2v]=useState(70);const [qF3v,setQF3v]=useState(10);
 
   function showToast(m){setToast(m);setTimeout(()=>setToast(""),2800);}
+  function addLog(msg){setCfg(c=>({...c,logs:[{msg,em:agora()},...(c.logs||[])].slice(0,50)}));}
 
-  function addLog(msg){
-    setCfg(c=>({...c,logs:[{msg,em:agora()},...(c.logs||[])].slice(0,50)}));
-  }
-
-  // cálculo areia
   function calcAreia(n,qid){
     const q=qds.find(x=>x.id===(qid||fQid));
     if(!q||q.cob!=="pessoas"||!n||parseInt(n)<=0){setHintP("");return 0;}
     const num=parseInt(n);
     const fx=q.fx||[];
     const faixa=fx.find(x=>num<=x.a);
-    if(faixa){
-      setHintP(`${num} pessoa${num>1?"s":""} → R$${faixa.v}/hora`);
-      setFVal(String(faixa.v));return faixa.v;
-    }
+    if(faixa){setHintP(`${num} pessoa${num>1?"s":""} → R$${faixa.v}/hora`);setFVal(String(faixa.v));return faixa.v;}
     const ex=q.fxExtra;
-    if(ex){
-      const extra=num-ex.base;
-      const total=ex.valorBase+(extra*ex.acrescimo);
-      setHintP(`${num} pessoas → R$${ex.valorBase} + ${extra}×R$${ex.acrescimo} = R$${total}/hora`);
-      setFVal(String(total));return total;
-    }
+    if(ex){const extra=num-ex.base;const total=ex.valorBase+(extra*ex.acrescimo);setHintP(`${num} pessoas → R$${ex.valorBase} + ${extra}×R$${ex.acrescimo} = R$${total}/hora`);setFVal(String(total));return total;}
     return 0;
   }
 
-  function calcValorAdmin(ini, fim, qid) {
-    if (!ini || !fim) return;
-    const q = qds.find(x=>x.id===qid);
-    if (!q || q.cob==="pessoas") return;
-    const [ih,im] = ini.split(":").map(Number);
-    const [fh,fm] = fim.split(":").map(Number);
-    const durMin = (fh*60+fm) - (ih*60+im);
-    if (durMin <= 0) return;
-    const precoPorHora = q.cob==="horario" && ini >= (q.horarioNoite||"16:00") ? (q.precoNoite||q.preco) : q.preco;
-    const total = (precoPorHora / 60) * durMin;
+  function calcValorAdmin(ini,fim,qid){
+    if(!ini||!fim)return;
+    const q=qds.find(x=>x.id===qid);
+    if(!q||q.cob==="pessoas")return;
+    const[ih,im]=ini.split(":").map(Number);
+    const[fh,fm]=fim.split(":").map(Number);
+    const durMin=(fh*60+fm)-(ih*60+im);
+    if(durMin<=0)return;
+    const precoPorHora=q.cob==="horario"&&ini>=(q.horarioNoite||"16:00")?(q.precoNoite||q.preco):q.preco;
+    const total=(precoPorHora/60)*durMin;
     setFVal(total.toFixed(2));
   }
 
@@ -221,7 +218,7 @@ export default function App(){
     setFData(ds||toDS(dtA));setFIni(ini||"");setFFim(fim||"");
     setFCli("");setFTel("");setFCpf("");setFVal("");setFPess("");setHintP("");
     setFSt("confirmado");setFPag("pendente");setFObs("");setFChurr(false);
-    if(qid&&ini&&fim) calcValorAdmin(ini,fim,qid);
+    if(qid&&ini&&fim)calcValorAdmin(ini,fim,qid);
     else if(qid){const q=qds.find(x=>x.id===qid);if(q&&q.cob!=="pessoas")setFVal(String(q.preco||""));}
     setModalA(true);
   }
@@ -265,30 +262,22 @@ export default function App(){
     } catch(e){ showToast("❌ Erro ao excluir!"); }
   }
 
-  
   async function remarcarAg(){
-    const novaData = prompt("Nova data (AAAA-MM-DD):", editAg?.data||"");
-    if (!novaData) return;
-    const novoIni = prompt("Novo horário início (HH:MM):", editAg?.ini||"");
-    if (!novoIni) return;
-    const novoFim = prompt("Novo horário fim (HH:MM):", editAg?.fim||"");
-    if (!novoFim) return;
-    const a = ags.find(x=>x.id===editAg.id);
+    const novaData=prompt("Nova data (AAAA-MM-DD):",editAg?.data||"");
+    if(!novaData)return;
+    const novoIni=prompt("Novo horário início (HH:MM):",editAg?.ini||"");
+    if(!novoIni)return;
+    const novoFim=prompt("Novo horário fim (HH:MM):",editAg?.fim||"");
+    if(!novoFim)return;
+    const a=ags.find(x=>x.id===editAg.id);
     try {
-      await updateDoc(doc(db,"agendamentos",editAg.id),{
-        data: novaData,
-        ini: novoIni,
-        fim: novoFim,
-        remarcado: true,
-        dataOriginal: a?.data||"",
-        iniOriginal: a?.ini||""
-      });
+      await updateDoc(doc(db,"agendamentos",editAg.id),{data:novaData,ini:novoIni,fim:novoFim,remarcado:true,dataOriginal:a?.data||"",iniOriginal:a?.ini||""});
       addLog("🔄 Agendamento remarcado: "+(a?.cli||"Avulso")+" — "+a?.qnm+" de "+fd(a?.data)+" "+a?.ini+" para "+fd(novaData)+" "+novoIni);
-      setModalA(false);
-      showToast("🔄 Agendamento remarcado!");
+      setModalA(false);showToast("🔄 Agendamento remarcado!");
     } catch(e){ showToast("❌ Erro ao remarcar"); }
   }
-async function cancelarAg(){
+
+  async function cancelarAg(){
     if(!confirm("Cancelar este agendamento?"))return;
     const a=ags.find(x=>x.id===editAg.id);
     try {
@@ -328,7 +317,6 @@ async function cancelarAg(){
     setModalQ(true);
   }
 
-  // stats
   const hjDS=toDS(hoje());
   const mes=hoje().getMonth(),ano=hoje().getFullYear();
   const sHoje=ags.filter(a=>a.data===hjDS&&a.st!=="cancelado").length;
@@ -336,12 +324,10 @@ async function cancelarAg(){
   const sRec=ags.filter(a=>!isPago(a.pag)&&a.st!=="cancelado").reduce((s,a)=>s+saldoRestante(a),0);
   const sRecm=ags.filter(a=>{const d=new Date(a.data);return d.getMonth()===mes&&d.getFullYear()===ano&&isPago(a.pag);}).reduce((s,a)=>s+(a.val||0),0);
 
-  // agenda
   const ds=toDS(dtA);
   const ddDia=ags.filter(a=>a.data===ds&&a.st!=="cancelado"&&a.st!=="aguardando_pagamento");
   const blDia=bloqueios.filter(b=>b.data===ds);
 
-  // agendamentos filtrados
   let agFilt=[...ags].sort((a,b)=>b.data.localeCompare(a.data));
   if(filtro==="avulso"||filtro==="mensalista")agFilt=agFilt.filter(a=>a.tp===filtro);
   else if(filtro==="conf")agFilt=agFilt.filter(a=>a.st==="confirmado");
@@ -351,27 +337,21 @@ async function cancelarAg(){
   else if(filtro==="parcial")agFilt=agFilt.filter(a=>isParcial(a.pag)&&a.st!=="cancelado");
   else if(filtro==="pago")agFilt=agFilt.filter(a=>isPago(a.pag));
 
-  // financeiro
   const finL=ags.filter(a=>{if(!finMes)return true;const[y,m]=finMes.split("-");return a.data?.startsWith(`${y}-${m}`);});
   const finRec=finL.filter(a=>isPago(a.pag)).reduce((s,a)=>s+(a.val||0),0);
   const finParcial=finL.filter(a=>isParcial(a.pag)).reduce((s,a)=>s+(a.val*0.5),0);
   const finPend=finL.filter(a=>a.pag==="pendente"&&a.st!=="cancelado").reduce((s,a)=>s+(a.val||0),0);
-
-  // Site vs Balcão — mês
   const finSite=finL.filter(a=>["mp_pix","mp_cartao","mp_total","mp_50"].includes(a.pag)&&isPago(a.pag)).reduce((s,a)=>s+(a.val||0),0);
   const finBalcao=finL.filter(a=>["mp_total_pix","mp_total_cartao","mp_total_dinheiro"].includes(a.pag)).reduce((s,a)=>s+(a.val||0),0);
-
-  // Por dia — agrupa pagamentos confirmados por data
-  const finPorDia = {};
+  const finPorDia={};
   finL.filter(a=>isPago(a.pag)||["mp_total_pix","mp_total_cartao","mp_total_dinheiro"].includes(a.pag)).forEach(a=>{
-    const d = a.data||"";
-    if(!finPorDia[d]) finPorDia[d]={site:0,balcao:0};
-    if(["mp_pix","mp_cartao","mp_total","mp_50"].includes(a.pag)) finPorDia[d].site+=(a.val||0);
+    const d=a.data||"";
+    if(!finPorDia[d])finPorDia[d]={site:0,balcao:0};
+    if(["mp_pix","mp_cartao","mp_total","mp_50"].includes(a.pag))finPorDia[d].site+=(a.val||0);
     else finPorDia[d].balcao+=(a.val||0);
   });
-  const finDias = Object.entries(finPorDia).sort((a,b)=>b[0].localeCompare(a[0]));
+  const finDias=Object.entries(finPorDia).sort((a,b)=>b[0].localeCompare(a[0]));
 
-  // contatos
   const ctMap={};
   ags.forEach(a=>{if(a.cli)ctMap[a.cli]={tel:a.tel||"",cpf:a.cpf||""};});
   const cts=Object.entries(ctMap).map(([n,d])=>({n,...d}));
@@ -415,9 +395,14 @@ async function cancelarAg(){
               <div style={{fontWeight:700,fontSize:14,minWidth:105,color:"#9a3412"}}>{ag.ini}–{ag.fim}</div>
               <div style={{flex:1,fontSize:13}}>
                 <div style={{fontWeight:600}}>{ag.cli||"Reservado"}</div>
-                <div style={{fontSize:11,color:"#6b7280"}}>{ag.tp}{ag.pess?` · ${ag.pess} pess.`:""} · {isPago(ag.pag)?"✅ Quitado":isParcial(ag.pag)?"💛 50% pago":"⏳ A receber"}</div>
+                <div style={{fontSize:11,color:"#6b7280"}}>{ag.tp}{ag.pess?` · ${ag.pess} pess.`:""}</div>
               </div>
-              <div style={{fontWeight:700,fontSize:13,color:VE}}>R${(ag.val||0).toFixed(0)}</div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontWeight:700,fontSize:13,color:VE}}>R${(ag.val||0).toFixed(0)}</div>
+                {pagoPeloSite(ag)>0&&<div style={{fontSize:10,color:"#1e40af"}}>💳 R${pagoPeloSite(ag).toFixed(0)} site</div>}
+                {saldoRestante(ag)>0&&<div style={{fontSize:10,color:"#92400e"}}>💰 R${saldoRestante(ag).toFixed(0)} balcão</div>}
+                {ag.sauna&&<div style={{fontSize:10,color:"#16a34a"}}>🧖 R$15</div>}
+              </div>
             </div>
           );
           return(
@@ -434,13 +419,11 @@ async function cancelarAg(){
   return(
     <div style={{fontFamily:"system-ui,sans-serif",background:BG,minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
 
-      {/* TOPBAR */}
       <div style={{background:VE,color:"white",padding:"0 16px",height:56,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 8px rgba(0,0,0,.2)"}}>
         <div style={{fontWeight:800,fontSize:18,display:"flex",alignItems:"center",gap:8}}>⚽ MELODIA <span style={{color:LA}}>QUADRAS</span></div>
         <span style={{background:LA,color:"white",fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:20,textTransform:"uppercase"}}>Admin</span>
       </div>
 
-      {/* TABS */}
       <div style={{background:"white",display:"flex",borderBottom:"2px solid #e0e3e8",overflowX:"auto",position:"sticky",top:56,zIndex:99}}>
         {TABS.map(t=><button key={t.id} onClick={()=>setPg(t.id)} style={{flex:"none",padding:"12px 14px",fontSize:13,fontWeight:600,color:pg===t.id?V:"#6b7280",cursor:"pointer",border:"none",background:"none",borderBottom:pg===t.id?`3px solid ${V}`:"3px solid transparent",marginBottom:-2,whiteSpace:"nowrap"}}>{t.lbl}</button>)}
       </div>
@@ -455,6 +438,35 @@ async function cancelarAg(){
           <button style={{width:36,height:36,borderRadius:8,border:"1.5px solid #e0e3e8",background:"white",cursor:"pointer",fontSize:18}} onClick={()=>setDtA(d=>{const n=new Date(d);n.setDate(n.getDate()+1);return n;})}>›</button>
           <Btn sm onClick={()=>setDtA(hoje())}>Hoje</Btn>
         </div>
+
+        {/* 3 cards financeiros do dia */}
+        {(()=>{
+          const agsDia2=ags.filter(a=>a.data===ds&&a.st==="confirmado");
+          if(agsDia2.length===0)return null;
+          const recSite=agsDia2.reduce((s,a)=>s+pagoPeloSite(a),0);
+          const recBalcao=agsDia2.reduce((s,a)=>s+saldoRestante(a),0);
+          const total=recSite+recBalcao;
+          return(
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
+              <div style={{background:"#eff6ff",borderRadius:10,padding:12,textAlign:"center",border:"1.5px solid #bfdbfe"}}>
+                <div style={{fontSize:16,marginBottom:2}}>💳</div>
+                <div style={{fontWeight:800,fontSize:16,color:"#1e40af"}}>R${recSite.toFixed(0)}</div>
+                <div style={{fontSize:10,color:"#6b7280",fontWeight:600,marginTop:2}}>Site</div>
+              </div>
+              <div style={{background:"#fef3c7",borderRadius:10,padding:12,textAlign:"center",border:"1.5px solid #fde68a"}}>
+                <div style={{fontSize:16,marginBottom:2}}>💰</div>
+                <div style={{fontWeight:800,fontSize:16,color:"#92400e"}}>R${recBalcao.toFixed(0)}</div>
+                <div style={{fontSize:10,color:"#6b7280",fontWeight:600,marginTop:2}}>Balcão</div>
+              </div>
+              <div style={{background:"#f0fdf4",borderRadius:10,padding:12,textAlign:"center",border:"1.5px solid #bbf7d0"}}>
+                <div style={{fontSize:16,marginBottom:2}}>📊</div>
+                <div style={{fontWeight:800,fontSize:16,color:"#065f46"}}>R${total.toFixed(0)}</div>
+                <div style={{fontSize:10,color:"#6b7280",fontWeight:600,marginTop:2}}>Total</div>
+              </div>
+            </div>
+          );
+        })()}
+
         {qds.map(q=><SlotAgenda key={q.id} q={q}/>)}
       </div>}
 
@@ -515,13 +527,11 @@ async function cancelarAg(){
 
       {/* ── FINANCEIRO ── */}
       {pg==="fin"&&<div style={{padding:16,paddingBottom:80}}>
-        {/* Cards totais mês */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
           <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}><div style={{fontWeight:800,fontSize:22,color:"#065f46"}}>R${finRec.toFixed(0)}</div><div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Quitado</div></div>
           <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}><div style={{fontWeight:800,fontSize:22,color:"#854d0e"}}>R${finParcial.toFixed(0)}</div><div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Falta 50%</div></div>
           <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}><div style={{fontWeight:800,fontSize:22,color:VM}}>R${finPend.toFixed(0)}</div><div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Não pago</div></div>
         </div>
-        {/* Site vs Balcão mês */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
           <div style={{background:"#eff6ff",borderRadius:12,padding:14,border:"1.5px solid #bfdbfe",textAlign:"center"}}>
             <div style={{fontSize:14,marginBottom:2}}>💻</div>
@@ -534,7 +544,6 @@ async function cancelarAg(){
             <div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Balcão — mês</div>
           </div>
         </div>
-        {/* Por dia */}
         {finDias.length>0&&<div style={{marginBottom:16}}>
           <div style={{fontWeight:700,fontSize:13,color:"#6b7280",marginBottom:8,textTransform:"uppercase"}}>Por dia</div>
           {finDias.map(([d,v])=>(
@@ -588,33 +597,20 @@ async function cancelarAg(){
         </Card>
       </div>}
 
-      {/* ── COMPLEXO ESPORTIVO ── */}
+      {/* ── COMPLEXO ── */}
       {pg==="complexo"&&<div style={{padding:16,paddingBottom:80}}>
         <Card>
           <CardH title="🏟️ Informações do Complexo"/>
           <div style={{padding:16}}>
-            <div style={{marginBottom:14}}>
-              <label style={lbl}>Nome do Complexo</label>
-              <input style={inp} value={cfg.nome} onChange={e=>setCfg(c=>({...c,nome:e.target.value}))}/>
-            </div>
-            <div style={{marginBottom:14}}>
-              <label style={lbl}>Descrição</label>
-              <textarea style={{...inp,resize:"vertical"}} rows={4} value={cfg.descricao||""} onChange={e=>setCfg(c=>({...c,descricao:e.target.value}))}/>
-            </div>
-            <div style={{marginBottom:14}}>
-              <label style={lbl}>Horário de Funcionamento</label>
-              <textarea style={{...inp,resize:"vertical"}} rows={3} value={cfg.horarios||""} onChange={e=>setCfg(c=>({...c,horarios:e.target.value}))}/>
-            </div>
-            <div style={{marginBottom:14}}>
-              <label style={lbl}>Tabela de Preços</label>
-              <textarea style={{...inp,resize:"vertical"}} rows={4} value={cfg.precos||""} onChange={e=>setCfg(c=>({...c,precos:e.target.value}))}/>
-            </div>
+            <div style={{marginBottom:14}}><label style={lbl}>Nome do Complexo</label><input style={inp} value={cfg.nome} onChange={e=>setCfg(c=>({...c,nome:e.target.value}))}/></div>
+            <div style={{marginBottom:14}}><label style={lbl}>Descrição</label><textarea style={{...inp,resize:"vertical"}} rows={4} value={cfg.descricao||""} onChange={e=>setCfg(c=>({...c,descricao:e.target.value}))}/></div>
+            <div style={{marginBottom:14}}><label style={lbl}>Horário de Funcionamento</label><textarea style={{...inp,resize:"vertical"}} rows={3} value={cfg.horarios||""} onChange={e=>setCfg(c=>({...c,horarios:e.target.value}))}/></div>
+            <div style={{marginBottom:14}}><label style={lbl}>Tabela de Preços</label><textarea style={{...inp,resize:"vertical"}} rows={4} value={cfg.precos||""} onChange={e=>setCfg(c=>({...c,precos:e.target.value}))}/></div>
           </div>
         </Card>
         <Card>
           <CardH title="📜 Regras do Complexo"/>
           <div style={{padding:16}}>
-            <div style={{fontSize:13,color:"#6b7280",marginBottom:10}}>O cliente precisará aceitar estas regras antes de reservar.</div>
             <textarea style={{...inp,resize:"vertical"}} rows={8} value={cfg.regras||""} onChange={e=>setCfg(c=>({...c,regras:e.target.value}))}/>
           </div>
         </Card>
@@ -626,7 +622,7 @@ async function cancelarAg(){
         <Card>
           <CardH title="Configurações"/>
           <div style={{padding:16}}>
-            <div style={{marginBottom:14}}><label style={lbl}>Chave Pix</label><input style={inp} value={cfg.pix||""} onChange={e=>setCfg(c=>({...c,pix:e.target.value}))}/><div style={{fontSize:11,color:"#6b7280",marginTop:4}}>Exibida ao cliente na hora do pagamento</div></div>
+            <div style={{marginBottom:14}}><label style={lbl}>Chave Pix</label><input style={inp} value={cfg.pix||""} onChange={e=>setCfg(c=>({...c,pix:e.target.value}))}/></div>
             <div style={{marginBottom:14}}><label style={lbl}>WhatsApp</label><input style={inp} value={cfg.wpp||""} onChange={e=>setCfg(c=>({...c,wpp:e.target.value}))}/></div>
           </div>
         </Card>
@@ -672,7 +668,7 @@ async function cancelarAg(){
             <label style={lbl}>Número de pessoas</label>
             <input type="number" style={inp} value={fPess} placeholder="Ex: 10" onChange={e=>{setFPess(e.target.value);calcAreia(e.target.value,fQid);}}/>
             <div style={{fontSize:11,color:"#92400e",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:6,padding:"8px 10px",marginTop:6,lineHeight:1.5}}>
-              ⚠️ <strong>Conta toda pessoa na extensão da quadra:</strong> quem está jogando, no deck e na churrasqueira privativa. Quem fica na arquibancada não conta.
+              ⚠️ <strong>Conta toda pessoa na extensão da quadra:</strong> quem está jogando, no deck e na churrasqueira privativa.
             </div>
             {hintP&&<div style={{fontSize:13,fontWeight:700,marginTop:8,color:VE,background:"#f0fdf4",padding:"8px 12px",borderRadius:8}}>{hintP}</div>}
           </div>
@@ -681,7 +677,6 @@ async function cancelarAg(){
           <div><label style={lbl}>Data</label><input type="date" style={inp} value={fData} onChange={e=>setFData(e.target.value)}/></div>
           <div><label style={lbl}>Valor R$</label>
             <input type="number" style={{...inp,background:"#f9fafb"}} value={fVal} placeholder="0,00" step="0.01" onChange={e=>setFVal(e.target.value)}/>
-            <div style={{fontSize:11,color:"#6b7280",marginTop:3}}>Calculado automaticamente</div>
           </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
@@ -702,8 +697,8 @@ async function cancelarAg(){
           <div><label style={lbl}>Pagamento</label>
             <select style={inp} value={fPag} onChange={e=>setFPag(e.target.value)}>
               <option value="pendente">⏳ Pendente</option>
-              <option value="mp_50">💛 50% pago — falta na chegada</option>
-              <option value="mp_total">✅ 100% pago — quitado</option>
+              <option value="mp_50">💛 50% pago</option>
+              <option value="mp_total">✅ 100% quitado</option>
             </select>
           </div>
         </div>
@@ -726,10 +721,43 @@ async function cancelarAg(){
             {modalD.cpf&&<div style={{fontSize:13,color:"#6b7280",marginTop:2}}>CPF: {modalD.cpf}</div>}
             {modalD.tel&&<div style={{fontSize:13,color:"#6b7280"}}>📱 {modalD.tel}</div>}
           </div>
+
+          {/* Breakdown financeiro */}
+          <div style={{background:"#f9fafb",borderRadius:12,padding:14,marginBottom:14}}>
+            <div style={{fontWeight:700,fontSize:13,color:"#6b7280",marginBottom:10,textTransform:"uppercase",letterSpacing:0.5}}>Financeiro</div>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #e0e3e8"}}>
+              <span style={{fontSize:14,color:"#374151"}}>📊 Valor total</span>
+              <span style={{fontWeight:700,fontSize:14,color:VE}}>R$ {(modalD.val||0).toFixed(2)}</span>
+            </div>
+            {pagoPeloSite(modalD)>0&&(
+              <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #e0e3e8"}}>
+                <span style={{fontSize:14,color:"#374151"}}>💳 Pago no site</span>
+                <span style={{fontWeight:700,fontSize:14,color:"#1e40af"}}>R$ {pagoPeloSite(modalD).toFixed(2)}</span>
+              </div>
+            )}
+            {saldoRestante(modalD)>0&&(
+              <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #e0e3e8"}}>
+                <span style={{fontSize:14,color:"#374151"}}>💰 Receber no balcão</span>
+                <span style={{fontWeight:700,fontSize:14,color:"#92400e"}}>R$ {saldoRestante(modalD).toFixed(2)}</span>
+              </div>
+            )}
+            {modalD.sauna&&(
+              <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #e0e3e8"}}>
+                <span style={{fontSize:14,color:"#374151"}}>🧖 Sauna</span>
+                <span style={{fontWeight:700,fontSize:14,color:"#16a34a"}}>R$ 15,00</span>
+              </div>
+            )}
+            {(saldoRestante(modalD)>0||modalD.sauna)&&(
+              <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",marginTop:4,background:"#fef3c7",borderRadius:8,padding:"10px 12px",marginTop:8}}>
+                <span style={{fontSize:14,fontWeight:700,color:"#92400e"}}>💰 Total a cobrar no local</span>
+                <span style={{fontWeight:800,fontSize:16,color:"#92400e"}}>R$ {(saldoRestante(modalD)+(modalD.sauna?15:0)).toFixed(2)}</span>
+              </div>
+            )}
+          </div>
+
           <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
             <Badge t={modalD.st||"confirmado"}>{modalD.st}</Badge>
             <BadgePag pag={modalD.pag} val={modalD.val}/>
-            {isParcial(modalD.pag)&&<Badge t="parcial">🏃 Cobrar R${((modalD.val||0)*0.5).toFixed(2)} na chegada</Badge>}
             {modalD.churr&&<Badge t="confirmado">🍖 Churrasqueira</Badge>}
           </div>
           {modalD.obs&&<div style={{background:"#f9fafb",padding:12,borderRadius:8,fontSize:13,marginBottom:16}}><strong>Obs:</strong> {modalD.obs}</div>}
@@ -778,7 +806,6 @@ async function cancelarAg(){
         </div>
         {qCob==="pessoas"&&(
           <div style={{background:"#f9fafb",padding:12,borderRadius:8,marginBottom:14}}>
-            <div style={{fontSize:12,color:"#6b7280",marginBottom:8}}>Faixas de preço:</div>
             {[[qF1a,setQF1a,qF1v,setQF1v],[qF2a,setQF2a,qF2v,setQF2v]].map(([a,sa,v,sv],i)=>(
               <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
                 <div><label style={lbl}>Até pessoas</label><input type="number" style={inp} value={a} onChange={e=>sa(parseInt(e.target.value))}/></div>
