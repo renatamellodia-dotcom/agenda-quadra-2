@@ -248,9 +248,11 @@ export default function App() {
       const num = parseInt(n)||0;
       const baseSlots = calcValorSlots(slotsSel, q);
       const numSlots = slotsSel.length;
-      const extraPessoas = (numSlots >= 2 && num > q.pessoasBase) ? (num - q.pessoasBase) * q.acrescimoPessoa : 0;
+      // Extra por pessoa: só em reservas de 1h ou mais, cobrado por hora COMPLETA
+      const horasCompletas = Math.floor(numSlots / 2);
+      const extraPessoas = (numSlots >= 2 && num > q.pessoasBase) ? (num - q.pessoasBase) * q.acrescimoPessoa * horasCompletas : 0;
       const total = baseSlots + extraPessoas;
-      if (extraPessoas > 0) setHintPess(num+" pessoas → R$"+baseSlots+" + "+(num-q.pessoasBase)+"×R$10 = R$"+total);
+      if (extraPessoas > 0) setHintPess(num+" pessoas → R$"+baseSlots+" + "+(num-q.pessoasBase)+"×R$10×"+horasCompletas+"h = R$"+total);
       else setHintPess(num+" pessoa"+(num>1?"s":"")+" → R$"+total);
       return total;
     }
