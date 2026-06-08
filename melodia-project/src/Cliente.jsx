@@ -393,7 +393,8 @@ export default function App() {
     }
   }
 
-  const ocupadosDia = reservas.filter(r => r.qid === quadra?.id && r.data === toDS(dia));
+  // Só considera ocupado horários confirmados (não aguardando pagamento)
+  const ocupadosDia = reservas.filter(r => r.qid === quadra?.id && r.data === toDS(dia) && r.st === "confirmado");
 
   function isOcupado(hr) {
     return ocupadosDia.some(r => r.ini <= hr && r.fim > hr);
