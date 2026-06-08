@@ -64,6 +64,11 @@ export default function App(){
   const [novaPess,setNovaPess]=useState("");
   const [modalPag,setModalPag]=useState(null);
   const [agendamentos,setAgendamentos]=useState([]);
+  const [aba,setAba]=useState("agenda"); // agenda | financeiro
+  const [saunaExtra,setSaunaExtra]=useState(0); // banhos de sauna vendidos no balcão
+  const [caixaDinheiro,setCaixaDinheiro]=useState(""); // conferência de caixa
+  const [obsdia,setObsDia]=useState(""); // observações do dia
+  const [formReceb,setFormReceb]=useState({}); // {id: "pix"|"cartao"|"dinheiro"} pagamentos registrados
 
   useEffect(()=>{
     try {
@@ -181,6 +186,147 @@ export default function App(){
         </div>
       </div>
 
+      {/* ABAS */}
+      <div style={{background:VE,padding:"0 16px 12px",display:"flex",gap:8}}>
+        {[["agenda","📋 Agenda"],["financeiro","💰 Financeiro"]].map(([k,l])=>(
+          <button key={k} onClick={()=>setAba(k)}
+            style={{flex:1,padding:"10px",borderRadius:10,border:"none",fontWeight:700,fontSize:14,cursor:"pointer",
+              background:aba===k?"white":"rgba(255,255,255,0.15)",
+              color:aba===k?VE:"white"}}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {/* ABA FINANCEIRO */}
+      {aba==="financeiro"&&(()=>{
+        const ds2=toDS(dia);
+        const agsDia2=agendamentos.filter(a=>a.data===ds2&&a.st==="confirmado");
+
+        // Saldo a receber no balcão (50% pendente)
+        const aReceber=agsDia2.filter(a=>isParcial(a.pag));
+        const totalBalcao=aReceber.reduce((s,a)=>s+saldo(a),0);
+
+        // Sauna nos agendamentos
+        const saunaAgs=agsDia2.filter(a=>a.sauna).length;
+        const totalSauna=(saunaAgs+saunaExtra)*15;
+
+        // Total geral a receber
+        const totalGeral=totalBalcao+totalSauna;
+
+        // Resumo por quadra
+        const totalSociety=agsDia2.filter(a=>a.qid==="q1").reduce((s,a)=>s+saldo(a),0);
+        const totalAreia=agsDia2.filter(a=>a.qid==="q2").reduce((s,a)=>s+saldo(a),0);
+
+        return(
+          <div style={{padding:"12px 16px 100px"}}>
+
+            {/* Seletor de dia */}
+            <div style={{background:V,borderRadius:14,padding:"12px 16px",display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
+              <button onClick={()=>setDia(d=>{const n=new Date(d);n.setDate(n.getDate()-1);return n;})}
+                style={{width:36,height:36,borderRadius:8,border:"none",background:"rgba(255,255,255,0.2)",color:"white",fontSize:20,cursor:"pointer"}}>‹</button>
+              <div style={{flex:1,textAlign:"center"}}>
+                <div style={{fontWeight:800,fontSize:18,color:"white",textTransform:"capitalize"}}>{nomeDia(dia)}</div>
+                <div style={{fontSize:12,color:"rgba(255,255,255,0.7)",cursor:"pointer"}} onClick={()=>setShowCal(true)}>
+                  📅 {dia.toLocaleDateString("pt-BR",{day:"numeric",month:"long"})}
+                </div>
+              </div>
+              <button onClick={()=>setDia(d=>{const n=new Date(d);n.setDate(n.getDate()+1);return n;})}
+                style={{width:36,height:36,borderRadius:8,border:"none",background:"rgba(255,255,255,0.2)",color:"white",fontSize:20,cursor:"pointer"}}>›</button>
+            </div>
+
+            {/* Total a receber */}
+            <div style={{background:totalGeral>0?"#fefce8":"#f0fdf4",border:`2px solid ${totalGeral>0?"#fde68a":"#86efac"}`,borderRadius:16,padding:20,marginBottom:14,textAlign:"center"}}>
+              <div style={{fontSize:12,fontWeight:700,color:"#6b7280",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>💰 TOTAL A RECEBER NO BALCÃO</div>
+              <div style={{fontWeight:800,fontSize:36,color:totalGeral>0?"#854d0e":"#065f46"}}> R$ {totalGeral.toFixed(2)}</div>
+            </div>
+
+            {/* Lista de cobranças */}
+            {aReceber.length>0&&(
+              <div style={{background:"white",borderRadius:14,padding:16,marginBottom:14,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
+                <div style={{fontWeight:700,fontSize:13,color:"#6b7280",marginBottom:12,textTransform:"uppercase",letterSpacing:0.5}}>Reservas — saldo na chegada</div>
+                {aReceber.map(a=>(
+                  <div key={a.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:"1px solid #f3f4f6"}}>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:15,color:"#1a1f2e"}}>{a.cli}</div>
+                      <div style={{fontSize:12,color:"#6b7280"}}>{a.qnm} · {a.ini}–{a.fim}</div>
+                      {a.sauna&&<div style={{fontSize:11,color:"#16a34a",fontWeight:600}}>🧖 Sauna inclusa</div>}
+                    </div>
+                    <div style={{fontWeight:800,fontSize:18,color:VM}}>R$ {saldo(a).toFixed(2)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Sauna extra */}
+            <div style={{background:"white",borderRadius:14,padding:16,marginBottom:14,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
+              <div style={{fontWeight:700,fontSize:13,color:"#6b7280",marginBottom:12,textTransform:"uppercase",letterSpacing:0.5}}>🧖 Banhos de sauna no balcão</div>
+              <div style={{fontSize:12,color:"#6b7280",marginBottom:10}}>Pessoas que não agendaram e pagaram na chegada</div>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <button onClick={()=>setSaunaExtra(v=>Math.max(0,v-1))}
+                  style={{width:44,height:44,borderRadius:10,border:"2px solid #e0e3e8",background:"white",fontSize:22,cursor:"pointer",fontWeight:800}}>−</button>
+                <div style={{flex:1,textAlign:"center"}}>
+                  <div style={{fontWeight:800,fontSize:28,color:VE}}>{saunaExtra}</div>
+                  <div style={{fontSize:12,color:"#6b7280"}}>pessoa{saunaExtra!==1?"s":""} · R$ {(saunaExtra*15).toFixed(2)}</div>
+                </div>
+                <button onClick={()=>setSaunaExtra(v=>v+1)}
+                  style={{width:44,height:44,borderRadius:10,border:"2px solid #e0e3e8",background:"white",fontSize:22,cursor:"pointer",fontWeight:800}}>+</button>
+              </div>
+            </div>
+
+            {/* Resumo por quadra */}
+            {(totalSociety>0||totalAreia>0)&&(
+              <div style={{background:"white",borderRadius:14,padding:16,marginBottom:14,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
+                <div style={{fontWeight:700,fontSize:13,color:"#6b7280",marginBottom:12,textTransform:"uppercase",letterSpacing:0.5}}>Por quadra</div>
+                {totalSociety>0&&(
+                  <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid #f3f4f6"}}>
+                    <span style={{fontWeight:600,color:"#1a1f2e"}}>⚽ Society</span>
+                    <span style={{fontWeight:800,color:VE}}>R$ {totalSociety.toFixed(2)}</span>
+                  </div>
+                )}
+                {totalAreia>0&&(
+                  <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0"}}>
+                    <span style={{fontWeight:600,color:"#1a1f2e"}}>🏐 Areia</span>
+                    <span style={{fontWeight:800,color:VE}}>R$ {totalAreia.toFixed(2)}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Conferência de caixa */}
+            <div style={{background:"white",borderRadius:14,padding:16,marginBottom:14,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
+              <div style={{fontWeight:700,fontSize:13,color:"#6b7280",marginBottom:12,textTransform:"uppercase",letterSpacing:0.5}}>🧾 Conferência de caixa</div>
+              <div style={{fontSize:12,color:"#6b7280",marginBottom:10}}>Quanto dinheiro físico está na gaveta?</div>
+              <input type="number" value={caixaDinheiro} onChange={e=>setCaixaDinheiro(e.target.value)}
+                placeholder="R$ 0,00"
+                style={{width:"100%",padding:"14px",border:"2px solid #e0e3e8",borderRadius:10,fontSize:18,fontWeight:700,textAlign:"center",outline:"none",color:VE}}/>
+              {caixaDinheiro&&(
+                <div style={{marginTop:10,padding:"10px 14px",borderRadius:10,
+                  background:parseFloat(caixaDinheiro)===totalGeral?"#f0fdf4":"#fef2f2",
+                  border:`1.5px solid ${parseFloat(caixaDinheiro)===totalGeral?"#86efac":"#fca5a5"}`}}>
+                  <div style={{fontWeight:700,fontSize:14,color:parseFloat(caixaDinheiro)===totalGeral?"#065f46":VM}}>
+                    {parseFloat(caixaDinheiro)===totalGeral?"✅ Caixa fechando!":
+                      parseFloat(caixaDinheiro)>totalGeral?
+                      `⚠️ Sobrou R$ ${(parseFloat(caixaDinheiro)-totalGeral).toFixed(2)}`:
+                      `⚠️ Faltou R$ ${(totalGeral-parseFloat(caixaDinheiro)).toFixed(2)}`}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Observações */}
+            <div style={{background:"white",borderRadius:14,padding:16,marginBottom:14,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
+              <div style={{fontWeight:700,fontSize:13,color:"#6b7280",marginBottom:12,textTransform:"uppercase",letterSpacing:0.5}}>📝 Observações do dia</div>
+              <textarea value={obsdia} onChange={e=>setObsDia(e.target.value)}
+                placeholder="Anote algo importante sobre o dia..."
+                rows={3}
+                style={{width:"100%",padding:"12px",border:"2px solid #e0e3e8",borderRadius:10,fontSize:14,outline:"none",resize:"none",fontFamily:"system-ui"}}/>
+            </div>
+
+          </div>
+        );
+      })()}
+
       {/* CALENDÁRIO MODAL */}
       {showCal && (
         <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.5)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
@@ -206,6 +352,8 @@ export default function App(){
           </div>
         </div>
       )}
+
+      {aba==="agenda"&&<>
 
       {/* SELETOR DE DIA */}
       <div style={{background:V,padding:"12px 16px",display:"flex",alignItems:"center",gap:12}}>
@@ -327,6 +475,8 @@ export default function App(){
         })}
       </div>
 
+      </>}
+
       {/* MODAL DETALHE */}
       {aberto&&ag&&(
         <div onClick={()=>setAberto(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
@@ -357,6 +507,17 @@ export default function App(){
                 <button onClick={()=>{setAberto(null);marcarRecebido(ag.id);}}
                   style={{width:"100%",padding:"14px",background:"#16a34a",color:"white",border:"none",borderRadius:10,fontSize:16,fontWeight:800,cursor:"pointer"}}>
                   💰 Receber — R$ {salAg.toFixed(2)}
+                </button>
+              )}
+              {isPago(ag.pag)&&(
+                <button onClick={async()=>{
+                  if(!window.confirm("Desfazer pagamento?"))return;
+                  setEdicoes(p=>({...p,[ag.id]:{...p[ag.id],pag:"pendente"}}));
+                  setAberto(null);
+                  try{ await updateDoc(doc(db,"agendamentos",ag.id),{pag:"pendente"}); }catch(e){}
+                }}
+                  style={{width:"100%",padding:"12px",background:"none",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14,fontWeight:600,cursor:"pointer",color:"#6b7280",marginTop:8}}>
+                  ↩️ Desfazer pagamento
                 </button>
               )}
             </div>
