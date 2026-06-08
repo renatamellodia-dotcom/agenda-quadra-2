@@ -25,18 +25,17 @@ function nomeDia(d){
   return d.toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"});
 }
 
-function isPago(p){return["mp_total","mp_total_pix","mp_total_cartao","mp_total_dinheiro","pix_total","cartao_total","pago_total","dinheiro"].includes(p);}
+function isPago(p){return["mp_total","mp_total_pix","mp_total_cartao","mp_total_dinheiro","pix_total","cartao_total","pago_total","dinheiro","mp_pix","mp_cartao"].includes(p);}
 function isParcial(p){return["mp_50","pix_50","cartao_50","pago_50"].includes(p);}
 function saldo(ag){if(isPago(ag.pag))return 0;if(isParcial(ag.pag))return(ag.val||0)*0.5;return ag.val||0;}
 function labelPag(p){
-  if(p==="mp_total_pix") return "✅ Pago — Pix";
-  if(p==="mp_total_cartao") return "✅ Pago — Cartão";
+  if(p==="mp_pix"||p==="mp_total_pix") return "✅ Pago — Pix";
+  if(p==="mp_cartao"||p==="mp_total_cartao") return "✅ Pago — Cartão";
   if(p==="mp_total_dinheiro") return "✅ Pago — Dinheiro";
   if(isPago(p)) return "✅ Pago";
   if(isParcial(p)) return "💛 50% pago";
   return "⏳ Não pago";
 }
-function calcAreia(n){if(!n||n<=0)return 0;if(n<=8)return 60;if(n<=12)return 70;return 70+(n-12)*10;}
 
 function tocarSom(){
   try{
@@ -64,11 +63,6 @@ export default function App(){
   const [novaPess,setNovaPess]=useState("");
   const [modalPag,setModalPag]=useState(null);
   const [agendamentos,setAgendamentos]=useState([]);
-  const [aba,setAba]=useState("agenda"); // agenda | financeiro
-  const [saunaExtra,setSaunaExtra]=useState(0); // banhos de sauna vendidos no balcão
-  const [caixaDinheiro,setCaixaDinheiro]=useState(""); // conferência de caixa
-  const [obsdia,setObsDia]=useState(""); // observações do dia
-  const [formReceb,setFormReceb]=useState({}); // {id: "pix"|"cartao"|"dinheiro"} pagamentos registrados
 
   useEffect(()=>{
     try {
@@ -90,32 +84,46 @@ export default function App(){
     const hh=hora.getHours().toString().padStart(2,"0");
     const mm=hora.getMinutes().toString().padStart(2,"0");
     const agoraMin=parseInt(hh)*60+parseInt(mm);
-    const agsDia=agendamentos.filter(a=>a.data===ds&&a.st!=="cancelado"&&a.st!=="aguardando_pagamento"&&!finalizados.includes(a.id));
+    const agsDia=agendamentos.filter(a=>a.data===ds&&a.st==="confirmado"&&!finalizados.includes(a.id));
     for(const ag of agsDia){
       const[fH,fM]=ag.fim.split(":").map(Number);
       if(fH*60+fM===agoraMin&&!alarme){tocarSom();setAlarme(ag);break;}
     }
-  },[hora,dia,finalizados]);
+  },[hora,dia,finalizados,agendamentos,alarme]);
 
   const ds=toDS(dia);
-  const agsDia=agendamentos.filter(a=>a.data===ds&&a.st!=="cancelado"&&a.st!=="aguardando_pagamento").sort((a,b)=>a.ini.localeCompare(b.ini));
+  const agsDia=agendamentos.filter(a=>a.data===ds&&a.st==="confirmado").sort((a,b)=>a.ini.localeCompare(b.ini));
 
   function getAg(id){
     const ag=agendamentos.find(x=>x.id===id);
     return{...ag,...(edicoes[id]||{})};
   }
 
+  function calcAreia(pess, slots){
+    // slots = número de slots de 30min
+    const horas = slots * 0.5;
+    const base = horas * 60; // R$60/hora
+    if(!pess || pess<=12 || slots < 2) return base;
+    const extras = pess - 12;
+    const horasCompletas = Math.floor(horas);
+    return base + (extras * 10 * horasCompletas);
+  }
+
+  function numSlots(ini, fim){
+    const [ih,im]=ini.split(":").map(Number);
+    const [fh,fm]=fim.split(":").map(Number);
+    return ((fh*60+fm)-(ih*60+im))/30;
+  }
+
   async function confirmarPessoas(id){
     const n=parseInt(novaPess);if(!n||n<1)return;
-    const novoVal=calcAreia(n);
+    const ag=getAg(id);
+    const slots=numSlots(ag.ini,ag.fim);
+    const novoVal=ag.qid==="q2"?calcAreia(n,slots):ag.val;
     setEdicoes(p=>({...p,[id]:{...p[id],pess:n,val:novoVal}}));
     setEditPess(false);setNovaPess("");
     tocarSom();
     try{ await updateDoc(doc(db,"agendamentos",id),{pess:n,val:novoVal}); }catch(e){}
-  }
-
-  function marcarRecebido(id){
-    setModalPag(id);
   }
 
   async function confirmarFormaPag(id,tipo){
@@ -155,7 +163,7 @@ export default function App(){
         </div>
       )}
 
-      {/* MINI MODAL — FORMA DE PAGAMENTO */}
+      {/* MODAL FORMA DE PAGAMENTO */}
       {modalPag&&(
         <div onClick={()=>setModalPag(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:300,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:"20px 20px 0 0",width:"100%",maxWidth:480,padding:"24px 20px 40px"}}>
@@ -186,149 +194,8 @@ export default function App(){
         </div>
       </div>
 
-      {/* ABAS */}
-      <div style={{background:VE,padding:"0 16px 12px",display:"flex",gap:8}}>
-        {[["agenda","📋 Agenda"],["financeiro","💰 Financeiro"]].map(([k,l])=>(
-          <button key={k} onClick={()=>setAba(k)}
-            style={{flex:1,padding:"10px",borderRadius:10,border:"none",fontWeight:700,fontSize:14,cursor:"pointer",
-              background:aba===k?"white":"rgba(255,255,255,0.15)",
-              color:aba===k?VE:"white"}}>
-            {l}
-          </button>
-        ))}
-      </div>
-
-      {/* ABA FINANCEIRO */}
-      {aba==="financeiro"&&(()=>{
-        const ds2=toDS(dia);
-        const agsDia2=agendamentos.filter(a=>a.data===ds2&&a.st==="confirmado");
-
-        // Saldo a receber no balcão (50% pendente)
-        const aReceber=agsDia2.filter(a=>isParcial(a.pag));
-        const totalBalcao=aReceber.reduce((s,a)=>s+saldo(a),0);
-
-        // Sauna nos agendamentos
-        const saunaAgs=agsDia2.filter(a=>a.sauna).length;
-        const totalSauna=(saunaAgs+saunaExtra)*15;
-
-        // Total geral a receber
-        const totalGeral=totalBalcao+totalSauna;
-
-        // Resumo por quadra
-        const totalSociety=agsDia2.filter(a=>a.qid==="q1").reduce((s,a)=>s+saldo(a),0);
-        const totalAreia=agsDia2.filter(a=>a.qid==="q2").reduce((s,a)=>s+saldo(a),0);
-
-        return(
-          <div style={{padding:"12px 16px 100px"}}>
-
-            {/* Seletor de dia */}
-            <div style={{background:V,borderRadius:14,padding:"12px 16px",display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
-              <button onClick={()=>setDia(d=>{const n=new Date(d);n.setDate(n.getDate()-1);return n;})}
-                style={{width:36,height:36,borderRadius:8,border:"none",background:"rgba(255,255,255,0.2)",color:"white",fontSize:20,cursor:"pointer"}}>‹</button>
-              <div style={{flex:1,textAlign:"center"}}>
-                <div style={{fontWeight:800,fontSize:18,color:"white",textTransform:"capitalize"}}>{nomeDia(dia)}</div>
-                <div style={{fontSize:12,color:"rgba(255,255,255,0.7)",cursor:"pointer"}} onClick={()=>setShowCal(true)}>
-                  📅 {dia.toLocaleDateString("pt-BR",{day:"numeric",month:"long"})}
-                </div>
-              </div>
-              <button onClick={()=>setDia(d=>{const n=new Date(d);n.setDate(n.getDate()+1);return n;})}
-                style={{width:36,height:36,borderRadius:8,border:"none",background:"rgba(255,255,255,0.2)",color:"white",fontSize:20,cursor:"pointer"}}>›</button>
-            </div>
-
-            {/* Total a receber */}
-            <div style={{background:totalGeral>0?"#fefce8":"#f0fdf4",border:`2px solid ${totalGeral>0?"#fde68a":"#86efac"}`,borderRadius:16,padding:20,marginBottom:14,textAlign:"center"}}>
-              <div style={{fontSize:12,fontWeight:700,color:"#6b7280",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>💰 TOTAL A RECEBER NO BALCÃO</div>
-              <div style={{fontWeight:800,fontSize:36,color:totalGeral>0?"#854d0e":"#065f46"}}> R$ {totalGeral.toFixed(2)}</div>
-            </div>
-
-            {/* Lista de cobranças */}
-            {aReceber.length>0&&(
-              <div style={{background:"white",borderRadius:14,padding:16,marginBottom:14,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
-                <div style={{fontWeight:700,fontSize:13,color:"#6b7280",marginBottom:12,textTransform:"uppercase",letterSpacing:0.5}}>Reservas — saldo na chegada</div>
-                {aReceber.map(a=>(
-                  <div key={a.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:"1px solid #f3f4f6"}}>
-                    <div>
-                      <div style={{fontWeight:700,fontSize:15,color:"#1a1f2e"}}>{a.cli}</div>
-                      <div style={{fontSize:12,color:"#6b7280"}}>{a.qnm} · {a.ini}–{a.fim}</div>
-                      {a.sauna&&<div style={{fontSize:11,color:"#16a34a",fontWeight:600}}>🧖 Sauna inclusa</div>}
-                    </div>
-                    <div style={{fontWeight:800,fontSize:18,color:VM}}>R$ {saldo(a).toFixed(2)}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Sauna extra */}
-            <div style={{background:"white",borderRadius:14,padding:16,marginBottom:14,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
-              <div style={{fontWeight:700,fontSize:13,color:"#6b7280",marginBottom:12,textTransform:"uppercase",letterSpacing:0.5}}>🧖 Banhos de sauna no balcão</div>
-              <div style={{fontSize:12,color:"#6b7280",marginBottom:10}}>Pessoas que não agendaram e pagaram na chegada</div>
-              <div style={{display:"flex",alignItems:"center",gap:12}}>
-                <button onClick={()=>setSaunaExtra(v=>Math.max(0,v-1))}
-                  style={{width:44,height:44,borderRadius:10,border:"2px solid #e0e3e8",background:"white",fontSize:22,cursor:"pointer",fontWeight:800}}>−</button>
-                <div style={{flex:1,textAlign:"center"}}>
-                  <div style={{fontWeight:800,fontSize:28,color:VE}}>{saunaExtra}</div>
-                  <div style={{fontSize:12,color:"#6b7280"}}>pessoa{saunaExtra!==1?"s":""} · R$ {(saunaExtra*15).toFixed(2)}</div>
-                </div>
-                <button onClick={()=>setSaunaExtra(v=>v+1)}
-                  style={{width:44,height:44,borderRadius:10,border:"2px solid #e0e3e8",background:"white",fontSize:22,cursor:"pointer",fontWeight:800}}>+</button>
-              </div>
-            </div>
-
-            {/* Resumo por quadra */}
-            {(totalSociety>0||totalAreia>0)&&(
-              <div style={{background:"white",borderRadius:14,padding:16,marginBottom:14,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
-                <div style={{fontWeight:700,fontSize:13,color:"#6b7280",marginBottom:12,textTransform:"uppercase",letterSpacing:0.5}}>Por quadra</div>
-                {totalSociety>0&&(
-                  <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid #f3f4f6"}}>
-                    <span style={{fontWeight:600,color:"#1a1f2e"}}>⚽ Society</span>
-                    <span style={{fontWeight:800,color:VE}}>R$ {totalSociety.toFixed(2)}</span>
-                  </div>
-                )}
-                {totalAreia>0&&(
-                  <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0"}}>
-                    <span style={{fontWeight:600,color:"#1a1f2e"}}>🏐 Areia</span>
-                    <span style={{fontWeight:800,color:VE}}>R$ {totalAreia.toFixed(2)}</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Conferência de caixa */}
-            <div style={{background:"white",borderRadius:14,padding:16,marginBottom:14,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
-              <div style={{fontWeight:700,fontSize:13,color:"#6b7280",marginBottom:12,textTransform:"uppercase",letterSpacing:0.5}}>🧾 Conferência de caixa</div>
-              <div style={{fontSize:12,color:"#6b7280",marginBottom:10}}>Quanto dinheiro físico está na gaveta?</div>
-              <input type="number" value={caixaDinheiro} onChange={e=>setCaixaDinheiro(e.target.value)}
-                placeholder="R$ 0,00"
-                style={{width:"100%",padding:"14px",border:"2px solid #e0e3e8",borderRadius:10,fontSize:18,fontWeight:700,textAlign:"center",outline:"none",color:VE}}/>
-              {caixaDinheiro&&(
-                <div style={{marginTop:10,padding:"10px 14px",borderRadius:10,
-                  background:parseFloat(caixaDinheiro)===totalGeral?"#f0fdf4":"#fef2f2",
-                  border:`1.5px solid ${parseFloat(caixaDinheiro)===totalGeral?"#86efac":"#fca5a5"}`}}>
-                  <div style={{fontWeight:700,fontSize:14,color:parseFloat(caixaDinheiro)===totalGeral?"#065f46":VM}}>
-                    {parseFloat(caixaDinheiro)===totalGeral?"✅ Caixa fechando!":
-                      parseFloat(caixaDinheiro)>totalGeral?
-                      `⚠️ Sobrou R$ ${(parseFloat(caixaDinheiro)-totalGeral).toFixed(2)}`:
-                      `⚠️ Faltou R$ ${(totalGeral-parseFloat(caixaDinheiro)).toFixed(2)}`}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Observações */}
-            <div style={{background:"white",borderRadius:14,padding:16,marginBottom:14,boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
-              <div style={{fontWeight:700,fontSize:13,color:"#6b7280",marginBottom:12,textTransform:"uppercase",letterSpacing:0.5}}>📝 Observações do dia</div>
-              <textarea value={obsdia} onChange={e=>setObsDia(e.target.value)}
-                placeholder="Anote algo importante sobre o dia..."
-                rows={3}
-                style={{width:"100%",padding:"12px",border:"2px solid #e0e3e8",borderRadius:10,fontSize:14,outline:"none",resize:"none",fontFamily:"system-ui"}}/>
-            </div>
-
-          </div>
-        );
-      })()}
-
       {/* CALENDÁRIO MODAL */}
-      {showCal && (
+      {showCal&&(
         <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.5)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
           <div style={{background:"white",borderRadius:20,padding:20,width:"100%",maxWidth:360}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
@@ -339,21 +206,18 @@ export default function App(){
               onChange={e=>{
                 if(e.target.value){
                   const [y,m,d]=e.target.value.split("-").map(Number);
-                  const nd=new Date(y,m-1,d);
-                  setDia(nd);
+                  setDia(new Date(y,m-1,d));
                   setShowCal(false);
                 }
               }}
               style={{width:"100%",padding:"14px",border:"1.5px solid #e0e3e8",borderRadius:12,fontSize:16,outline:"none",color:"#1a1f2e"}}
             />
-            <button onClick={()=>{setDia(hoje());setShowCal(false);}} style={{width:"100%",marginTop:12,padding:"12px",background:"#2E7D6B",color:"white",border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer"}}>
+            <button onClick={()=>{setDia(hoje());setShowCal(false);}} style={{width:"100%",marginTop:12,padding:"12px",background:V,color:"white",border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer"}}>
               📅 Ir para Hoje
             </button>
           </div>
         </div>
       )}
-
-      {aba==="agenda"&&<>
 
       {/* SELETOR DE DIA */}
       <div style={{background:V,padding:"12px 16px",display:"flex",alignItems:"center",gap:12}}>
@@ -369,7 +233,7 @@ export default function App(){
           style={{width:40,height:40,borderRadius:10,border:"none",background:"rgba(255,255,255,0.2)",color:"white",fontSize:22,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
       </div>
 
-      {/* STATS */}
+      {/* TOTAL A RECEBER */}
       {agsDia.length>0&&(()=>{
         const aCobrar=agsDia.reduce((s,a)=>s+saldo(getAg(a.id)),0);
         return(
@@ -432,22 +296,18 @@ export default function App(){
                   <div key={a.id} style={{marginBottom:8}}>
                     <div onClick={()=>{setAberto(a.id);setEditPess(false);setNovaPess("");}}
                       style={{background:fim?"#f0fdf4":"white",borderRadius:sal>0?"14px 14px 0 0":14,padding:"16px",boxShadow:"0 2px 10px rgba(0,0,0,.06)",cursor:"pointer",borderLeft:`5px solid ${fim?"#22c55e":q.cor}`,opacity:fim?0.75:1}}>
-
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                         <div style={{background:fim?"#22c55e":q.cor,color:"white",borderRadius:10,padding:"6px 16px",fontSize:16,fontWeight:800}}>
                           {a.ini} – {a.fim}
                         </div>
                         {fim&&<Pill bg="#dcfce7" cl="#065f46">✓ Finalizado</Pill>}
                       </div>
-
                       <div style={{fontWeight:800,fontSize:20,color:"#1a1f2e",marginBottom:8}}>{a.cli}</div>
-
                       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
                         {agE.pess&&<Pill bg="#eff6ff" cl="#1e40af">👥 {agE.pess} pessoas</Pill>}
-                        {a.sauna&&<Pill bg="#f0fdf4" cl="#065f46">🧖 Sauna</Pill>}
+                        {a.sauna&&<Pill bg="#f0fdf4" cl="#065f46">🧖 Sauna — R$15</Pill>}
                         {a.churr&&<Pill bg="#fff7ed" cl="#9a3412">🍖 Churrasqueira</Pill>}
                       </div>
-
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
                           <div style={{width:12,height:12,borderRadius:"50%",background:isPago(agE.pag)?"#22c55e":isParcial(agE.pag)?"#eab308":"#ef4444",flexShrink:0}}/>
@@ -458,10 +318,8 @@ export default function App(){
                         <div style={{fontWeight:700,fontSize:16,color:VE}}>R$ {(agE.val||0).toFixed(2)}</div>
                       </div>
                     </div>
-
-                    {/* Botão RECEBER */}
                     {sal>0&&(
-                      <button onClick={()=>marcarRecebido(a.id)}
+                      <button onClick={()=>setModalPag(a.id)}
                         style={{width:"100%",padding:"14px 16px",background:"#16a34a",color:"white",border:"none",borderRadius:"0 0 14px 14px",fontSize:16,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                         <span>💰 Receber</span>
                         <span>R$ {sal.toFixed(2)}</span>
@@ -475,14 +333,11 @@ export default function App(){
         })}
       </div>
 
-      </>}
-
       {/* MODAL DETALHE */}
       {aberto&&ag&&(
         <div onClick={()=>setAberto(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:480,maxHeight:"90vh",overflowY:"auto",padding:"20px 20px 40px"}}>
             <div style={{width:48,height:5,background:"#e0e3e8",borderRadius:3,margin:"0 auto 20px"}}/>
-
             <div style={{display:"flex",gap:14,alignItems:"center",marginBottom:20}}>
               <div style={{width:56,height:56,borderRadius:14,background:ag.qid==="q1"?V:LA,display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,flexShrink:0}}>
                 {ag.qid==="q1"?"⚽":"🏐"}
@@ -504,7 +359,7 @@ export default function App(){
                 <div style={{fontWeight:800,fontSize:28,color:VE}}>R${(ag.val||0).toFixed(2)}</div>
               </div>
               {salAg>0&&(
-                <button onClick={()=>{setAberto(null);marcarRecebido(ag.id);}}
+                <button onClick={()=>{setAberto(null);setModalPag(ag.id);}}
                   style={{width:"100%",padding:"14px",background:"#16a34a",color:"white",border:"none",borderRadius:10,fontSize:16,fontWeight:800,cursor:"pointer"}}>
                   💰 Receber — R$ {salAg.toFixed(2)}
                 </button>
@@ -529,6 +384,7 @@ export default function App(){
               {ag.tel&&<InfoLinha icon="📱" texto={ag.tel}/>}
             </div>
 
+            {/* Atualizar pessoas — só areia */}
             {isAreia&&(
               <div style={{background:"#eff6ff",border:"2px solid #bfdbfe",borderRadius:14,padding:16,marginBottom:14}}>
                 <div style={{fontWeight:700,fontSize:14,color:"#1e40af",marginBottom:12}}>👥 Chegou mais gente?</div>
@@ -554,16 +410,17 @@ export default function App(){
                     <input type="number" value={novaPess} onChange={e=>setNovaPess(e.target.value)} min={1} max={60}
                       style={{width:"100%",padding:"12px",border:"2px solid #bfdbfe",borderRadius:10,fontSize:18,fontWeight:800,textAlign:"center",outline:"none",marginBottom:8,color:"#1e40af"}}
                       placeholder="Outro número"/>
-                    {novaPess&&parseInt(novaPess)>0&&(
-                      <div style={{background:"white",borderRadius:10,padding:"12px",marginBottom:10,textAlign:"center",border:"1px solid #e0e3e8"}}>
-                        <div style={{fontWeight:800,fontSize:24,color:"#1e40af"}}>R$ {calcAreia(parseInt(novaPess)).toFixed(2)}/hora</div>
-                        {calcAreia(parseInt(novaPess))>(agendamentos.find(x=>x.id===aberto)?.val||0)&&(
-                          <div style={{fontWeight:800,color:VM,fontSize:16,marginTop:4}}>
-                            ⚠️ Cobrar mais: R$ {(calcAreia(parseInt(novaPess))-(agendamentos.find(x=>x.id===aberto)?.val||0)).toFixed(2)}
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    {novaPess&&parseInt(novaPess)>0&&(()=>{
+                      const slots=numSlots(ag.ini,ag.fim);
+                      const novoVal=calcAreia(parseInt(novaPess),slots);
+                      const diff=novoVal-(ag.val||0);
+                      return(
+                        <div style={{background:"white",borderRadius:10,padding:"12px",marginBottom:10,textAlign:"center",border:"1px solid #e0e3e8"}}>
+                          <div style={{fontWeight:800,fontSize:24,color:"#1e40af"}}>R$ {novoVal.toFixed(2)}</div>
+                          {diff>0&&<div style={{fontWeight:800,color:VM,fontSize:16,marginTop:4}}>⚠️ Cobrar mais: R$ {diff.toFixed(2)}</div>}
+                        </div>
+                      );
+                    })()}
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                       <button onClick={()=>{setEditPess(false);setNovaPess("");}}
                         style={{padding:"14px",background:"none",border:"2px solid #e0e3e8",borderRadius:12,fontWeight:700,fontSize:15,cursor:"pointer",color:"#6b7280"}}>
