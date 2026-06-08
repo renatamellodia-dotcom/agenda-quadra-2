@@ -132,25 +132,31 @@ export default function App() {
     } catch(e){ console.log("Firebase offline",e); }
   },[]);
 
-  // Listener para confirmação automática de pagamento
+  // Polling: verifica pagamento a cada 5s direto no backend
   const [extRefAtual, setExtRefAtual] = useState(null);
+  const [pagamentoIdAtual, setPagamentoIdAtual] = useState(null);
   useEffect(()=>{
-    if (!extRefAtual || etapa !== "pix") return;
-    try {
-      const unsub = onSnapshot(
-        query(collection(db,"agendamentos"), where("extRef","==",extRefAtual)),
-        (snap) => {
-          snap.docs.forEach(d => {
-            if (d.data().st === "confirmado") {
-              setPagamentoConfirmado(true);
-              setEtapa("confirmado");
-            }
-          });
+    if (!pagamentoIdAtual || etapa !== "pix") return;
+    const interval = setInterval(async ()=>{
+      try {
+        const resp = await fetch(`/api/verificar?id=${pagamentoIdAtual}`);
+        const json = await resp.json();
+        if (json.aprovado) {
+          clearInterval(interval);
+          // Atualiza Firebase
+          try {
+            await updateDoc(doc(db,"agendamentos",json.agId),{
+              st:"confirmado",
+              pag: json.metodo === "pix" ? "mp_pix" : "mp_cartao"
+            });
+          } catch(e){}
+          setPagamentoConfirmado(true);
+          setEtapa("confirmado");
         }
-      );
-      return ()=>unsub();
-    } catch(e){ console.log("Listener erro:", e); }
-  },[extRefAtual, etapa]);
+      } catch(e){}
+    }, 5000);
+    return ()=>clearInterval(interval);
+  },[pagamentoIdAtual, etapa]);
 
   function toMin(hr){ const[h,m]=hr.split(":").map(Number); return h*60+m; }
   function toHr(min){ return Math.floor(min/60).toString().padStart(2,"0")+":"+((min%60).toString().padStart(2,"0")); }
@@ -334,6 +340,7 @@ export default function App() {
     setLoadingPag(false);
     if (pix) {
       setDadosPix(pix);
+      setPagamentoIdAtual(pix.pagamentoId);
       setEtapa("pix");
     } else {
       setEtapa("pix");
