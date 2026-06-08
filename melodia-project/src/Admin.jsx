@@ -74,7 +74,7 @@ function CardH({title,right}){return <div style={{padding:"14px 16px",borderBott
 function Badge({t,children}){
   const map={
     confirmado:["#d1fae5","#065f46"],
-    aguardando_pagamento:["#fff7ed","#c2410c"],
+   aguardando_pagamento:["#e0f2fe","#0369a1"],
     pendente:["#fef3c7","#92400e"],
     cancelado:["#fee2e2","#991b1b"],
     pago:["#dbeafe","#1e40af"],
@@ -338,7 +338,7 @@ async function cancelarAg(){
 
   // agenda
   const ds=toDS(dtA);
-  const ddDia=ags.filter(a=>a.data===ds&&a.st!=="cancelado");
+  const ddDia=ags.filter(a=>a.data===ds&&a.st!=="cancelado"&&a.st!=="aguardando_pagamento");
   const blDia=bloqueios.filter(b=>b.data===ds);
 
   // agendamentos filtrados
@@ -484,7 +484,7 @@ async function cancelarAg(){
       {/* ── AGENDAMENTOS ── */}
       {pg==="agend"&&<div style={{padding:16,paddingBottom:80}}>
         <div style={{display:"flex",gap:8,marginBottom:14,overflowX:"auto",paddingBottom:4}}>
-          {[["todos","Todos"],["conf","Confirmados"],["canc","Cancelados"],["parcial","50% pagos"],["pago","Quitados"],["avulso","Avulso"],["mensalista","Mensalista"]].map(([k,l])=>(
+          {[["todos","Todos"],["conf","Confirmados"],["aguard","Aguardando"],["canc","Cancelados"],["parcial","50% pagos"],["pago","Quitados"],["avulso","Avulso"],["mensalista","Mensalista"]].map(([k,l])=>(
             <div key={k} onClick={()=>setFiltro(k)} style={{flex:"none",padding:"6px 14px",borderRadius:20,border:`1.5px solid ${filtro===k?V:"#e0e3e8"}`,background:filtro===k?V:"white",fontSize:12,fontWeight:600,cursor:"pointer",color:filtro===k?"white":"#6b7280",whiteSpace:"nowrap"}}>{l}</div>
           ))}
         </div>
