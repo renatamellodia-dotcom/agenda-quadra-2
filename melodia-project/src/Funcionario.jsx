@@ -330,7 +330,7 @@ export default function App(){
                     {sal>0&&(
                       <button onClick={()=>marcarRecebido(a.id)}
                         style={{width:"100%",padding:"14px 16px",background:"#16a34a",color:"white",border:"none",borderRadius:"0 0 14px 14px",fontSize:16,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                        <span>✅ Recebido</span>
+                        <span>✅ Receber</span>
                         <span>R$ {sal.toFixed(2)}</span>
                       </button>
                     )}
