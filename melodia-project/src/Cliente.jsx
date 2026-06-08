@@ -116,6 +116,8 @@ export default function App() {
   const [porcPag, setPorcPag] = useState(100);
   const [reservas, setReservas] = useState([]);
   const [dadosPix, setDadosPix] = useState(null);
+  const [metodoPag, setMetodoPag] = useState("pix");
+  const [pagamentoConfirmado, setPagamentoConfirmado] = useState(false);
   const [slotsSel, setSlotsSel] = useState([]);
 
   const dias = gerarDias();
@@ -129,6 +131,27 @@ export default function App() {
       return ()=>unsub();
     } catch(e){ console.log("Firebase offline",e); }
   },[]);
+
+  // Listener para confirmação automática de pagamento
+  const [extRefAtual, setExtRefAtual] = useState(null);
+  useEffect(()=>{
+    if (!extRefAtual || etapa !== "pix") return;
+    try {
+      const { query: q2, collection: col2, where: wh2, onSnapshot: snap2 } = require !== undefined ? {} : {};
+      const unsub = onSnapshot(
+        query(collection(db,"agendamentos"), where("extRef","==",extRefAtual)),
+        (snap) => {
+          snap.docs.forEach(d => {
+            if (d.data().st === "confirmado") {
+              setPagamentoConfirmado(true);
+              setEtapa("confirmado");
+            }
+          });
+        }
+      );
+      return ()=>unsub();
+    } catch(e){}
+  },[extRefAtual, etapa]);
 
   function toMin(hr){ const[h,m]=hr.split(":").map(Number); return h*60+m; }
   function toHr(min){ return Math.floor(min/60).toString().padStart(2,"0")+":"+((min%60).toString().padStart(2,"0")); }
@@ -223,6 +246,7 @@ export default function App() {
     setLoadingPag(true);
 
     const extRef = quadra.id+"-"+toDS(dia)+"-"+slot.ini+"-"+Date.now();
+    setExtRefAtual(extRef);
     const novaReserva = {
       qid: quadra.id,
       qnm: quadra.nome,
@@ -272,7 +296,35 @@ export default function App() {
     } catch(e){ console.log("Erro Firebase:", e); }
 
     const valorCobrar = parseFloat((valor * (porcPag/100)).toFixed(2));
+
+    if (metodoPag === "cartao") {
+      // Cartão → redireciona para MP
+      const resp = await fetch("/api/pagar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          metodoPagamento: "cartao",
+          quadraNome: quadra.nome,
+          quadraId: quadra.id,
+          data: toDS(dia),
+          ini: slot.ini,
+          valor: valorCobrar,
+          nome, tel, email, extRef, cpf
+        })
+      });
+      const json = await resp.json();
+      setLoadingPag(false);
+      if (json.initPoint) {
+        window.location.href = json.initPoint;
+      } else {
+        alert("Erro ao gerar link de pagamento. Tente novamente.");
+      }
+      return;
+    }
+
+    // Pix
     const pix = await gerarPixPagamento({
+      metodoPagamento: "pix",
       quadraNome: quadra.nome,
       quadraId: quadra.id,
       data: toDS(dia),
@@ -667,6 +719,20 @@ export default function App() {
           </div>
         </div>
 
+        <div style={{marginBottom:16}}>
+          <div style={{fontWeight:700,fontSize:14,color:"#1a1f2e",marginBottom:10}}>💳 Como deseja pagar?</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            {[["pix","📱 Pix","Código QR na tela"],["cartao","💳 Cartão","Redirect Mercado Pago"]].map(([m,titulo,sub])=>(
+              <div key={m} onClick={()=>setMetodoPag(m)}
+                style={{border:`2px solid ${metodoPag===m?V:"#e0e3e8"}`,borderRadius:12,padding:"14px 12px",cursor:"pointer",background:metodoPag===m?"#f0fdf4":"white",textAlign:"center",transition:"all .15s"}}>
+                <div style={{fontWeight:800,fontSize:15,color:metodoPag===m?VE:"#1a1f2e"}}>{titulo}</div>
+                <div style={{fontSize:11,color:"#6b7280",marginTop:3}}>{sub}</div>
+                {metodoPag===m&&<div style={{fontSize:16,marginTop:4,color:V}}>✓</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div onClick={()=>setCiente(v=>!v)} style={{background:ciente?"#f0fdf4":"white",border:`2px solid ${ciente?V:"#e0e3e8"}`,borderRadius:14,padding:16,marginBottom:16,cursor:"pointer",display:"flex",alignItems:"center",gap:14,transition:"all .2s"}}>
           <div style={{width:28,height:28,borderRadius:8,background:ciente?V:"#f3f4f6",border:`2px solid ${ciente?V:"#d1d5db"}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all .2s"}}>
             {ciente&&<span style={{color:"white",fontSize:16,fontWeight:700}}>✓</span>}
@@ -737,30 +803,56 @@ export default function App() {
 
   // ── TELA CONFIRMADO ──
   if (etapa === "confirmado") return (
-    <div style={{fontFamily:"system-ui,sans-serif",background:VE,minHeight:"100vh",maxWidth:480,margin:"0 auto",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32}}>
-      <div style={{textAlign:"center",marginBottom:28}}>
-        <div style={{fontSize:80,marginBottom:12}}>{quadra?.id==="q1"?"⚽":"🏐"}</div>
-        <div style={{fontWeight:800,fontSize:28,color:"white",marginBottom:8}}>Quadra Reservada!</div>
-        <div style={{color:"rgba(255,255,255,0.7)",fontSize:15}}>Bom jogo! Até lá no Complexo Melodia 🏟️</div>
+    <div style={{fontFamily:"system-ui,sans-serif",background:VE,minHeight:"100vh",maxWidth:480,margin:"0 auto",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24}}>
+      {/* Ícone de sucesso */}
+      <div style={{width:100,height:100,borderRadius:"50%",background:"rgba(255,255,255,0.15)",border:"4px solid rgba(255,255,255,0.4)",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:24}}>
+        <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+          <circle cx="26" cy="26" r="26" fill="rgba(255,255,255,0.1)"/>
+          <path d="M14 27L22 35L38 18" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
       </div>
-      <div style={{background:"rgba(255,255,255,0.12)",borderRadius:16,padding:20,width:"100%",marginBottom:20}}>
+
+      <div style={{textAlign:"center",marginBottom:28}}>
+        <div style={{fontWeight:800,fontSize:30,color:"white",marginBottom:8,letterSpacing:-0.5}}>Reserva Confirmada!</div>
+        <div style={{color:"rgba(255,255,255,0.65)",fontSize:15,lineHeight:1.5}}>
+          Seu pagamento foi aprovado.<br/>Até lá no Complexo Melodia!
+        </div>
+      </div>
+
+      <div style={{background:"rgba(255,255,255,0.1)",borderRadius:20,padding:20,width:"100%",marginBottom:20,backdropFilter:"blur(10px)"}}>
+        <div style={{fontWeight:700,fontSize:11,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:1,marginBottom:14}}>Detalhes da reserva</div>
         {[
-          ["📅 Data",nomeDia(dia)],
-          ["🕐 Horário",`${slot?.ini} às ${slot?.fim}`],
-          ["👤 Nome",nome],
-          ["📱 WhatsApp",tel],
-          ["💰 Pago agora",`R$ ${(valor*(porcPag/100)).toFixed(2)}${porcPag===50?" (50%)":""}`],
-          ...(porcPag===50?[["⏳ Na chegada",`R$ ${(valor*0.5).toFixed(2)}`]]:[]),
-          ...(sauna?[["🧖 Sauna","Confirmada"]]:[[]])
-        ].filter(x=>x[0]).map(([l,v])=>(
-          <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid rgba(255,255,255,0.1)"}}>
-            <span style={{color:"rgba(255,255,255,0.6)",fontSize:14}}>{l}</span>
-            <span style={{color:"white",fontWeight:600,fontSize:14}}>{v}</span>
+          ["📅", "Data", nomeDia(dia)],
+          ["🕐", "Horário", `${slot?.ini} às ${slot?.fim}`],
+          ["🏟️", "Quadra", quadra?.nome],
+          ["👤", "Nome", nome],
+          ...(pessoas?[["👥","Pessoas",`${pessoas} pessoas`]]:[]),
+          ["💰", "Valor pago", `R$ ${(valor*(porcPag/100)).toFixed(2)}${porcPag===50?" (50%)":""}`],
+          ...(porcPag===50?[["⏳","Na chegada",`R$ ${(valor*0.5).toFixed(2)}`]]:[]),
+          ...(sauna?[["🧖","Sauna","Confirmada"]]:[]),
+        ].filter(x=>x[0]).map(([ic,l,v])=>(
+          <div key={l} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:"1px solid rgba(255,255,255,0.08)"}}>
+            <span style={{fontSize:18,width:26,textAlign:"center",flexShrink:0}}>{ic}</span>
+            <span style={{color:"rgba(255,255,255,0.55)",fontSize:14,flex:1}}>{l}</span>
+            <span style={{color:"white",fontWeight:700,fontSize:14}}>{v}</span>
           </div>
         ))}
       </div>
-      <button onClick={()=>{setEtapa("inicio");setQuadra(null);setSlot(null);setPessoas("");setNome("");setTel("");setObs("");setValor(0);setSauna(false);setPorcPag(100);setCpf("");setDadosPix(null);}}
-        style={{background:"rgba(255,255,255,0.15)",border:"none",color:"white",padding:"14px 24px",borderRadius:12,fontSize:14,fontWeight:600,cursor:"pointer"}}>
+
+      {porcPag===50&&(
+        <div style={{background:"rgba(232,134,26,0.25)",border:"1.5px solid rgba(232,134,26,0.5)",borderRadius:14,padding:"14px 16px",width:"100%",marginBottom:16,display:"flex",gap:12,alignItems:"center"}}>
+          <span style={{fontSize:22,flexShrink:0}}>⚠️</span>
+          <div>
+            <div style={{fontWeight:700,color:"white",fontSize:14}}>Restante na chegada</div>
+            <div style={{color:"rgba(255,255,255,0.7)",fontSize:13,marginTop:2}}>
+              Pague R$ {(valor*0.5).toFixed(2)} ao chegar no complexo.
+            </div>
+          </div>
+        </div>
+      )}
+
+      <button onClick={()=>{setEtapa("inicio");setQuadra(null);setSlot(null);setPessoas("");setNome("");setTel("");setObs("");setValor(0);setSauna(false);setPorcPag(100);setCpf("");setDadosPix(null);setMetodoPag("pix");setExtRefAtual(null);}}
+        style={{background:"rgba(255,255,255,0.15)",border:"1.5px solid rgba(255,255,255,0.3)",color:"white",padding:"16px 32px",borderRadius:14,fontSize:15,fontWeight:700,cursor:"pointer",width:"100%"}}>
         Fazer outra reserva
       </button>
     </div>
