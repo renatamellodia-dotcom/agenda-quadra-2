@@ -345,6 +345,7 @@ async function cancelarAg(){
   let agFilt=[...ags].sort((a,b)=>b.data.localeCompare(a.data));
   if(filtro==="avulso"||filtro==="mensalista")agFilt=agFilt.filter(a=>a.tp===filtro);
   else if(filtro==="conf")agFilt=agFilt.filter(a=>a.st==="confirmado");
+  else if(filtro==="aguard")agFilt=agFilt.filter(a=>a.st==="aguardando_pagamento");
   else if(filtro==="canc")agFilt=agFilt.filter(a=>a.st==="cancelado");
   else if(filtro==="rec")agFilt=agFilt.filter(a=>a.pag==="pendente"&&a.st!=="cancelado");
   else if(filtro==="parcial")agFilt=agFilt.filter(a=>isParcial(a.pag)&&a.st!=="cancelado");
