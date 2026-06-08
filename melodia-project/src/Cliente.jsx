@@ -134,7 +134,10 @@ export default function App() {
 
   // Polling: verifica pagamento a cada 5s direto no backend
   const [extRefAtual, setExtRefAtual] = useState(null);
+  const [agIdAtual, setAgIdAtual] = useState(null);
   const [pagamentoIdAtual, setPagamentoIdAtual] = useState(null);
+  const [tempoRestante, setTempoRestante] = useState(300); // 5 minutos
+  const [pixExpirado, setPixExpirado] = useState(false);
   useEffect(()=>{
     if (!pagamentoIdAtual || etapa !== "pix") return;
     const interval = setInterval(async ()=>{
@@ -157,6 +160,28 @@ export default function App() {
     }, 5000);
     return ()=>clearInterval(interval);
   },[pagamentoIdAtual, etapa]);
+
+  // Countdown 5 minutos — expira agendamento se não pagar
+  useEffect(()=>{
+    if (etapa !== "pix") return;
+    setTempoRestante(300);
+    setPixExpirado(false);
+    const timer = setInterval(()=>{
+      setTempoRestante(t=>{
+        if (t <= 1) {
+          clearInterval(timer);
+          // Cancela agendamento no Firebase
+          if (agIdAtual) {
+            try { updateDoc(doc(db,"agendamentos",agIdAtual),{st:"cancelado"}); } catch(e){}
+          }
+          setPixExpirado(true);
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
+    return ()=>clearInterval(timer);
+  },[etapa]);
 
   function toMin(hr){ const[h,m]=hr.split(":").map(Number); return h*60+m; }
   function toHr(min){ return Math.floor(min/60).toString().padStart(2,"0")+":"+((min%60).toString().padStart(2,"0")); }
@@ -290,6 +315,7 @@ export default function App() {
         }
         const novoRef = doc(collection(db, "agendamentos"));
         transaction.set(novoRef, novaReserva);
+        setAgIdAtual(novoRef.id);
       });
 
       if (slotOcupado) {
@@ -758,6 +784,20 @@ export default function App() {
   );
 
   // ── TELA PIX ──
+  if (etapa === "pix" && pixExpirado) return (
+    <div style={{fontFamily:"system-ui,sans-serif",background:VE,minHeight:"100vh",maxWidth:480,margin:"0 auto",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24}}>
+      <div style={{textAlign:"center"}}>
+        <div style={{fontSize:72,marginBottom:16}}>⏱️</div>
+        <div style={{fontWeight:800,fontSize:26,color:"white",marginBottom:12}}>Tempo esgotado!</div>
+        <div style={{color:"rgba(255,255,255,0.7)",fontSize:15,marginBottom:28}}>O horário foi liberado. Tente novamente.</div>
+        <button onClick={()=>{setEtapa("inicio");setQuadra(null);setSlot(null);setPessoas("");setNome("");setTel("");setObs("");setValor(0);setSauna(false);setPorcPag(100);setCpf("");setDadosPix(null);setMetodoPag("pix");setExtRefAtual(null);setAgIdAtual(null);setPixExpirado(false);}}
+          style={{background:"rgba(255,255,255,0.15)",border:"1.5px solid rgba(255,255,255,0.3)",color:"white",padding:"16px 32px",borderRadius:14,fontSize:15,fontWeight:700,cursor:"pointer"}}>
+          Fazer nova reserva
+        </button>
+      </div>
+    </div>
+  );
+
   if (etapa === "pix") return (
     <div style={{fontFamily:"system-ui,sans-serif",background:BG,minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
       <div style={{background:VE,padding:"16px",textAlign:"center"}}>
@@ -789,6 +829,9 @@ export default function App() {
               📋 Copiar código Pix
             </button>
             <div style={{fontSize:12,color:"#6b7280"}}>Após pagar, aguarde a confirmação automática</div>
+            <div style={{fontSize:13,color:tempoRestante<=60?"#ef4444":"#6b7280",fontWeight:tempoRestante<=60?700:400,marginTop:4}}>
+              ⏱️ Expira em {Math.floor(tempoRestante/60)}:{String(tempoRestante%60).padStart(2,"0")}
+            </div>
           </div>
         ) : (
           <div style={{background:"white",borderRadius:14,padding:20,textAlign:"center",marginBottom:16}}>
