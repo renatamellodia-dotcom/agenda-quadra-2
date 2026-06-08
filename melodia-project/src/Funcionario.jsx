@@ -364,7 +364,7 @@ export default function App(){
                   💰 Receber — R$ {salAg.toFixed(2)}
                 </button>
               )}
-              {isPago(ag.pag)&&(
+              {(isPago(ag.pag)||isParcial(ag.pag))&&(
                 <button onClick={async()=>{
                   if(!window.confirm("Desfazer pagamento?"))return;
                   setEdicoes(p=>({...p,[ag.id]:{...p[ag.id],pag:"pendente"}}));
