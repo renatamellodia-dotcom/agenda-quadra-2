@@ -445,7 +445,7 @@ export default function App() {
         {[
           ["🏟️","Campo Society",""],
           ["🏖️","Quadra de Areia","Futevôlei, vôlei e beach tennis"],
-          ["🌿","Sauna","R$ 15,00 por pessoa · cobrado na chegada"],
+          ["🌿","Sauna","R$ 15,00 por pessoa ·"],
           ["🍖","Churrasqueira","Mediante reserva antecipada via WhatsApp"],
           ["🚗","Estacionamento gratuito",""],
           ["📶","Wi-Fi gratuito",""],
@@ -900,7 +900,7 @@ export default function App() {
           ...(pessoas?[["👥","Pessoas",`${pessoas} pessoas`]]:[]),
           ["💰", "Valor pago", `R$ ${(valor*(porcPag/100)).toFixed(2)}${porcPag===50?" (50%)":""}`],
           ...(porcPag===50?[["⏳","Na chegada",`R$ ${(valor*0.5).toFixed(2)}`]]:[]),
-          ...(sauna?[["🧖","Sauna","R$ 15,00 na chegada"]]:[]),
+          ...(sauna?[["🧖","Sauna","R$ 15,00"]]:[]),
         ].filter(x=>x[0]).map(([ic,l,v])=>(
           <div key={l} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:"1px solid rgba(255,255,255,0.08)"}}>
             <span style={{fontSize:18,width:26,textAlign:"center",flexShrink:0}}>{ic}</span>
