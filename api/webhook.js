@@ -8,11 +8,21 @@ export default async function handler(req, res) {
   const RENATA_TEL = "5522999008085";
 
   try {
-    const { type, data } = req.body || {};
-    if (type !== "payment" || !data?.id) return res.status(200).end();
+    const body = req.body || {};
+
+    // O MP pode enviar de dois formatos diferentes
+    // Formato 1: { type: "payment", data: { id: "123" } }
+    // Formato 2: { action: "payment.updated", data: { id: "123" } }
+    const isPayment =
+      (body.type === "payment" || body.action === "payment.updated" || body.action === "payment.created") &&
+      body.data?.id;
+
+    if (!isPayment) return res.status(200).end();
+
+    const paymentId = body.data.id;
 
     // Busca detalhes do pagamento no MP
-    const mpResp = await fetch(`https://api.mercadopago.com/v1/payments/${data.id}`, {
+    const mpResp = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
       headers: { "Authorization": `Bearer ${MP_ACCESS_TOKEN}` }
     });
     const payment = await mpResp.json();
@@ -60,7 +70,7 @@ export default async function handler(req, res) {
           fields: {
             st: { stringValue: "confirmado" },
             pag: { stringValue: payment.payment_type_id === "pix" ? "mp_pix" : "mp_cartao" },
-            pagamentoId: { stringValue: String(data.id) }
+            pagamentoId: { stringValue: String(paymentId) }
           }
         })
       }
@@ -74,7 +84,6 @@ export default async function handler(req, res) {
     const fim = fields.fim?.stringValue || "";
     const valor = fields.val?.doubleValue || fields.val?.integerValue || fields.valor?.doubleValue || "";
     const telCliente = fields.tel?.stringValue || "";
-    const emailCliente = fields.email?.stringValue || "";
 
     // WhatsApp para a Renata
     const msgRenata = encodeURIComponent(
