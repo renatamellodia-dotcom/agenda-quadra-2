@@ -832,7 +832,7 @@ export default function App(){
               </div>
             )}
             {(saldoRestante(modalD)>0||modalD.sauna)&&(
-              <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",marginTop:4,background:"#fef3c7",borderRadius:8,padding:"10px 12px",marginTop:8}}>
+              <div style={{display:"flex",justifyContent:"space-between",background:"#fef3c7",borderRadius:8,padding:"10px 12px",marginTop:8}}>
                 <span style={{fontSize:14,fontWeight:700,color:"#92400e"}}>💰 Total a cobrar no local</span>
                 <span style={{fontWeight:800,fontSize:16,color:"#92400e"}}>R$ {(saldoRestante(modalD)+(modalD.sauna?15:0)).toFixed(2)}</span>
               </div>
