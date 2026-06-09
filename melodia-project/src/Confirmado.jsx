@@ -79,7 +79,7 @@ export default function Confirmado() {
         <div style={{fontSize:64,marginBottom:16}}>⚠️</div>
         <h1 style={{fontSize:22,fontWeight:800,color:"#991b1b",marginBottom:8}}>Pagamento não confirmado</h1>
         <p style={{color:"#6b7280",fontSize:15,marginBottom:24}}>
-          Se o pagamento foi efetuado, entre em contato pelo WhatsApp para confirmarmos sua reserva.
+          Se o pagamento foi efetuado, aguarde o e-mail de confirmação ou entre em contato conosco.
         </p>
         <a href="https://wa.me/5522999008085"
           style={{display:"block",padding:"14px",background:"#16a34a",color:"white",borderRadius:12,fontSize:15,fontWeight:700,textDecoration:"none",marginBottom:12}}>
@@ -103,7 +103,7 @@ export default function Confirmado() {
         <div style={{fontWeight:800,fontSize:30,color:"white",marginBottom:8}}>Reserva Confirmada!</div>
         <div style={{color:"rgba(255,255,255,0.65)",fontSize:15,lineHeight:1.6}}>
           Tudo certo! Te esperamos no Complexo Melodia. 🎾<br/>
-          Você receberá a confirmação no WhatsApp em instantes.
+          Você receberá a confirmação por e-mail em instantes.
         </div>
       </div>
       <div style={{background:"rgba(255,255,255,0.1)",borderRadius:16,padding:"14px 24px",marginBottom:20,textAlign:"center"}}>
