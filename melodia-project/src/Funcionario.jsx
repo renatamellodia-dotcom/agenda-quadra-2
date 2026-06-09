@@ -71,6 +71,8 @@ export default function App(){
   const [novaPess,setNovaPess]=useState("");
   const [modalPag,setModalPag]=useState(null);
   const [agendamentos,setAgendamentos]=useState([]);
+  const [saunaLocal,setSaunaLocal]=useState({}); // controle local da sauna por reserva
+  const [recebidoHoje,setRecebidoHoje]=useState(0); // acumulador de recebimentos do dia
 
   useEffect(()=>{
     try {
@@ -104,7 +106,16 @@ export default function App(){
 
   function getAg(id){
     const ag=agendamentos.find(x=>x.id===id);
-    return{...ag,...(edicoes[id]||{})};
+    const base={...ag,...(edicoes[id]||{})};
+    // Aplicar override local de sauna se existir
+    if(saunaLocal[id]!==undefined) base.sauna=saunaLocal[id];
+    return base;
+  }
+
+  // Toggle sauna local + atualiza Firebase
+  async function toggleSauna(id, novoValor){
+    setSaunaLocal(p=>({...p,[id]:novoValor}));
+    try{ await updateDoc(doc(db,"agendamentos",id),{sauna:novoValor}); }catch(e){}
   }
 
   function calcAreia(pess, slots){
@@ -135,9 +146,12 @@ export default function App(){
   }
 
   async function confirmarFormaPag(id,tipo){
+    const agE=getAg(id);
+    const valorRecebido=saldo(agE)+(agE.sauna?15:0);
     // Atualização local imediata — sem precisar recarregar
     setEdicoes(p=>({...p,[id]:{...p[id],pag:tipo}}));
     setFinalizados(p=>[...p,id]);
+    setRecebidoHoje(r=>r+valorRecebido);
     setModalPag(null);
     tocarSom();
     // Persiste no Firebase em background
@@ -247,18 +261,27 @@ export default function App(){
       {/* TOTAL A RECEBER */}
       {agsDia.length>0&&(()=>{
         const aCobrar=agsDia.filter(a=>!isPago(getAg(a.id).pag)&&!finalizados.includes(a.id)).reduce((s,a)=>{const ag=getAg(a.id);return s+saldo(ag)+(ag.sauna?15:0);},0);
-        const saunaHoje=agsDia.filter(a=>getAg(a.id).sauna).length;
+        const saunaPrevistoHoje=agsDia.filter(a=>getAg(a.id).sauna).length;
         return(
           <div style={{background:VE,padding:"0 16px 14px"}}>
-            {aCobrar>0?(
-              <div style={{background:"rgba(234,179,8,0.2)",border:"1px solid rgba(234,179,8,0.4)",borderRadius:10,padding:"16px",textAlign:"center"}}>
-                <div style={{fontSize:13,color:"rgba(255,255,255,0.7)",fontWeight:700,marginBottom:4,textTransform:"uppercase",letterSpacing:1}}>💰 FALTA RECEBER HOJE</div>
-                <div style={{fontWeight:900,fontSize:36,color:"#fde68a"}}>R$ {aCobrar.toFixed(2)}</div>
-                {saunaHoje>0&&<div style={{marginTop:8,fontSize:13,color:"rgba(255,255,255,0.7)",fontWeight:600}}>🧖‍♂️ {saunaHoje} reserva{saunaHoje>1?"s":"" } com sauna hoje</div>}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+              <div style={{background:"rgba(34,197,94,0.15)",border:"1px solid rgba(34,197,94,0.3)",borderRadius:10,padding:"12px",textAlign:"center"}}>
+                <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",fontWeight:600,marginBottom:3,textTransform:"uppercase",letterSpacing:0.5}}>💰 Recebido hoje</div>
+                <div style={{fontWeight:800,fontSize:22,color:"#86efac"}}>R$ {recebidoHoje.toFixed(2)}</div>
               </div>
-            ):(
-              <div style={{background:"rgba(34,197,94,0.15)",border:"1px solid rgba(34,197,94,0.3)",borderRadius:10,padding:"14px 16px",textAlign:"center"}}>
-                <div style={{fontWeight:700,fontSize:15,color:"#86efac"}}>✅ Tudo cobrado! Bom trabalho.</div>
+              <div style={{background:"rgba(234,179,8,0.2)",border:"1px solid rgba(234,179,8,0.4)",borderRadius:10,padding:"12px",textAlign:"center"}}>
+                <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",fontWeight:600,marginBottom:3,textTransform:"uppercase",letterSpacing:0.5}}>🟡 Falta receber</div>
+                <div style={{fontWeight:800,fontSize:22,color:"#fde68a"}}>R$ {aCobrar.toFixed(2)}</div>
+              </div>
+            </div>
+            {saunaPrevistoHoje>0&&(
+              <div style={{background:"rgba(255,255,255,0.08)",borderRadius:8,padding:"8px 12px",textAlign:"center"}}>
+                <span style={{fontSize:13,color:"rgba(255,255,255,0.7)",fontWeight:600}}>🧖‍♂️ Sauna prevista: {saunaPrevistoHoje} reserva{saunaPrevistoHoje>1?"s":""} hoje</span>
+              </div>
+            )}
+            {aCobrar===0&&recebidoHoje===0&&(
+              <div style={{background:"rgba(34,197,94,0.15)",border:"1px solid rgba(34,197,94,0.3)",borderRadius:10,padding:"10px",textAlign:"center"}}>
+                <span style={{fontWeight:700,fontSize:14,color:"#86efac"}}>✅ Tudo cobrado! Bom trabalho.</span>
               </div>
             )}
           </div>
@@ -317,12 +340,14 @@ export default function App(){
                     <span onClick={()=>setAberto(a.id)} style={{fontSize:13,fontWeight:600,color:"#374151",background:"#f3f4f6",padding:"4px 10px",borderRadius:20,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
                       👥 {agE.pess||"—"} pessoas <span style={{fontSize:11,color:"#9ca3af"}}>✏️</span>
                     </span>
-                    <span style={{fontSize:13,fontWeight:700,
-                      color:agE.sauna?"#065f46":"#9ca3af",
-                      background:agE.sauna?"#f0fdf4":"#f9fafb",
-                      padding:"4px 10px",borderRadius:20}}>
-                      🧖‍♂️ Sauna: {agE.sauna?"Sim ✅":"Não"}
-                    </span>
+                    <button onClick={()=>toggleSauna(a.id,!agE.sauna)}
+                      style={{fontSize:13,fontWeight:700,border:"none",cursor:"pointer",
+                        color:agE.sauna?"#065f46":"#9ca3af",
+                        background:agE.sauna?"#dcfce7":"#f3f4f6",
+                        padding:"4px 12px",borderRadius:20,
+                        outline:"none",transition:"all .2s"}}>
+                      🧖‍♂️ Sauna: {agE.sauna?"SIM ✅":"NÃO — toque p/ ativar"}
+                    </button>
                   </div>
                   {/* Breakdown financeiro */}
                   <div style={{background:"#f9fafb",borderRadius:10,padding:"8px 12px",fontSize:13}}>
