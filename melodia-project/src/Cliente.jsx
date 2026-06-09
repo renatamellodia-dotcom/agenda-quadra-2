@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, onSnapshot, query, where, runTransaction, doc, getDocs } from "firebase/firestore";
+import { getFirestore, collection, addDoc, onSnapshot, query, where, runTransaction, doc, getDocs, setDoc, updateDoc } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAX5kKNmUsqs6g0eD_wpbRAalcu1A8ViWI",
@@ -111,6 +111,8 @@ export default function App() {
   const [cpf, setCpf] = useState("");
   const [email, setEmail] = useState("");
   const [erros, setErros] = useState({});
+  const [clienteEncontrado, setClienteEncontrado] = useState(null); // dados do cliente salvo
+  const [buscandoCliente, setBuscandoCliente] = useState(false);
   const [ciente, setCiente] = useState(false);
   const [loadingPag, setLoadingPag] = useState(false);
   const [porcPag, setPorcPag] = useState(100);
@@ -173,7 +175,7 @@ export default function App() {
             });
           } catch(e){}
           setPagamentoConfirmado(true);
-          setEtapa("confirmado");
+          irParaEtapa("confirmado");
         }
       } catch(e){}
     }, 5000);
@@ -230,6 +232,12 @@ export default function App() {
     });
   }
 
+  // Scroll para o topo ao mudar de etapa
+  function irParaEtapa(etapa) {
+    setEtapa(etapa);
+    window.scrollTo(0, 0);
+  }
+
   function confirmarSlots() {
     if (slotsSel.length === 0) return;
     const sorted = [...slotsSel].sort();
@@ -279,7 +287,7 @@ export default function App() {
     if (!pessoas || parseInt(pessoas) < 1) return;
     const v = calcValor(quadra, pessoas);
     setValor(v);
-    setEtapa("form");
+    irParaEtapa("form");
   }
 
   function confirmarReserva() {
@@ -291,7 +299,47 @@ export default function App() {
     if (Object.keys(errsNovos).length > 0) { setErros(errsNovos); return; }
     setErros({});
     setCiente(false);
-    setEtapa("regras");
+    irParaEtapa("regras");
+  }
+
+  // Busca cliente salvo por telefone ou email
+  async function buscarCliente(campo, valor) {
+    if (!valor || valor.replace(/\D/g,"").length < 8) return;
+    setBuscandoCliente(true);
+    try {
+      // Busca por telefone ou email nos agendamentos anteriores
+      const q = query(
+        collection(db, "agendamentos"),
+        where(campo === "tel" ? "tel" : "email", "==", valor.trim())
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        // Pega o agendamento mais recente
+        const docs = snap.docs.map(d => d.data()).filter(d => d.cli && d.cli.trim());
+        if (docs.length > 0) {
+          const cliente = docs[docs.length - 1];
+          setClienteEncontrado({
+            nome: cliente.cli || "",
+            tel: cliente.tel || "",
+            email: cliente.email || "",
+            cpf: cliente.cpf || ""
+          });
+          // Preenche os campos automaticamente
+          if (campo === "tel") {
+            setNome(cliente.cli || "");
+            setEmail(cliente.email || "");
+            setCpf(cliente.cpf || "");
+          } else {
+            setNome(cliente.cli || "");
+            setTel(cliente.tel || "");
+            setCpf(cliente.cpf || "");
+          }
+        }
+      } else {
+        setClienteEncontrado(null);
+      }
+    } catch(e) { console.log("Erro busca cliente:", e); }
+    setBuscandoCliente(false);
   }
 
   async function confirmarRegras() {
@@ -343,7 +391,7 @@ export default function App() {
 
       if (slotOcupado) {
         alert("⚠️ Este horário acabou de ser reservado. Por favor, escolha outro.");
-        setEtapa("horario");
+        irParaEtapa("horario");
         setLoadingPag(false);
         return;
       }
@@ -390,9 +438,9 @@ export default function App() {
     if (pix) {
       setDadosPix(pix);
       setPagamentoIdAtual(pix.pagamentoId);
-      setEtapa("pix");
+      irParaEtapa("pix");
     } else {
-      setEtapa("pix");
+      irParaEtapa("pix");
     }
   }
 
@@ -502,7 +550,7 @@ export default function App() {
 
       <div id="secaoReserva" style={{padding:"0 16px 16px"}}>
         {QUADRAS.map(q=>(
-          <div key={q.id} onClick={()=>{setQuadra(q);setEtapa("horario");}}
+          <div key={q.id} onClick={()=>{setQuadra(q);irParaEtapa("horario");}}
             style={{background:"white",borderRadius:14,padding:"18px 16px",marginBottom:12,cursor:"pointer",display:"flex",alignItems:"center",gap:14,boxShadow:"0 4px 20px rgba(0,0,0,0.2)"}}>
             <div style={{width:52,height:52,borderRadius:12,background:q.cor,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,flexShrink:0}}>
               {q.id==="q1"?"⚽":"🏐"}
@@ -537,7 +585,7 @@ export default function App() {
   if (etapa === "horario") return (
     <div style={{fontFamily:"system-ui,sans-serif",background:BG,minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
       <div style={{background:VE,padding:"16px",display:"flex",alignItems:"center",gap:12,position:"sticky",top:0,zIndex:10}}>
-        <button onClick={()=>setEtapa("inicio")} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"white",width:36,height:36,borderRadius:8,cursor:"pointer",fontSize:18}}>‹</button>
+        <button onClick={()=>irParaEtapa("inicio")} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"white",width:36,height:36,borderRadius:8,cursor:"pointer",fontSize:18}}>‹</button>
         <div>
           <div style={{fontWeight:700,color:"white",fontSize:16}}>{quadra.nome}</div>
           <div style={{color:"rgba(255,255,255,0.6)",fontSize:12}}>{quadra.tipo}</div>
@@ -628,7 +676,7 @@ export default function App() {
   if (etapa === "pessoas") return (
     <div style={{fontFamily:"system-ui,sans-serif",background:BG,minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
       <div style={{background:VE,padding:"16px",display:"flex",alignItems:"center",gap:12}}>
-        <button onClick={()=>setEtapa("horario")} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"white",width:36,height:36,borderRadius:8,cursor:"pointer",fontSize:18}}>‹</button>
+        <button onClick={()=>irParaEtapa("horario")} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"white",width:36,height:36,borderRadius:8,cursor:"pointer",fontSize:18}}>‹</button>
         <div style={{fontWeight:700,color:"white",fontSize:16}}>Quantas pessoas?</div>
       </div>
       <div style={{padding:24}}>
@@ -679,6 +727,20 @@ export default function App() {
             <div style={{fontWeight:800,fontSize:20,color:VE}}>R${valor.toFixed(0)}</div>
           </div>
         </div>
+        {clienteEncontrado&&(
+          <div style={{background:"#f0fdf4",border:"2px solid #86efac",borderRadius:14,padding:"14px 16px",marginBottom:14,display:"flex",alignItems:"center",gap:12}}>
+            <div style={{fontSize:32}}>👋</div>
+            <div>
+              <div style={{fontWeight:800,fontSize:16,color:"#065f46"}}>Olá, {clienteEncontrado.nome.split(" ")[0]}!</div>
+              <div style={{fontSize:13,color:"#16a34a",marginTop:2}}>Seus dados foram preenchidos automaticamente.</div>
+            </div>
+          </div>
+        )}
+        {buscandoCliente&&(
+          <div style={{background:"#f0f9ff",borderRadius:10,padding:"10px 14px",marginBottom:12,fontSize:13,color:"#0369a1"}}>
+            🔍 Buscando seu cadastro...
+          </div>
+        )}
         <div style={{background:"white",borderRadius:14,padding:16,boxShadow:"0 2px 12px rgba(0,0,0,0.08)",marginBottom:16}}>
           <div style={{marginBottom:14}}>
             <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase",letterSpacing:0.5}}>Seu nome *</label>
@@ -687,7 +749,7 @@ export default function App() {
           </div>
           <div style={{marginBottom:14}}>
             <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase",letterSpacing:0.5}}>WhatsApp *</label>
-            <input type="tel" style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}} value={tel} onChange={e=>setTel(e.target.value)} placeholder="(22) 9xxxx-xxxx"/>
+            <input type="tel" style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}} value={tel} onChange={e=>{setTel(e.target.value);setClienteEncontrado(null);}} onBlur={e=>buscarCliente("tel",e.target.value)} placeholder="(22) 9xxxx-xxxx"/>
           </div>
           <div style={{marginBottom:14}}>
             <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase",letterSpacing:0.5}}>CPF (para nota fiscal)</label>
@@ -696,7 +758,7 @@ export default function App() {
           </div>
           <div style={{marginBottom:14}}>
             <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase"}}>E-MAIL *</label>
-            <input type="email" style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}} value={email} onChange={e=>{setEmail(e.target.value);setErros(v=>({...v,email:null}));}} placeholder="seu@email.com"/>
+            <input type="email" style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}} value={email} onChange={e=>{setEmail(e.target.value);setErros(v=>({...v,email:null}));setClienteEncontrado(null);}} onBlur={e=>buscarCliente("email",e.target.value)} placeholder="seu@email.com"/>
             {erros.email && <div style={{color:"#ef4444",fontSize:12,marginTop:4}}>⚠️ {erros.email}</div>}
           </div>
           <div style={{background:sauna?"#f0fdf4":"white",border:`1.5px solid ${sauna?"#86efac":"#e0e3e8"}`,borderRadius:10,padding:"12px 14px",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",transition:"all .2s"}} onClick={()=>setSauna(v=>!v)}>
@@ -726,7 +788,7 @@ export default function App() {
   if (etapa === "regras") return (
     <div style={{fontFamily:"system-ui,sans-serif",background:BG,minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
       <div style={{background:VE,padding:"16px",display:"flex",alignItems:"center",gap:12,position:"sticky",top:0,zIndex:10}}>
-        <button onClick={()=>setEtapa("form")} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"white",width:36,height:36,borderRadius:8,cursor:"pointer",fontSize:18}}>‹</button>
+        <button onClick={()=>irParaEtapa("form")} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"white",width:36,height:36,borderRadius:8,cursor:"pointer",fontSize:18}}>‹</button>
         <div style={{fontWeight:700,color:"white",fontSize:16}}>Regras de Uso</div>
       </div>
       <div style={{padding:16}}>
@@ -815,7 +877,7 @@ export default function App() {
         <div style={{fontSize:72,marginBottom:16}}>⏱️</div>
         <div style={{fontWeight:800,fontSize:26,color:"white",marginBottom:12}}>Tempo esgotado!</div>
         <div style={{color:"rgba(255,255,255,0.7)",fontSize:15,marginBottom:28}}>O horário foi liberado. Tente novamente.</div>
-        <button onClick={()=>{setEtapa("inicio");setQuadra(null);setSlot(null);setPessoas("");setNome("");setTel("");setObs("");setValor(0);setSauna(false);setPorcPag(100);setCpf("");setDadosPix(null);setMetodoPag("pix");setExtRefAtual(null);setAgIdAtual(null);setPixExpirado(false);}}
+        <button onClick={()=>{irParaEtapa("inicio");setQuadra(null);setSlot(null);setPessoas("");setNome("");setTel("");setObs("");setValor(0);setSauna(false);setPorcPag(100);setCpf("");setDadosPix(null);setMetodoPag("pix");setExtRefAtual(null);setClienteEncontrado(null);setAgIdAtual(null);setPixExpirado(false);}}
           style={{background:"rgba(255,255,255,0.15)",border:"1.5px solid rgba(255,255,255,0.3)",color:"white",padding:"16px 32px",borderRadius:14,fontSize:15,fontWeight:700,cursor:"pointer"}}>
           Fazer nova reserva
         </button>
@@ -925,7 +987,7 @@ export default function App() {
         </div>
       )}
 
-      <button onClick={()=>{setEtapa("inicio");setQuadra(null);setSlot(null);setPessoas("");setNome("");setTel("");setObs("");setValor(0);setSauna(false);setPorcPag(100);setCpf("");setDadosPix(null);setMetodoPag("pix");setExtRefAtual(null);}}
+      <button onClick={()=>{irParaEtapa("inicio");setQuadra(null);setSlot(null);setPessoas("");setNome("");setTel("");setObs("");setValor(0);setSauna(false);setPorcPag(100);setCpf("");setDadosPix(null);setMetodoPag("pix");setExtRefAtual(null);setClienteEncontrado(null);}}
         style={{background:"rgba(255,255,255,0.15)",border:"1.5px solid rgba(255,255,255,0.3)",color:"white",padding:"16px 32px",borderRadius:14,fontSize:15,fontWeight:700,cursor:"pointer",width:"100%"}}>
         Fazer outra reserva
       </button>
