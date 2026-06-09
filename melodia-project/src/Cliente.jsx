@@ -526,14 +526,14 @@ export default function App() {
             <span style={{color:"rgba(255,255,255,0.8)",fontSize:14}}>🕒 Segunda a sexta</span>
             <span style={{color:"white",fontWeight:700,fontSize:14}}>16h às 23h</span>
           </div>
-          <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:3}}>🌿 Sauna: 18h às 22h</div>
+          <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:3}}>🧖‍♂️ Sauna: 18h às 22h</div>
         </div>
         <div style={{padding:"8px 0"}}>
           <div style={{display:"flex",justifyContent:"space-between"}}>
             <span style={{color:"rgba(255,255,255,0.8)",fontSize:14}}>🕒 Sábado e domingo</span>
             <span style={{color:"white",fontWeight:700,fontSize:14}}>9h às 18h</span>
           </div>
-          <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:3}}>🌿 Sauna: 10h às 17h</div>
+          <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:3}}>🧖‍♂️ Sauna: 10h às 17h</div>
         </div>
       </div>
 
@@ -570,15 +570,25 @@ export default function App() {
         <div style={{background:"rgba(255,255,255,0.08)",borderRadius:10,padding:"10px 14px",marginBottom:8}}>
           <div style={{fontWeight:700,color:"white",fontSize:14,marginBottom:2}}>Churrasqueira 1 e Churrasqueira 2</div>
           <div style={{color:"rgba(255,255,255,0.7)",fontSize:13,lineHeight:1.5,marginBottom:10}}>
-            Disponíveis para os clientes do Campo Society aproveitarem a resenha pós-pelada.
+            Disponíveis para os clientes do Campo Society aproveitarem a resenha pós-jogo, mediante disponibilidade.
             <br/><br/>
-            <span style={{color:"#fde68a"}}>⚠️</span> Reservas para churrasco com mais de 15 pessoas caracterizam evento e possuem condições específicas de utilização.
+            <span style={{color:"#fde68a"}}>⚠️</span> Confraternizações com 16 ou mais pessoas são consideradas eventos e possuem regras e valores específicos de utilização.
             <br/><br/>
-            📲 Consulte a disponibilidade pelo WhatsApp.
+            📲 Consulte a disponibilidade e faça sua reserva pelo WhatsApp.
           </div>
-          <a href={`https://wa.me/${WPP}?text=Olá! Gostaria de verificar a disponibilidade das churrasqueiras.`}
+          <div style={{borderTop:"1px solid rgba(255,255,255,0.15)",margin:"12px 0",paddingTop:12}}>
+            <div style={{fontWeight:700,color:"white",fontSize:14,marginBottom:6}}>🏖️ Churrasqueira Exclusiva da Areia</div>
+            <div style={{color:"rgba(255,255,255,0.7)",fontSize:13,lineHeight:1.5,marginBottom:10}}>
+              Inclusa na locação da Quadra de Areia em reservas com mínimo de 5 horas.
+              <br/><br/>
+              <span style={{color:"#fde68a"}}>⏱️</span> Reservas da Quadra de Areia com menos de 5 horas podem utilizar as churrasqueiras superiores mediante disponibilidade, desde que a locação seja de no mínimo 2 horas.
+              <br/><br/>
+              📲 Consulte a disponibilidade pelo WhatsApp.
+            </div>
+          </div>
+          <a href={`https://wa.me/${WPP}?text=Olá! Gostaria de reservar uma churrasqueira.`}
             style={{display:"inline-flex",alignItems:"center",gap:8,background:LA,color:"white",padding:"9px 16px",borderRadius:10,fontSize:13,fontWeight:700,textDecoration:"none"}}>
-            💬 Verificar disponibilidade
+            🍖 Reservar Churrasqueira
           </a>
         </div>
         <div style={{background:"rgba(255,255,255,0.08)",borderRadius:10,padding:"10px 14px"}}>
@@ -824,7 +834,7 @@ export default function App() {
             <div>
               <div style={{fontWeight:700,fontSize:14,color:"#1a1f2e"}}>🧖 Banho de Sauna</div>
               <div style={{fontSize:12,color:"#6b7280",marginTop:2}}>Seg–Sex 18h–22h · Sáb–Dom 10h–17h</div>
-              <div style={{fontSize:12,color:"#16a34a",fontWeight:700,marginTop:3}}>+ R$ 15,00</div>
+              <div style={{fontSize:12,color:"#16a34a",fontWeight:700,marginTop:3}}>+ R$ 15,00 </div>
             </div>
             <div style={{width:44,height:24,borderRadius:12,background:sauna?"#2E7D6B":"#e0e3e8",position:"relative",transition:"background .2s",flexShrink:0}}>
               <div style={{position:"absolute",width:18,height:18,borderRadius:"50%",background:"white",top:3,left:sauna?23:3,transition:"left .2s"}}/>
