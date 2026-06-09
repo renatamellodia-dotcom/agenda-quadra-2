@@ -408,8 +408,18 @@ export default function App() {
         );
         const snap = await getDocs(q);
         if (!snap.empty) {
-          slotOcupado = true;
-          return;
+          // Verificar se algum aguardando ainda está dentro do prazo de 5 min
+          const agora = Date.now();
+          const bloqueante = snap.docs.find(d => {
+            const data = d.data();
+            if (data.st === "confirmado") return true;
+            if (data.st === "aguardando_pagamento") {
+              const criadoEm = data.criadoEm;
+              return typeof criadoEm === "number" && (agora - criadoEm) < 5 * 60 * 1000;
+            }
+            return false;
+          });
+          if (bloqueante) { slotOcupado = true; return; }
         }
         const novoRef = doc(collection(db, "agendamentos"));
         transaction.set(novoRef, novaReserva);
@@ -471,8 +481,17 @@ export default function App() {
     }
   }
 
-  // Só considera ocupado horários confirmados (não aguardando pagamento)
-  const ocupadosDia = reservas.filter(r => r.qid === quadra?.id && r.data === toDS(dia) && r.st === "confirmado");
+  // Considera ocupado: confirmados + aguardando_pagamento criados há menos de 5 min
+  const cincoMinAtras = Date.now() - 5 * 60 * 1000;
+  const ocupadosDia = reservas.filter(r => {
+    if (r.qid !== quadra?.id || r.data !== toDS(dia)) return false;
+    if (r.st === "confirmado") return true;
+    if (r.st === "aguardando_pagamento") {
+      const criadoEm = r.criadoEm;
+      if (typeof criadoEm === "number" && criadoEm > cincoMinAtras) return true;
+    }
+    return false;
+  });
 
   function isOcupado(hr) {
     return ocupadosDia.some(r => r.ini <= hr && r.fim > hr);
@@ -523,7 +542,7 @@ export default function App() {
         {[
           ["🏟️","Campo Society",""],
           ["🏖️","Quadra de Areia","Futevôlei, vôlei e beach tennis"],
-          ["🌿","Sauna","R$ 15,00 por pessoa"],
+          ["🌿","Sauna","R$ 15,00 por pessoa · cobrado na chegada"],
           ["🍖","Churrasqueira","Mediante reserva antecipada via WhatsApp"],
           ["🚗","Estacionamento gratuito",""],
           ["📶","Wi-Fi gratuito",""],
@@ -801,7 +820,7 @@ export default function App() {
             <div>
               <div style={{fontWeight:700,fontSize:14,color:"#1a1f2e"}}>🧖 Banho de Sauna</div>
               <div style={{fontSize:12,color:"#6b7280",marginTop:2}}>Seg–Sex 18h–22h · Sáb–Dom 10h–17h</div>
-              <div style={{fontSize:12,color:"#16a34a",fontWeight:700,marginTop:3}}>R$ 15,00</div>
+              <div style={{fontSize:12,color:"#16a34a",fontWeight:700,marginTop:3}}>+ R$ 15,00 cobrado na chegada</div>
             </div>
             <div style={{width:44,height:24,borderRadius:12,background:sauna?"#2E7D6B":"#e0e3e8",position:"relative",transition:"background .2s",flexShrink:0}}>
               <div style={{position:"absolute",width:18,height:18,borderRadius:"50%",background:"white",top:3,left:sauna?23:3,transition:"left .2s"}}/>
