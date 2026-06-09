@@ -402,6 +402,19 @@ export default function App(){
           if(ag._hist) return s+ag._hist.filter(h=>h.tipo==="mp_total_dinheiro").reduce((t,h)=>t+h.valor,0);
           return s;
         },0);
+        // Por quadra e sauna — soma do que já foi recebido (presencial+online) por categoria
+        const recebSociety=agsDia.filter(a=>getAg(a.id).qid==="q1").reduce((s,a)=>{
+          const ag=getAg(a.id); return s+pagoPeloSite(ag)+(ag._hist||[]).reduce((t,h)=>t+h.valor,0)
+            +(isPagoPresencial(ag.pag)?(ag._valOriginal||ag.val||0)-saldo(ag):0);},0);
+        const recebAreia=agsDia.filter(a=>getAg(a.id).qid==="q2").reduce((s,a)=>{
+          const ag=getAg(a.id); return s+pagoPeloSite(ag)+(ag._hist||[]).reduce((t,h)=>t+h.valor,0)
+            +(isPagoPresencial(ag.pag)?(ag._valOriginal||ag.val||0)-saldo(ag):0);},0);
+        const recebSauna=agsDia.reduce((s,a)=>{
+          const ag=getAg(a.id);
+          if(!ag.sauna) return s;
+          if(isPago(ag.pag)||isPagoPresencial(ag.pag)) return s+valSauna(ag);
+          return s;
+        },0);
 
         const saunaHoje=agsDia.filter(a=>getAg(a.id).sauna).length;
         const proximaSauna=agsDia.filter(a=>getAg(a.id).sauna).sort((a,b)=>a.ini.localeCompare(b.ini))[0];
@@ -412,11 +425,14 @@ export default function App(){
           <div style={{background:VE,padding:"0 16px 14px"}}>
             <div style={{background:"rgba(255,255,255,0.07)",borderRadius:12,overflow:"hidden"}}>
               {[
-                {label:"💰 Recebido hoje",    val:`R$ ${recebidoHojeCalc.toFixed(2)}`,    cor:"#86efac"},
-                {label:"🟡 Falta receber hoje", val:`R$ ${aCobrar.toFixed(2)}`,          cor:"#fde68a"},
-                {label:"💳 Recebido em máquina", val:`R$ ${maquinaCalc.toFixed(2)}`,     cor:"white"},
-                {label:"💵 Recebido em dinheiro", val:`R$ ${dinheiroCalc.toFixed(2)}`,   cor:"white"},
-                {label:"🔥 Sauna prevista hoje", val:labelSauna, cor:saunaHoje>0?"#fde68a":"#6b7280"},
+                {label:"💰 Recebido hoje",       val:`R$ ${recebidoHojeCalc.toFixed(2)}`,  cor:"#86efac"},
+                {label:"🟡 Falta receber hoje",  val:`R$ ${aCobrar.toFixed(2)}`,          cor:"#fde68a"},
+                {label:"💳 Recebido em máquina", val:`R$ ${maquinaCalc.toFixed(2)}`,      cor:"rgba(255,255,255,0.85)"},
+                {label:"💵 Recebido em dinheiro",val:`R$ ${dinheiroCalc.toFixed(2)}`,     cor:"rgba(255,255,255,0.85)"},
+                {label:"⚽ Campo Society",        val:`R$ ${recebSociety.toFixed(2)}`,     cor:"rgba(255,255,255,0.85)"},
+                {label:"🏐 Quadra de Areia",      val:`R$ ${recebAreia.toFixed(2)}`,       cor:"rgba(255,255,255,0.85)"},
+                {label:"🧖 Sauna recebida",       val:`R$ ${recebSauna.toFixed(2)}`,       cor:"rgba(255,255,255,0.85)"},
+                {label:"🔥 Sauna prevista hoje",  val:labelSauna, cor:saunaHoje>0?"#fde68a":"rgba(255,255,255,0.4)"},
               ].map(({label,val,cor},i)=>(
                 <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",borderBottom:"1px solid rgba(255,255,255,0.07)"}}>
                   <span style={{fontSize:13,color:"rgba(255,255,255,0.75)",fontWeight:500}}>{label}</span>
@@ -555,23 +571,37 @@ export default function App(){
                     </div>
                   </div>
                   {/* Breakdown financeiro */}
-                  <div style={{background:"#f9fafb",borderRadius:10,overflow:"hidden",fontSize:13}}>
-                    {[
-                      {label:"Valor total",   val:`R$ ${(agE.val||0).toFixed(2)}`,          cor:"#1a1f2e", sempre:true},
-                      {label:"Pago online",   val:`R$ ${pagoPeloSite(agE).toFixed(2)}`,      cor:"#2E7D6B", sempre:pagoPeloSite(agE)>0},
-                      {label:`Sauna (${agE.saunaQtd||1}× R$15)`, val:`R$ ${valSauna(agE).toFixed(2)}`, cor:"#374151", sempre:!!agE.sauna},
-                    ].filter(r=>r.sempre).map(({label,val,cor},i)=>(
-                      <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 12px",borderBottom:"1px solid #e0e3e8"}}>
-                        <span style={{color:"#6b7280"}}>{label}</span>
-                        <span style={{fontWeight:700,color:cor}}>{val}</span>
+                  {(()=>{
+                    const nomeModalidade=agE.qid==="q2"?"🏐 Quadra de Areia":"⚽ Campo Society";
+                    const valQuadra=agE.val||0;
+                    const valSaunaR=valSauna(agE);
+                    const valTotal=valQuadra+valSaunaR;
+                    const valOnline=pagoPeloSite(agE);
+                    const valPresencial=(agE._hist||[]).reduce((t,h)=>t+h.valor,0)+(isPagoPresencial(agE.pag)?valTotal-valOnline:0);
+                    const linhas=[
+                      {label:nomeModalidade,      val:valQuadra,      cor:"#1a1f2e", show:true},
+                      {label:`🧖 Sauna (${agE.saunaQtd||1}×)`, val:valSaunaR, cor:"#374151", show:!!agE.sauna},
+                      {label:"Total",             val:valTotal,       cor:"#1a1f2e", show:true, bold:true},
+                      {label:"Pago online",       val:-valOnline,     cor:"#2E7D6B", show:valOnline>0},
+                      {label:"Recebido aqui",     val:-valPresencial, cor:"#1d4ed8", show:valPresencial>0},
+                    ];
+                    return(
+                      <div style={{background:"#f9fafb",borderRadius:10,overflow:"hidden",fontSize:13}}>
+                        {linhas.filter(l=>l.show).map(({label,val,cor,bold},i)=>(
+                          <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 12px",borderBottom:"1px solid #e0e3e8"}}>
+                            <span style={{color:"#6b7280",fontWeight:bold?700:400}}>{label}</span>
+                            <span style={{fontWeight:bold?800:700,color:cor}}>{val<0?`− R$ ${Math.abs(val).toFixed(2)}`:`R$ ${val.toFixed(2)}`}</span>
+                          </div>
+                        ))}
+                        <div style={{display:"flex",justifyContent:"space-between",padding:"9px 12px",background:totalCobrar>0?"#f0fdf4":"#f9fafb"}}>
+                          <span style={{fontWeight:700,color:"#374151"}}>Falta receber</span>
+                          <span style={{fontWeight:800,color:totalCobrar>0?"#16a34a":"#9ca3af",fontSize:15}}>
+                            {totalCobrar>0?`R$ ${totalCobrar.toFixed(2)}`:"✅ Quitado"}
+                          </span>
+                        </div>
                       </div>
-                    ))}
-                    <div style={{display:"flex",justifyContent:"space-between",padding:"9px 12px",background:totalCobrar>0?"#f0fdf4":"#f9fafb"}}>
-                      <span style={{fontWeight:700,color:"#374151"}}>Falta receber</span>
-                      <span style={{fontWeight:800,color:totalCobrar>0?"#16a34a":"#9ca3af",fontSize:15}}>
-                        {totalCobrar>0?`R$ ${totalCobrar.toFixed(2)}`:"✅ Quitado"}
-                      </span>
-                    </div>
+                    );
+                  })()}
                     {/* Desfazer último pagamento parcial */}
                     {agE._hist&&agE._hist.length>0&&totalCobrar>0&&(()=>{
                       const ultimo=agE._hist[agE._hist.length-1];
