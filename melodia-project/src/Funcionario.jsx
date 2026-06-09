@@ -28,6 +28,14 @@ function nomeDia(d){
 function isPago(p){return["mp_total","mp_total_pix","mp_total_cartao","mp_total_dinheiro","pix_total","cartao_total","pago_total","dinheiro","mp_pix","mp_cartao"].includes(p);}
 function isParcial(p){return["mp_50","pix_50","cartao_50","pago_50"].includes(p);}
 function saldo(ag){if(isPago(ag.pag))return 0;if(isParcial(ag.pag))return(ag.val||0)*0.5;return ag.val||0;}
+function pagoPeloSite(ag){
+  if(!ag) return 0;
+  const val=parseFloat(ag.val)||0;
+  const pag=ag.pag||"";
+  if(["mp_pix","mp_cartao","mp_total"].includes(pag)) return val;
+  if(pag==="mp_50") return val*0.5;
+  return 0;
+}
 function labelPag(p){
   if(p==="mp_pix"||p==="mp_total_pix") return "✅ Pago — Pix";
   if(p==="mp_cartao"||p==="mp_total_cartao") return "✅ Pago — Cartão";
@@ -236,12 +244,14 @@ export default function App(){
       {/* TOTAL A RECEBER */}
       {agsDia.length>0&&(()=>{
         const aCobrar=agsDia.filter(a=>!isPago(getAg(a.id).pag)&&!finalizados.includes(a.id)).reduce((s,a)=>{const ag=getAg(a.id);return s+saldo(ag)+(ag.sauna?15:0);},0);
+        const saunaHoje=agsDia.filter(a=>getAg(a.id).sauna).length;
         return(
           <div style={{background:VE,padding:"0 16px 14px"}}>
             {aCobrar>0?(
               <div style={{background:"rgba(234,179,8,0.2)",border:"1px solid rgba(234,179,8,0.4)",borderRadius:10,padding:"16px",textAlign:"center"}}>
                 <div style={{fontSize:13,color:"rgba(255,255,255,0.7)",fontWeight:700,marginBottom:4,textTransform:"uppercase",letterSpacing:1}}>💰 FALTA RECEBER HOJE</div>
                 <div style={{fontWeight:900,fontSize:36,color:"#fde68a"}}>R$ {aCobrar.toFixed(2)}</div>
+                {saunaHoje>0&&<div style={{marginTop:8,fontSize:13,color:"rgba(255,255,255,0.7)",fontWeight:600}}>🧖‍♂️ {saunaHoje} reserva{saunaHoje>1?"s":"" } com sauna hoje</div>}
               </div>
             ):(
               <div style={{background:"rgba(34,197,94,0.15)",border:"1px solid rgba(34,197,94,0.3)",borderRadius:10,padding:"14px 16px",textAlign:"center"}}>
@@ -296,14 +306,48 @@ export default function App(){
                 return(
                   <div key={a.id} style={{marginBottom:10,background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 3px 12px rgba(0,0,0,.08)"}}>
                     {/* Info do cliente */}
-                    <div style={{padding:"14px 16px 10px"}}>
-                      <div style={{fontWeight:800,fontSize:17,color:"#1a1f2e",textTransform:"uppercase",letterSpacing:0.3,marginBottom:4}}>
+                    <div style={{padding:"14px 16px 12px"}}>
+                      <div style={{fontWeight:800,fontSize:17,color:"#1a1f2e",textTransform:"uppercase",letterSpacing:0.3,marginBottom:6}}>
                         {a.cli}
                       </div>
-                      <div style={{display:"flex",alignItems:"center",gap:6,color:"#6b7280",fontSize:14}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6,color:"#6b7280",fontSize:14,marginBottom:10}}>
                         <span>⏰</span>
                         <span style={{fontWeight:600}}>{a.ini} às {a.fim}</span>
-                        {a.sauna&&<span style={{fontSize:12,color:"#16a34a",fontWeight:700,background:"#f0fdf4",padding:"2px 8px",borderRadius:20,marginLeft:4}}>🧖 +sauna</span>}
+                      </div>
+                      {/* Linha: pessoas + sauna */}
+                      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+                        <span onClick={()=>setAberto(a.id)} style={{fontSize:13,fontWeight:600,color:"#374151",background:"#f3f4f6",padding:"4px 10px",borderRadius:20,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
+                          👥 {agE.pess||"—"} pessoas <span style={{fontSize:11,color:"#9ca3af"}}>✏️</span>
+                        </span>
+                        <span style={{fontSize:13,fontWeight:700,
+                          color:agE.sauna?"#065f46":"#9ca3af",
+                          background:agE.sauna?"#f0fdf4":"#f9fafb",
+                          padding:"4px 10px",borderRadius:20}}>
+                          🧖‍♂️ Sauna: {agE.sauna?"Sim ✅":"Não"}
+                        </span>
+                      </div>
+                      {/* Breakdown financeiro */}
+                      <div style={{background:"#f9fafb",borderRadius:10,padding:"8px 12px",fontSize:13}}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                          <span style={{color:"#6b7280"}}>Valor total</span>
+                          <span style={{fontWeight:700,color:"#1a1f2e"}}>R$ {(agE.val||0).toFixed(2)}</span>
+                        </div>
+                        {pagoPeloSite(agE)>0&&(
+                          <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                            <span style={{color:"#6b7280"}}>Pago online</span>
+                            <span style={{fontWeight:700,color:"#2E7D6B"}}>− R$ {pagoPeloSite(agE).toFixed(2)}</span>
+                          </div>
+                        )}
+                        {agE.sauna&&(
+                          <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                            <span style={{color:"#6b7280"}}>Sauna (cobrar aqui)</span>
+                            <span style={{fontWeight:700,color:"#374151"}}>+ R$ 15,00</span>
+                          </div>
+                        )}
+                        <div style={{display:"flex",justifyContent:"space-between",borderTop:"1px solid #e0e3e8",paddingTop:6,marginTop:4}}>
+                          <span style={{fontWeight:700,color:"#374151"}}>Falta receber</span>
+                          <span style={{fontWeight:800,color:"#16a34a",fontSize:15}}>R$ {totalCobrar.toFixed(2)}</span>
+                        </div>
                       </div>
                     </div>
                     {/* Botão cobrar - destaque total */}
