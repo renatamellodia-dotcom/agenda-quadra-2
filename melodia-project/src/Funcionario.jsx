@@ -36,6 +36,10 @@ function pagoPeloSite(ag){
   if(pag==="mp_50") return val*0.5;
   return 0;
 }
+// Pagamento feito ONLINE pelo cliente — não pode ser desfeito pela funcionária
+function isPagoOnline(pag){ return["mp_pix","mp_cartao","mp_total","mp_50"].includes(pag||""); }
+// Pagamento registrado PRESENCIALMENTE pela funcionária — pode ser desfeito
+function isPagoPresencial(pag){ return["mp_total_pix","mp_total_cartao","mp_total_dinheiro"].includes(pag||""); }
 function labelPag(p){
   if(p==="mp_pix"||p==="mp_total_pix") return "✅ Pago — Pix";
   if(p==="mp_cartao"||p==="mp_total_cartao") return "✅ Pago — Cartão";
@@ -415,10 +419,42 @@ export default function App(){
                     <span>💰 COBRAR</span>
                     <span style={{fontSize:22,fontWeight:900}}>R$ {totalCobrar.toFixed(2)}</span>
                   </button>
-                ):isPago(agE.pag)?(
-                  <div style={{padding:"14px 16px",background:"#dcfce7",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
-                    <span style={{fontSize:22}}>✅</span>
-                    <span style={{fontWeight:800,color:"#065f46",fontSize:16,letterSpacing:0.5}}>QUITADO</span>
+                ):isPagoOnline(agE.pag)?(
+                  <div>
+                    <div style={{padding:"12px 16px",background:"#eff6ff",borderTop:"1px solid #bfdbfe",display:"flex",alignItems:"center",gap:10}}>
+                      <span style={{fontSize:18}}>🔒</span>
+                      <div>
+                        <div style={{fontWeight:700,color:"#1e40af",fontSize:13}}>Pagamento online confirmado</div>
+                        <div style={{fontSize:12,color:"#3b82f6",marginTop:1}}>R$ {pagoPeloSite(agE).toFixed(2)} — não pode ser desfeito aqui</div>
+                      </div>
+                    </div>
+                    {saldo(agE)>0&&(
+                      <button onClick={()=>setModalPag(a.id)}
+                        style={{width:"100%",padding:"14px",background:"#16a34a",color:"white",border:"none",fontSize:16,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                        <span>💰 COBRAR SALDO</span>
+                        <span>R$ {(saldo(agE)+(agE.sauna?15:0)).toFixed(2)}</span>
+                      </button>
+                    )}
+                  </div>
+                ):isPagoPresencial(agE.pag)?(
+                  <div style={{padding:"12px 16px",background:"#dcfce7",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:20}}>✅</span>
+                      <span style={{fontWeight:800,color:"#065f46",fontSize:15}}>QUITADO</span>
+                    </div>
+                    <button onClick={async()=>{
+                      if(!window.confirm("Desfazer pagamento presencial?"))return;
+                      const agAtual=getAg(a.id);
+                      const valor=saldo(agAtual)+(agAtual.sauna?15:0);
+                      setEdicoes(p=>({...p,[a.id]:{...p[a.id],pag:"pendente"}}));
+                      setFinalizados(p=>p.filter(x=>x!==a.id));
+                      setRecebidoHoje(r=>Math.max(0,r-valor));
+                      if(agAtual.pag==="mp_total_dinheiro") setRecebidoDinheiro(r=>Math.max(0,r-valor));
+                      else setRecebidoMaquina(r=>Math.max(0,r-valor));
+                      try{ await updateDoc(doc(db,"agendamentos",a.id),{pag:"pendente"}); }catch(e){}
+                    }} style={{background:"none",border:"1.5px solid #16a34a",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:700,color:"#16a34a",cursor:"pointer"}}>
+                      ↩️ Desfazer
+                    </button>
                   </div>
                 ):(
                   <div style={{padding:"14px 16px",background:"#f0fdf4",display:"flex",alignItems:"center",gap:8}}>
