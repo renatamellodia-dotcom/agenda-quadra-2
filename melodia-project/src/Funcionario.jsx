@@ -235,7 +235,7 @@ export default function App(){
 
       {/* TOTAL A RECEBER */}
       {agsDia.length>0&&(()=>{
-        const aCobrar=agsDia.reduce((s,a)=>{const ag=getAg(a.id);return s+saldo(ag)+(ag.sauna&&!isPago(ag.pag)?15:0);},0);
+        const aCobrar=agsDia.filter(a=>!isPago(getAg(a.id).pag)&&!finalizados.includes(a.id)).reduce((s,a)=>{const ag=getAg(a.id);return s+saldo(ag)+(ag.sauna?15:0);},0);
         return(
           <div style={{background:VE,padding:"0 16px 14px"}}>
             {aCobrar>0?(
@@ -289,9 +289,10 @@ export default function App(){
                 if(recebido) return null;
                 // Valor a cobrar = saldo + sauna se houver
                 const salBase=saldo(agE);
-                const salSauna=a.sauna?15:0;
+                const salSauna=agE.sauna?15:0;
                 const totalCobrar=salBase+salSauna;
-                if(totalCobrar===0) return null; // pago pelo site, sem adicionais
+                // Só ocultar se realmente pago — nunca ocultar se pendente
+                if(totalCobrar===0 && isPago(agE.pag)) return null;
                 return(
                   <div key={a.id} style={{marginBottom:10,background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 3px 12px rgba(0,0,0,.08)"}}>
                     {/* Info do cliente */}
@@ -306,11 +307,17 @@ export default function App(){
                       </div>
                     </div>
                     {/* Botão cobrar - destaque total */}
-                    <button onClick={()=>setModalPag(a.id)}
-                      style={{width:"100%",padding:"16px",background:"#16a34a",color:"white",border:"none",fontSize:18,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",letterSpacing:0.3}}>
-                      <span>💰 COBRAR</span>
-                      <span style={{fontSize:22,fontWeight:900}}>R$ {totalCobrar.toFixed(2)}</span>
-                    </button>
+                    {totalCobrar>0?(
+                      <button onClick={()=>setModalPag(a.id)}
+                        style={{width:"100%",padding:"16px",background:"#16a34a",color:"white",border:"none",fontSize:18,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",letterSpacing:0.3}}>
+                        <span>💰 COBRAR</span>
+                        <span style={{fontSize:22,fontWeight:900}}>R$ {totalCobrar.toFixed(2)}</span>
+                      </button>
+                    ):(
+                      <div style={{padding:"14px 16px",background:"#f0fdf4",display:"flex",alignItems:"center",gap:8}}>
+                        <span style={{fontWeight:700,color:"#16a34a",fontSize:14}}>✅ Pago pelo site — aguardando chegada</span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
