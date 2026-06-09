@@ -7,6 +7,7 @@ export default async function handler(req, res) {
   const FUNC_TEL = "5522999815178";
   const RESEND_KEY = "re_EPZUyHnp_2Ane4iXt9DYSzaKtLx2AfA2P";
   const EMAIL_FROM = "reservas@complexomelodia.com.br";
+  const EMAIL_ADMIN = "reservas@complexomelodia.com.br";
 
   const { id } = req.query;
   if (!id) return res.status(400).json({ aprovado: false });
@@ -59,21 +60,26 @@ export default async function handler(req, res) {
       return res.status(200).json({ aprovado: true, tipoPag, agId });
     }
 
-    // Detecta se foi pagamento parcial (50%) ou total
-    const valorTotal = fields.val?.doubleValue || fields.val?.integerValue || 0;
-    const valorPago = payment.transaction_amount || 0;
-    const isParcial = Math.abs(valorPago - valorTotal * 0.5) < 1;
+    // Dados da reserva
+    const valorTotal  = fields.val?.doubleValue  || fields.val?.integerValue  || 0;
+    const valorPago   = payment.transaction_amount || 0;
+    const isParcial   = Math.abs(valorPago - valorTotal * 0.5) < 1;
+    const temSauna    = fields.sauna?.booleanValue === true;
+    const nomeCliente = fields.cli?.stringValue   || "Cliente";
+    const quadraNome  = fields.qnm?.stringValue   || "Quadra";
+    const dataAg      = fields.data?.stringValue  || "";
+    const ini         = fields.ini?.stringValue   || "";
+    const fim         = fields.fim?.stringValue   || "";
+    const telCliente  = (fields.tel?.stringValue  || "").replace(/\D/g, "");
+    const emailCliente = fields.email?.stringValue || "";
 
-    let pagCod;
-    if (isParcial) {
-      pagCod = "mp_50";
-    } else {
-      pagCod = tipoPag === "pix" ? "mp_pix" : "mp_cartao";
-    }
-
+    let pagCod = isParcial ? "mp_50" : (tipoPag === "pix" ? "mp_pix" : "mp_cartao");
     const valorRestante = isParcial ? valorTotal * 0.5 : 0;
 
-    // Atualiza Firebase
+    // Formata data
+    const dataFmt = dataAg ? (([a,m,d]) => `${d}/${m}/${a}`)(dataAg.split("-")) : "";
+
+    // ── Atualiza Firebase ──
     await fetch(
       `https://firestore.googleapis.com/v1/${docPath}?updateMask.fieldPaths=st&updateMask.fieldPaths=pag&updateMask.fieldPaths=pagamentoId&key=${FIREBASE_KEY}`,
       {
@@ -81,136 +87,150 @@ export default async function handler(req, res) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fields: {
-            st: { stringValue: "confirmado" },
-            pag: { stringValue: pagCod },
-            pagamentoId: { stringValue: String(id) }
+            st:         { stringValue: "confirmado" },
+            pag:        { stringValue: pagCod },
+            pagamentoId:{ stringValue: String(id) }
           }
         })
       }
     );
 
-    const nomeCliente = fields.cli?.stringValue || "Cliente";
-    const quadraNome = fields.qnm?.stringValue || "Quadra";
-    const dataAg = fields.data?.stringValue || "";
-    const ini = fields.ini?.stringValue || "";
-    const fim = fields.fim?.stringValue || "";
-    const telCliente = (fields.tel?.stringValue || "").replace(/\D/g, "");
-    const emailCliente = fields.email?.stringValue || "";
-
-    // Formata data para exibição
-    const dataFmt = dataAg ? (() => {
-      const [a,m,d] = dataAg.split("-");
-      return `${d}/${m}/${a}`;
-    })() : "";
-
-    // ── WhatsApp Renata ──
-    const msgRenata = encodeURIComponent(
+    // ── WhatsApp Renata + Shay ──
+    const msgWA = encodeURIComponent(
       "🎾 *Novo agendamento confirmado!*\n\n" +
       "👤 *Cliente:* " + nomeCliente + "\n" +
       "🏟️ *Quadra:* " + quadraNome + "\n" +
       "📅 *Data:* " + dataFmt + "\n" +
       "⏰ *Horário:* " + ini + " às " + fim + "\n" +
-      "💰 *Valor pago agora:* R$ " + valorPago.toFixed(2) +
+      (temSauna ? "🧖 *Sauna:* Sim\n" : "") +
+      "💰 *Pago agora:* R$ " + valorPago.toFixed(2) +
       (isParcial ? "\n⏳ *Restante na chegada:* R$ " + valorRestante.toFixed(2) : "\n✅ *Pago total*") + "\n" +
       "📱 *Tel:* " + telCliente
     );
-    await fetch(`https://api.callmebot.com/whatsapp.php?phone=${RENATA_TEL}&text=${msgRenata}&apikey=${CALLMEBOT_KEY}`);
-    await fetch(`https://api.callmebot.com/whatsapp.php?phone=${FUNC_TEL}&text=${msgRenata}&apikey=${CALLMEBOT_KEY}`);
+    await fetch(`https://api.callmebot.com/whatsapp.php?phone=${RENATA_TEL}&text=${msgWA}&apikey=${CALLMEBOT_KEY}`);
+    await fetch(`https://api.callmebot.com/whatsapp.php?phone=${FUNC_TEL}&text=${msgWA}&apikey=${CALLMEBOT_KEY}`);
 
-    // ── Email de confirmação para o cliente ──
-    if (emailCliente) {
-      const htmlEmail = `
+    // ── Template de email ──
+    const htmlEmail = (destino) => `
 <!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"/></head>
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
 <body style="margin:0;padding:0;background:#f4f5f7;font-family:system-ui,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:32px 16px;">
-    <tr><td align="center">
-      <table width="100%" style="max-width:480px;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:32px 16px;">
+  <tr><td align="center">
+    <table width="100%" style="max-width:480px;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
 
-        <!-- Header -->
-        <tr><td style="background:#1a5248;padding:28px 24px;text-align:center;">
-          <div style="font-size:22px;font-weight:900;color:white;letter-spacing:0.5px;">COMPLEXO MELODIA</div>
-          <div style="font-size:13px;color:rgba(255,255,255,0.6);margin-top:4px;">Esporte, lazer e confraternização!</div>
-        </td></tr>
+      <!-- Header -->
+      <tr><td style="background:#1a5248;padding:28px 24px 0;text-align:center;">
+        <div style="font-size:22px;font-weight:900;color:white;letter-spacing:0.5px;">COMPLEXO MELODIA</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.6);margin-top:4px;">Esporte, lazer e confraternização</div>
+      </td></tr>
+      <tr><td style="background:#1a5248;padding:20px 24px 28px;text-align:center;">
+        <div style="width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,0.15);border:3px solid rgba(255,255,255,0.4);display:inline-block;line-height:64px;font-size:30px;">✅</div>
+        <div style="font-size:20px;font-weight:800;color:white;margin-top:12px;">
+          ${destino === "admin" ? "Nova Reserva Confirmada" : "Reserva Confirmada!"}
+        </div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-top:6px;">
+          ${destino === "admin" ? `Cliente: ${nomeCliente}` : "Seu pagamento foi aprovado com sucesso."}
+        </div>
+      </td></tr>
 
-        <!-- Ícone de sucesso -->
-        <tr><td style="background:#1a5248;padding:0 24px 28px;text-align:center;">
-          <div style="width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,0.15);border:3px solid rgba(255,255,255,0.4);display:inline-flex;align-items:center;justify-content:center;font-size:32px;">✅</div>
-          <div style="font-size:22px;font-weight:800;color:white;margin-top:12px;">Reserva Confirmada!</div>
-          <div style="font-size:14px;color:rgba(255,255,255,0.7);margin-top:6px;">Seu pagamento foi aprovado com sucesso.</div>
-        </td></tr>
+      <!-- Detalhes -->
+      <tr><td style="padding:24px;">
+        <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;">Detalhes da Reserva</div>
+        <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e0e3e8;border-radius:10px;overflow:hidden;">
+          <tr><td style="padding:11px 14px;border-bottom:1px solid #f3f4f6;background:#fafafa;">
+            <span style="color:#6b7280;font-size:13px;">👤 Cliente</span>
+            <span style="float:right;font-weight:700;font-size:13px;color:#1a1f2e;">${nomeCliente}</span>
+          </td></tr>
+          <tr><td style="padding:11px 14px;border-bottom:1px solid #f3f4f6;">
+            <span style="color:#6b7280;font-size:13px;">📅 Data</span>
+            <span style="float:right;font-weight:700;font-size:13px;color:#1a1f2e;">${dataFmt}</span>
+          </td></tr>
+          <tr><td style="padding:11px 14px;border-bottom:1px solid #f3f4f6;background:#fafafa;">
+            <span style="color:#6b7280;font-size:13px;">🕐 Horário</span>
+            <span style="float:right;font-weight:700;font-size:13px;color:#1a1f2e;">${ini} às ${fim}</span>
+          </td></tr>
+          <tr><td style="padding:11px 14px;border-bottom:1px solid #f3f4f6;">
+            <span style="color:#6b7280;font-size:13px;">🏟️ Espaço</span>
+            <span style="float:right;font-weight:700;font-size:13px;color:#1a1f2e;">${quadraNome}</span>
+          </td></tr>
+          ${temSauna ? `
+          <tr><td style="padding:11px 14px;border-bottom:1px solid #f3f4f6;background:#fafafa;">
+            <span style="color:#6b7280;font-size:13px;">🧖 Sauna</span>
+            <span style="float:right;font-weight:700;font-size:13px;color:#065f46;">Sim — pagamento no local</span>
+          </td></tr>` : ""}
+          <tr><td style="padding:11px 14px;${valorRestante > 0 ? "border-bottom:1px solid #f3f4f6;" : ""}background:#fafafa;">
+            <span style="color:#6b7280;font-size:13px;">💰 Pago online</span>
+            <span style="float:right;font-weight:700;font-size:13px;color:#2E7D6B;">R$ ${valorPago.toFixed(2)}</span>
+          </td></tr>
+          ${valorRestante > 0 ? `
+          <tr><td style="padding:11px 14px;">
+            <span style="color:#6b7280;font-size:13px;">⏳ Saldo na chegada</span>
+            <span style="float:right;font-weight:700;font-size:13px;color:#92400e;">R$ ${valorRestante.toFixed(2)}</span>
+          </td></tr>` : ""}
+        </table>
 
-        <!-- Detalhes -->
-        <tr><td style="padding:24px;">
-          <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;">Detalhes da Reserva</div>
+        ${valorRestante > 0 ? `
+        <div style="background:#fef3c7;border:1.5px solid #fde68a;border-radius:10px;padding:12px 16px;margin-top:16px;">
+          <div style="font-weight:700;color:#92400e;font-size:13px;">⚠️ Valor pendente</div>
+          <div style="color:#92400e;font-size:12px;margin-top:4px;">Pague R$ ${valorRestante.toFixed(2)} ao chegar no Complexo.</div>
+        </div>` : ""}
 
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;">
-              <span style="font-size:16px;">📅</span>
-              <span style="color:#6b7280;font-size:14px;margin-left:8px;">Data</span>
-              <span style="float:right;font-weight:700;font-size:14px;color:#1a1f2e;">${dataFmt}</span>
-            </td></tr>
-            <tr><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;">
-              <span style="font-size:16px;">🕐</span>
-              <span style="color:#6b7280;font-size:14px;margin-left:8px;">Horário</span>
-              <span style="float:right;font-weight:700;font-size:14px;color:#1a1f2e;">${ini} às ${fim}</span>
-            </td></tr>
-            <tr><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;">
-              <span style="font-size:16px;">🏟️</span>
-              <span style="color:#6b7280;font-size:14px;margin-left:8px;">Espaço reservado</span>
-              <span style="float:right;font-weight:700;font-size:14px;color:#1a1f2e;">${quadraNome}</span>
-            </td></tr>
-            <tr><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;">
-              <span style="font-size:16px;">💰</span>
-              <span style="color:#6b7280;font-size:14px;margin-left:8px;">Pago online</span>
-              <span style="float:right;font-weight:700;font-size:14px;color:#2E7D6B;">R$ ${valorPago.toFixed(2)}</span>
-            </td></tr>
-            ${isParcial ? `
-            <tr><td style="padding:10px 0;border-bottom:1px solid #f3f4f6;">
-              <span style="font-size:16px;">⏳</span>
-              <span style="color:#6b7280;font-size:14px;margin-left:8px;">Saldo na chegada</span>
-              <span style="float:right;font-weight:700;font-size:14px;color:#92400e;">R$ ${valorRestante.toFixed(2)}</span>
-            </td></tr>` : ""}
-          </table>
+        ${temSauna ? `
+        <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:12px 16px;margin-top:12px;">
+          <div style="font-weight:700;color:#065f46;font-size:13px;">🧖 Sauna reservada</div>
+          <div style="color:#065f46;font-size:12px;margin-top:4px;">O pagamento da sauna é feito no local (R$ 15,00).</div>
+        </div>` : ""}
+      </td></tr>
 
-          ${isParcial ? `
-          <div style="background:#fef3c7;border:1.5px solid #fde68a;border-radius:12px;padding:14px 16px;margin-top:16px;display:flex;align-items:center;gap:10px;">
-            <span style="font-size:20px;">⚠️</span>
-            <div>
-              <div style="font-weight:700;color:#92400e;font-size:14px;">Valor a pagar no Complexo</div>
-              <div style="color:#92400e;font-size:13px;margin-top:2px;">Saldo pendente: R$ ${valorRestante.toFixed(2)} — pague ao chegar.</div>
-            </div>
-          </div>` : ""}
-        </td></tr>
+      <!-- Footer -->
+      <tr><td style="background:#f9fafb;padding:20px 24px;text-align:center;border-top:1px solid #e0e3e8;">
+        <div style="font-size:13px;color:#6b7280;">Dúvidas? Fale com a gente:</div>
+        <a href="https://wa.me/5522999008085" style="display:inline-block;margin-top:10px;background:#16a34a;color:white;padding:10px 24px;border-radius:20px;font-size:13px;font-weight:700;text-decoration:none;">💬 WhatsApp do Complexo</a>
+        <div style="margin-top:14px;font-size:11px;color:#9ca3af;">complexomelodia.com.br</div>
+      </td></tr>
 
-        <!-- Footer -->
-        <tr><td style="background:#f9fafb;padding:20px 24px;text-align:center;border-top:1px solid #e0e3e8;">
-          <div style="font-size:13px;color:#6b7280;">Qualquer dúvida, fale com a gente:</div>
-          <a href="https://wa.me/5522999008085" style="display:inline-block;margin-top:10px;background:#16a34a;color:white;padding:10px 24px;border-radius:20px;font-size:13px;font-weight:700;text-decoration:none;">💬 WhatsApp do Complexo</a>
-          <div style="margin-top:16px;font-size:11px;color:#9ca3af;">complexomelodia.com.br</div>
-        </td></tr>
-
-      </table>
-    </td></tr>
-  </table>
+    </table>
+  </td></tr>
+</table>
 </body>
 </html>`;
 
-      await fetch("https://api.resend.com/emails", {
+    // ── Envia emails em paralelo ──
+    const emailPromises = [];
+
+    // Email para o cliente
+    if (emailCliente) {
+      emailPromises.push(
+        fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${RESEND_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            from: `Complexo Melodia <${EMAIL_FROM}>`,
+            to: [emailCliente],
+            subject: `✅ Reserva confirmada — ${quadraNome} · ${dataFmt} · ${ini}`,
+            html: htmlEmail("cliente")
+          })
+        })
+      );
+    }
+
+    // Cópia para o admin
+    emailPromises.push(
+      fetch("https://api.resend.com/emails", {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${RESEND_KEY}`,
-          "Content-Type": "application/json"
-        },
+        headers: { "Authorization": `Bearer ${RESEND_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           from: `Complexo Melodia <${EMAIL_FROM}>`,
-          to: [emailCliente],
-          subject: `✅ Reserva confirmada — ${quadraNome} · ${dataFmt} · ${ini}`,
-          html: htmlEmail
+          to: [EMAIL_ADMIN],
+          subject: `📋 Nova reserva — ${nomeCliente} · ${quadraNome} · ${dataFmt} · ${ini}`,
+          html: htmlEmail("admin")
         })
-      });
-    }
+      })
+    );
+
+    await Promise.all(emailPromises);
 
     return res.status(200).json({ aprovado: true, tipoPag, agId });
 
