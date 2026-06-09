@@ -334,33 +334,49 @@ export default function App() {
     if (!valor || valor.replace(/\D/g,"").length < 8) return;
     setBuscandoCliente(true);
     try {
-      // Busca por telefone ou email nos agendamentos anteriores
-      const q = query(
-        collection(db, "agendamentos"),
-        where(campo === "tel" ? "tel" : "email", "==", valor.trim())
-      );
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        // Pega o agendamento mais recente
-        const docs = snap.docs.map(d => d.data()).filter(d => d.cli && d.cli.trim());
-        if (docs.length > 0) {
-          const cliente = docs[docs.length - 1];
-          setClienteEncontrado({
-            nome: cliente.cli || "",
-            tel: cliente.tel || "",
-            email: cliente.email || "",
-            cpf: cliente.cpf || ""
-          });
-          // Preenche os campos automaticamente
+      // Normaliza telefone: só números
+      const valorNorm = campo === "tel" ? valor.replace(/\D/g,"") : valor.trim().toLowerCase();
+
+      // Busca todos os agendamentos e filtra localmente para ignorar formatação
+      const snap = await getDocs(collection(db, "agendamentos"));
+      const todos = snap.docs.map(d => d.data());
+
+      // Converte criadoEm para número — aceita tanto Date.now() quanto Timestamp do Firebase
+      const toMs = v => {
+        if (!v) return 0;
+        if (typeof v === "number") return v;
+        if (typeof v.toMillis === "function") return v.toMillis(); // Firestore Timestamp
+        if (v.seconds) return v.seconds * 1000; // Timestamp sem método
+        return 0;
+      };
+
+      const encontrado = todos
+        .filter(d => {
+          // Aceita mesmo que cli esteja vazio — o que importa é ter tel ou email
           if (campo === "tel") {
-            setNome(cliente.cli || "");
-            setEmail(cliente.email || "");
-            setCpf(cliente.cpf || "");
+            const telSalvo = (d.tel || "").replace(/\D/g,"");
+            return telSalvo === valorNorm && telSalvo.length >= 8;
           } else {
-            setNome(cliente.cli || "");
-            setTel(cliente.tel || "");
-            setCpf(cliente.cpf || "");
+            return (d.email || "").trim().toLowerCase() === valorNorm;
           }
+        })
+        .sort((a,b) => toMs(b.criadoEm) - toMs(a.criadoEm)) // mais recente primeiro
+        .find(d => d.cpf || d.email || d.cli); // pega o primeiro que tenha dados úteis
+
+      if (encontrado) {
+        setClienteEncontrado({
+          nome: encontrado.cli || "",
+          tel: encontrado.tel || "",
+          email: encontrado.email || "",
+          cpf: encontrado.cpf || ""
+        });
+        // Preenche os campos automaticamente
+        setNome(encontrado.cli || "");
+        setCpf(encontrado.cpf || "");
+        if (campo === "tel") {
+          setEmail(encontrado.email || "");
+        } else {
+          setTel(encontrado.tel || "");
         }
       } else {
         setClienteEncontrado(null);
@@ -809,7 +825,7 @@ export default function App() {
           </div>
           <div style={{marginBottom:14}}>
             <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase",letterSpacing:0.5}}>WhatsApp *</label>
-            <input type="tel" style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}} value={tel} onChange={e=>{setTel(e.target.value);setClienteEncontrado(null);}} onBlur={e=>buscarCliente("tel",e.target.value)} placeholder="(22) 9xxxx-xxxx"/>
+            <input type="tel" style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}} value={tel} onChange={e=>setTel(e.target.value)} onBlur={e=>buscarCliente("tel",e.target.value)} placeholder="(22) 9xxxx-xxxx"/>
           </div>
           <div style={{marginBottom:14}}>
             <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase",letterSpacing:0.5}}>CPF (para nota fiscal)</label>
@@ -818,7 +834,7 @@ export default function App() {
           </div>
           <div style={{marginBottom:14}}>
             <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase"}}>E-MAIL *</label>
-            <input type="email" style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}} value={email} onChange={e=>{setEmail(e.target.value);setErros(v=>({...v,email:null}));setClienteEncontrado(null);}} onBlur={e=>buscarCliente("email",e.target.value)} placeholder="seu@email.com"/>
+            <input type="email" style={{width:"100%",padding:"12px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:15,outline:"none",color:"#1a1f2e"}} value={email} onChange={e=>{setEmail(e.target.value);setErros(v=>({...v,email:null}));}} onBlur={e=>buscarCliente("email",e.target.value)} placeholder="seu@email.com"/>
             {erros.email && <div style={{color:"#ef4444",fontSize:12,marginTop:4}}>⚠️ {erros.email}</div>}
           </div>
           <div style={{background:sauna?"#f0fdf4":"white",border:`1.5px solid ${sauna?"#86efac":"#e0e3e8"}`,borderRadius:10,padding:"12px 14px",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",transition:"all .2s"}} onClick={()=>setSauna(v=>!v)}>
