@@ -44,6 +44,17 @@ function validarEmail(em) { return /^[^@ ]+@[^@ ]+[.][^@ ]+$/.test(em.trim()); }
 function validarTel(t) { return t.replace(/[^0-9]/g,"").length >= 10; }
 function validarNome(nm) { return nm.trim().split(" ").filter(function(p){return p.length>0;}).length >= 2; }
 
+// Horários de funcionamento: 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
+const HORARIOS_FUNC = {
+  1: { ini: "16:00", fim: "23:00" }, // Segunda
+  2: { ini: "16:00", fim: "23:00" }, // Terça
+  3: { ini: "16:00", fim: "23:00" }, // Quarta
+  4: { ini: "16:00", fim: "23:00" }, // Quinta
+  5: { ini: "16:00", fim: "23:00" }, // Sexta
+  6: { ini: "09:00", fim: "18:00" }, // Sábado
+  0: { ini: "09:00", fim: "18:00" }, // Domingo
+};
+
 const QUADRAS = [
   { id:"q1", nome:"Campo Society", tipo:"Futebol Society", cor:V, preco:120, precoNoite:130, horarioNoite:"16:00", cob:"horario", fx:null },
   { id:"q2", nome:"Quadra de Areia", tipo:"Futevôlei · Vôlei · Beach Tennis", cor:LA, cob:"areia", preco:60, pessoasBase:12, acrescimoPessoa:10 }
@@ -205,6 +216,22 @@ export default function App() {
   },[etapa]);
 
   function toMin(hr){ const[h,m]=hr.split(":").map(Number); return h*60+m; }
+
+  // Verifica se um slot está dentro do horário de funcionamento
+  function dentroDoHorario(hr, hf) {
+    const diaSemana = dia.getDay();
+    const func = HORARIOS_FUNC[diaSemana];
+    if (!func) return false;
+    return hr >= func.ini && hf <= func.fim;
+  }
+
+  // Verifica se um slot já passou (apenas para hoje)
+  function jaPassou(hr) {
+    const hoje = new Date();
+    if (toDS(dia) !== toDS(hoje)) return false;
+    const agoraMin = hoje.getHours()*60 + hoje.getMinutes();
+    return toMin(hr) <= agoraMin;
+  }
   function toHr(min){ return Math.floor(min/60).toString().padStart(2,"0")+":"+((min%60).toString().padStart(2,"0")); }
 
   function calcValorSlots(slots, q) {
@@ -496,7 +523,7 @@ export default function App() {
         {[
           ["🏟️","Campo Society",""],
           ["🏖️","Quadra de Areia","Futevôlei, vôlei e beach tennis"],
-          ["🌿","Sauna","R$ 15,00 por pessoa"],
+          ["🌿","Sauna","R$ 15,00 por pessoa · cobrado na chegada"],
           ["🍖","Churrasqueira","Mediante reserva antecipada via WhatsApp"],
           ["🚗","Estacionamento gratuito",""],
           ["📶","Wi-Fi gratuito",""],
@@ -621,6 +648,12 @@ export default function App() {
           const hf = `${hhf}:${mmf}`;
           const ocup = isOcupado(hr);
           const sel = slotsSel.includes(hr);
+          const fora = !dentroDoHorario(hr, hf);
+          const passou = jaPassou(hr);
+
+          // Ocultar slots fora do horário ou já passados
+          if (fora || passou) return null;
+
           return (
             <div key={hr} onClick={()=>!ocup && toggleSlot(hr, hf, quadra)}
               style={{display:"flex",alignItems:"center",padding:"14px 16px",borderRadius:10,marginBottom:6,
@@ -686,7 +719,10 @@ export default function App() {
             <div style={{fontWeight:700,fontSize:18,color:VE,marginTop:8}}>{quadra.nome}</div>
             <div style={{color:"#6b7280",fontSize:14}}>{nomeDia(dia)} · {slot?.ini} às {slot?.fim}</div>
           </div>
-          <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Número de pessoas</label>
+          <div style={{marginBottom:12}}>
+            <div style={{fontWeight:700,fontSize:16,color:"#1a1f2e",marginBottom:6}}>Quantas pessoas estarão na área exclusiva da Quadra de Areia?</div>
+            <div style={{fontSize:13,color:"#6b7280",fontStyle:"italic",lineHeight:1.5}}>Considere todas as pessoas presentes na área reservada (quadra, deck e churrasqueira), estejam jogando ou não.</div>
+          </div>
           <input type="number" min={1} max={60} value={pessoas} onChange={e=>{setPessoas(e.target.value);const v=calcValor(quadra,e.target.value);setValor(v);}}
             style={{width:"100%",padding:"14px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:22,fontWeight:700,textAlign:"center",outline:"none",color:VE}}
             placeholder="0"/>
