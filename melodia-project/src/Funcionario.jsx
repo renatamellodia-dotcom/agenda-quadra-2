@@ -73,6 +73,9 @@ export default function App(){
   const [hora,setHora]=useState(new Date());
   const [editPess,setEditPess]=useState(false);
   const [novaPess,setNovaPess]=useState("");
+  const [editPessCard,setEditPessCard]=useState(null); // id do card em edição inline
+  const [novaPessCard,setNovaPessCard]=useState("");
+  const [valorParcial,setValorParcial]=useState("");
   const [modalPag,setModalPag]=useState(null);
   const [agendamentos,setAgendamentos]=useState([]);
   const [saunaLocal,setSaunaLocal]=useState({}); // controle local da sauna por reserva
@@ -151,20 +154,39 @@ export default function App(){
     try{ await updateDoc(doc(db,"agendamentos",id),{pess:n,val:novoVal}); }catch(e){}
   }
 
-  async function confirmarFormaPag(id,tipo){
+  async function confirmarFormaPag(id,tipo,valorCustom){
     const agE=getAg(id);
-    const valorRecebido=saldo(agE)+(agE.sauna?15:0);
+    const totalDevido=saldo(agE)+(agE.sauna?15:0);
+    const valorRecebido=valorCustom&&valorCustom>0&&valorCustom<totalDevido
+      ? valorCustom : totalDevido;
+    const isParcialCustom=valorRecebido<totalDevido;
     const isDinheiro=tipo==="mp_total_dinheiro";
-    // Atualização local imediata
-    setEdicoes(p=>({...p,[id]:{...p[id],pag:tipo}}));
-    setFinalizados(p=>[...p,id]);
+
+    if(isParcialCustom){
+      // Pagamento parcial: abate do saldo sem quitar
+      const novoVal=parseFloat(((agE.val||0)-valorRecebido).toFixed(2));
+      setEdicoes(p=>({...p,[id]:{...p[id],val:Math.max(0,novoVal),pag:agE.pag||""}}));
+      // Não adiciona a finalizados — reserva continua em aberto
+    } else {
+      // Quitado total
+      setEdicoes(p=>({...p,[id]:{...p[id],pag:tipo}}));
+      setFinalizados(p=>[...p,id]);
+    }
+
     setRecebidoHoje(r=>r+valorRecebido);
     if(isDinheiro) setRecebidoDinheiro(r=>r+valorRecebido);
     else setRecebidoMaquina(r=>r+valorRecebido);
+    setValorParcial("");
     setModalPag(null);
     tocarSom();
+
     // Persiste no Firebase
-    try{ await updateDoc(doc(db,"agendamentos",id),{pag:tipo}); }catch(e){}
+    if(isParcialCustom){
+      const novoValFb=parseFloat(((agE.val||0)-valorRecebido).toFixed(2));
+      try{ await updateDoc(doc(db,"agendamentos",id),{val:Math.max(0,novoValFb)}); }catch(e){}
+    } else {
+      try{ await updateDoc(doc(db,"agendamentos",id),{pag:tipo}); }catch(e){}
+    }
   }
 
   const ag=aberto?getAg(aberto):null;
@@ -203,17 +225,31 @@ export default function App(){
           <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:20,width:"100%",maxWidth:420,padding:"28px 20px 24px",boxShadow:"0 8px 40px rgba(0,0,0,0.25)"}}>
             <div style={{width:40,height:4,background:"#e0e3e8",borderRadius:2,margin:"0 auto 20px"}}/>
             <div style={{fontWeight:800,fontSize:20,marginBottom:6,color:"#1a1f2e"}}>Como o cliente pagou?</div>
-            <div style={{fontSize:14,color:"#6b7280",marginBottom:20}}>Registrar recebimento de <strong>R$ {saldo(getAg(modalPag)).toFixed(2)}</strong></div>
+            <div style={{fontSize:14,color:"#6b7280",marginBottom:14}}>Total a receber: <strong>R$ {(saldo(getAg(modalPag))+(getAg(modalPag).sauna?15:0)).toFixed(2)}</strong></div>
+            {/* Campo de valor parcial */}
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:12,color:"#6b7280",marginBottom:6,fontWeight:600}}>Valor recebido agora (deixe em branco para quitar tudo):</div>
+              <div style={{display:"flex",alignItems:"center",gap:8,background:"#f9fafb",border:"2px solid #e0e3e8",borderRadius:12,padding:"10px 14px"}}>
+                <span style={{fontWeight:700,color:"#6b7280",fontSize:16}}>R$</span>
+                <input
+                  type="number"
+                  value={valorParcial}
+                  onChange={e=>setValorParcial(e.target.value)}
+                  placeholder={(saldo(getAg(modalPag))+(getAg(modalPag).sauna?15:0)).toFixed(2)}
+                  style={{flex:1,border:"none",background:"transparent",fontSize:18,fontWeight:700,color:"#1a1f2e",outline:"none"}}
+                />
+              </div>
+            </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:16}}>
               {[["📱","Pix","mp_total_pix"],["💳","Cartão","mp_total_cartao"],["💵","Dinheiro","mp_total_dinheiro"]].map(([ic,label,tipo])=>(
-                <button key={tipo} onClick={()=>confirmarFormaPag(modalPag,tipo)}
+                <button key={tipo} onClick={()=>confirmarFormaPag(modalPag,tipo,valorParcial?parseFloat(valorParcial):null)}
                   style={{padding:"18px 8px",background:"#f9fafb",border:"2px solid #e0e3e8",borderRadius:12,cursor:"pointer",textAlign:"center"}}>
                   <div style={{fontSize:28}}>{ic}</div>
                   <div style={{fontSize:14,fontWeight:700,color:"#1a1f2e",marginTop:8}}>{label}</div>
                 </button>
               ))}
             </div>
-            <button onClick={()=>setModalPag(null)} style={{width:"100%",padding:"13px",background:"none",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14,fontWeight:600,cursor:"pointer",color:"#6b7280"}}>
+            <button onClick={()=>{setModalPag(null);setValorParcial("");}} style={{width:"100%",padding:"13px",background:"none",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14,fontWeight:600,cursor:"pointer",color:"#6b7280"}}>
               Cancelar
             </button>
           </div>
@@ -276,32 +312,27 @@ export default function App(){
       {/* TOTAL A RECEBER */}
       {agsDia.length>0&&(()=>{
         const aCobrar=agsDia.filter(a=>!isPago(getAg(a.id).pag)&&!finalizados.includes(a.id)).reduce((s,a)=>{const ag=getAg(a.id);return s+saldo(ag)+(ag.sauna?15:0);},0);
-        const saunaPrevistoHoje=agsDia.filter(a=>getAg(a.id).sauna).length;
+        const saunaHoje=agsDia.filter(a=>getAg(a.id).sauna).length;
+        const proximaSauna=agsDia.filter(a=>getAg(a.id).sauna).sort((a,b)=>a.ini.localeCompare(b.ini))[0];
+        const labelSauna=proximaSauna
+          ? `${saunaHoje} reserva${saunaHoje>1?"s":""} — próxima às ${proximaSauna.ini}`
+          : "Nenhuma hoje";
         return(
           <div style={{background:VE,padding:"0 16px 14px"}}>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-              <div style={{background:"rgba(34,197,94,0.15)",border:"1px solid rgba(34,197,94,0.3)",borderRadius:10,padding:"12px",textAlign:"center"}}>
-                <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",fontWeight:600,marginBottom:3,textTransform:"uppercase",letterSpacing:0.5}}>🟢 Total recebido</div>
-                <div style={{fontWeight:800,fontSize:20,color:"#86efac"}}>R$ {recebidoHoje.toFixed(2)}</div>
-                <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",marginTop:4}}>
-                  💳 R$ {recebidoMaquina.toFixed(2)} · 💵 R$ {recebidoDinheiro.toFixed(2)}
+            <div style={{background:"rgba(255,255,255,0.07)",borderRadius:12,overflow:"hidden"}}>
+              {[
+                {label:"💰 Recebido hoje",    val:`R$ ${recebidoHoje.toFixed(2)}`,    cor:"#86efac"},
+                {label:"🟡 Falta receber hoje", val:`R$ ${aCobrar.toFixed(2)}`,        cor:"#fde68a"},
+                {label:"💳 Recebido em máquina", val:`R$ ${recebidoMaquina.toFixed(2)}`, cor:"white"},
+                {label:"💵 Recebido em dinheiro", val:`R$ ${recebidoDinheiro.toFixed(2)}`, cor:"white"},
+                {label:"🔥 Sauna prevista hoje", val:labelSauna, cor:saunaHoje>0?"#fde68a":"#6b7280"},
+              ].map(({label,val,cor},i)=>(
+                <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",borderBottom:"1px solid rgba(255,255,255,0.07)"}}>
+                  <span style={{fontSize:13,color:"rgba(255,255,255,0.75)",fontWeight:500}}>{label}</span>
+                  <span style={{fontSize:14,fontWeight:800,color:cor}}>{val}</span>
                 </div>
-              </div>
-              <div style={{background:"rgba(234,179,8,0.2)",border:"1px solid rgba(234,179,8,0.4)",borderRadius:10,padding:"12px",textAlign:"center"}}>
-                <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",fontWeight:600,marginBottom:3,textTransform:"uppercase",letterSpacing:0.5}}>🟡 Falta receber</div>
-                <div style={{fontWeight:800,fontSize:20,color:"#fde68a"}}>R$ {aCobrar.toFixed(2)}</div>
-              </div>
+              ))}
             </div>
-            {saunaPrevistoHoje>0&&(
-              <div style={{background:"rgba(255,255,255,0.08)",borderRadius:8,padding:"8px 12px",textAlign:"center"}}>
-                <span style={{fontSize:13,color:"rgba(255,255,255,0.7)",fontWeight:600}}>🧖‍♂️ Sauna prevista: {saunaPrevistoHoje} reserva{saunaPrevistoHoje>1?"s":""} hoje</span>
-              </div>
-            )}
-            {aCobrar===0&&recebidoHoje===0&&(
-              <div style={{background:"rgba(34,197,94,0.15)",border:"1px solid rgba(34,197,94,0.3)",borderRadius:10,padding:"10px",textAlign:"center"}}>
-                <span style={{fontWeight:700,fontSize:14,color:"#86efac"}}>✅ Tudo cobrado! Bom trabalho.</span>
-              </div>
-            )}
           </div>
         );
       })()}
@@ -376,39 +407,66 @@ export default function App(){
                   )}
                   {/* Linha: pessoas + sauna */}
                   <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
-                    <span onClick={()=>setAberto(a.id)} style={{fontSize:13,fontWeight:600,color:"#374151",background:"#f3f4f6",padding:"4px 10px",borderRadius:20,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
-                      👥 {agE.pess||"—"} pessoas <span style={{fontSize:11,color:"#9ca3af"}}>✏️</span>
-                    </span>
+                    {editPessCard===a.id?(
+                      <div style={{display:"flex",alignItems:"center",gap:6,background:"#eff6ff",border:"1.5px solid #93c5fd",borderRadius:20,padding:"3px 10px"}}>
+                        <span style={{fontSize:13}}>👥</span>
+                        <input
+                          type="number"
+                          defaultValue={agE.pess||""}
+                          autoFocus
+                          onKeyDown={async e=>{
+                            if(e.key==="Enter"){
+                              const n=parseInt(e.target.value);
+                              if(!n||n<1){setEditPessCard(null);return;}
+                              // recalcular valor se for areia
+                              let novoVal=agE.val;
+                              if(agE.qid==="q2"){
+                                const [ih,im]=agE.ini.split(":").map(Number);
+                                const [fh,fm]=agE.fim.split(":").map(Number);
+                                const slots=((fh*60+fm)-(ih*60+im))/30;
+                                novoVal=calcAreia(n,slots);
+                              }
+                              setEdicoes(p=>({...p,[a.id]:{...p[a.id],pess:n,val:novoVal}}));
+                              setEditPessCard(null);
+                              try{ await updateDoc(doc(db,"agendamentos",a.id),{pess:n,val:novoVal}); }catch(e2){}
+                            }
+                            if(e.key==="Escape") setEditPessCard(null);
+                          }}
+                          style={{width:44,border:"none",background:"transparent",fontSize:14,fontWeight:700,color:"#1e40af",textAlign:"center",outline:"none"}}
+                        />
+                        <span style={{fontSize:12,color:"#3b82f6"}}>↵</span>
+                      </div>
+                    ):(
+                      <span onClick={()=>setEditPessCard(a.id)} style={{fontSize:13,fontWeight:600,color:"#374151",background:"#f3f4f6",padding:"4px 10px",borderRadius:20,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
+                        👥 {agE.pess||"—"} pessoas <span style={{fontSize:11,color:"#9ca3af"}}>✏️</span>
+                      </span>
+                    )}
                     <button onClick={()=>toggleSauna(a.id,!agE.sauna)}
                       style={{fontSize:13,fontWeight:700,border:"none",cursor:"pointer",
                         color:agE.sauna?"#065f46":"#9ca3af",
                         background:agE.sauna?"#dcfce7":"#f3f4f6",
                         padding:"4px 12px",borderRadius:20,
                         outline:"none",transition:"all .2s"}}>
-                      🧖‍♂️ Sauna: {agE.sauna?"SIM ✅":"NÃO — toque p/ ativar"}
+                      🧖‍♂️ Sauna: {agE.sauna?"Sim ✅":"Não"}
                     </button>
                   </div>
                   {/* Breakdown financeiro */}
-                  <div style={{background:"#f9fafb",borderRadius:10,padding:"8px 12px",fontSize:13}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                      <span style={{color:"#6b7280"}}>Valor total</span>
-                      <span style={{fontWeight:700,color:"#1a1f2e"}}>R$ {(agE.val||0).toFixed(2)}</span>
-                    </div>
-                    {pagoPeloSite(agE)>0&&(
-                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                        <span style={{color:"#6b7280"}}>Pago online</span>
-                        <span style={{fontWeight:700,color:"#2E7D6B"}}>− R$ {pagoPeloSite(agE).toFixed(2)}</span>
+                  <div style={{background:"#f9fafb",borderRadius:10,overflow:"hidden",fontSize:13}}>
+                    {[
+                      {label:"Valor total",   val:`R$ ${(agE.val||0).toFixed(2)}`,          cor:"#1a1f2e", sempre:true},
+                      {label:"Pago online",   val:`R$ ${pagoPeloSite(agE).toFixed(2)}`,      cor:"#2E7D6B", sempre:pagoPeloSite(agE)>0},
+                      {label:"Sauna",         val:"R$ 15,00",                                cor:"#374151", sempre:!!agE.sauna},
+                    ].filter(r=>r.sempre).map(({label,val,cor},i)=>(
+                      <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 12px",borderBottom:"1px solid #e0e3e8"}}>
+                        <span style={{color:"#6b7280"}}>{label}</span>
+                        <span style={{fontWeight:700,color:cor}}>{val}</span>
                       </div>
-                    )}
-                    {agE.sauna&&(
-                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                        <span style={{color:"#6b7280"}}>Sauna (cobrar aqui)</span>
-                        <span style={{fontWeight:700,color:"#374151"}}>+ R$ 15,00</span>
-                      </div>
-                    )}
-                    <div style={{display:"flex",justifyContent:"space-between",borderTop:"1px solid #e0e3e8",paddingTop:6,marginTop:4}}>
+                    ))}
+                    <div style={{display:"flex",justifyContent:"space-between",padding:"9px 12px",background:totalCobrar>0?"#f0fdf4":"#f9fafb"}}>
                       <span style={{fontWeight:700,color:"#374151"}}>Falta receber</span>
-                      <span style={{fontWeight:800,color:"#16a34a",fontSize:15}}>R$ {totalCobrar.toFixed(2)}</span>
+                      <span style={{fontWeight:800,color:totalCobrar>0?"#16a34a":"#9ca3af",fontSize:15}}>
+                        {totalCobrar>0?`R$ ${totalCobrar.toFixed(2)}`:"✅ Quitado"}
+                      </span>
                     </div>
                   </div>
                 </div>
