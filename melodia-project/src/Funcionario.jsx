@@ -169,7 +169,7 @@ export default function App(){
           <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:"20px 20px 0 0",width:"100%",maxWidth:480,padding:"24px 20px 40px"}}>
             <div style={{width:40,height:4,background:"#e0e3e8",borderRadius:2,margin:"0 auto 20px"}}/>
             <div style={{fontWeight:800,fontSize:20,marginBottom:6,color:"#1a1f2e"}}>Como o cliente pagou?</div>
-            <div style={{fontSize:14,color:"#6b7280",marginBottom:20}}>R$ {saldo(getAg(modalPag)).toFixed(2)} recebido</div>
+            <div style={{fontSize:14,color:"#6b7280",marginBottom:20}}>Registrar recebimento de <strong>R$ {saldo(getAg(modalPag)).toFixed(2)}</strong></div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:16}}>
               {[["📱","Pix","mp_total_pix"],["💳","Cartão","mp_total_cartao"],["💵","Dinheiro","mp_total_dinheiro"]].map(([ic,label,tipo])=>(
                 <button key={tipo} onClick={()=>confirmarFormaPag(modalPag,tipo)}
@@ -235,22 +235,17 @@ export default function App(){
 
       {/* TOTAL A RECEBER */}
       {agsDia.length>0&&(()=>{
-        const aCobrar=agsDia.reduce((s,a)=>s+saldo(getAg(a.id)),0);
+        const aCobrar=agsDia.reduce((s,a)=>{const ag=getAg(a.id);return s+saldo(ag)+(ag.sauna&&!isPago(ag.pag)?15:0);},0);
         return(
           <div style={{background:VE,padding:"0 16px 14px"}}>
             {aCobrar>0?(
-              <div style={{background:"rgba(234,179,8,0.2)",border:"1px solid rgba(234,179,8,0.4)",borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <div>
-                  <div style={{fontSize:12,color:"rgba(255,255,255,0.7)",fontWeight:600}}>💰 TOTAL A RECEBER HOJE</div>
-                  <div style={{fontWeight:800,fontSize:26,color:"#fde68a",marginTop:2}}>R$ {aCobrar.toFixed(2)}</div>
-                </div>
-                <div style={{fontSize:11,color:"rgba(255,255,255,0.5)",textAlign:"right"}}>
-                  {agsDia.filter(a=>saldo(getAg(a.id))>0).length} reserva{agsDia.filter(a=>saldo(getAg(a.id))>0).length!==1?"s":""}<br/>pendentes
-                </div>
+              <div style={{background:"rgba(234,179,8,0.2)",border:"1px solid rgba(234,179,8,0.4)",borderRadius:10,padding:"16px",textAlign:"center"}}>
+                <div style={{fontSize:13,color:"rgba(255,255,255,0.7)",fontWeight:700,marginBottom:4,textTransform:"uppercase",letterSpacing:1}}>💰 FALTA RECEBER HOJE</div>
+                <div style={{fontWeight:900,fontSize:36,color:"#fde68a"}}>R$ {aCobrar.toFixed(2)}</div>
               </div>
             ):(
-              <div style={{background:"rgba(34,197,94,0.15)",border:"1px solid rgba(34,197,94,0.3)",borderRadius:10,padding:"12px 16px",textAlign:"center"}}>
-                <div style={{fontWeight:700,fontSize:14,color:"#86efac"}}>✅ Tudo pago! Nada a cobrar hoje.</div>
+              <div style={{background:"rgba(34,197,94,0.15)",border:"1px solid rgba(34,197,94,0.3)",borderRadius:10,padding:"14px 16px",textAlign:"center"}}>
+                <div style={{fontWeight:700,fontSize:15,color:"#86efac"}}>✅ Tudo cobrado! Bom trabalho.</div>
               </div>
             )}
           </div>
@@ -290,41 +285,32 @@ export default function App(){
 
               {agsQ.map(a=>{
                 const agE=getAg(a.id);
-                const sal=saldo(agE);
-                const fim=finalizados.includes(a.id);
+                const recebido=finalizados.includes(a.id)||isPago(agE.pag);
+                if(recebido) return null;
+                // Valor a cobrar = saldo + sauna se houver
+                const salBase=saldo(agE);
+                const salSauna=a.sauna?15:0;
+                const totalCobrar=salBase+salSauna;
+                if(totalCobrar===0) return null; // pago pelo site, sem adicionais
                 return(
-                  <div key={a.id} style={{marginBottom:8}}>
-                    <div onClick={()=>{setAberto(a.id);setEditPess(false);setNovaPess("");}}
-                      style={{background:fim?"#f0fdf4":"white",borderRadius:sal>0?"14px 14px 0 0":14,padding:"16px",boxShadow:"0 2px 10px rgba(0,0,0,.06)",cursor:"pointer",borderLeft:`5px solid ${fim?"#22c55e":q.cor}`,opacity:fim?0.75:1}}>
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                        <div style={{background:fim?"#22c55e":q.cor,color:"white",borderRadius:10,padding:"6px 16px",fontSize:16,fontWeight:800}}>
-                          {a.ini} – {a.fim}
-                        </div>
-                        {fim&&<Pill bg="#dcfce7" cl="#065f46">✓ Finalizado</Pill>}
+                  <div key={a.id} style={{marginBottom:10,background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 3px 12px rgba(0,0,0,.08)"}}>
+                    {/* Info do cliente */}
+                    <div style={{padding:"14px 16px 10px"}}>
+                      <div style={{fontWeight:800,fontSize:17,color:"#1a1f2e",textTransform:"uppercase",letterSpacing:0.3,marginBottom:4}}>
+                        {a.cli}
                       </div>
-                      <div style={{fontWeight:800,fontSize:20,color:"#1a1f2e",marginBottom:8}}>{a.cli}</div>
-                      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
-                        {agE.pess&&<Pill bg="#eff6ff" cl="#1e40af">👥 {agE.pess} pessoas</Pill>}
-                        {a.sauna&&<Pill bg="#f0fdf4" cl="#065f46">🧖 Sauna — R$15</Pill>}
-                        {a.churr&&<Pill bg="#fff7ed" cl="#9a3412">🍖 Churrasqueira</Pill>}
-                      </div>
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
-                        <div style={{display:"flex",alignItems:"center",gap:8}}>
-                          <div style={{width:12,height:12,borderRadius:"50%",background:isPago(agE.pag)?"#22c55e":isParcial(agE.pag)?"#eab308":"#ef4444",flexShrink:0}}/>
-                          <span style={{fontSize:13,fontWeight:700,color:isPago(agE.pag)?"#065f46":isParcial(agE.pag)?AM:VM}}>
-                            {labelPag(agE.pag)}
-                          </span>
-                        </div>
-                        <div style={{fontWeight:700,fontSize:16,color:VE}}>R$ {(agE.val||0).toFixed(2)}</div>
+                      <div style={{display:"flex",alignItems:"center",gap:6,color:"#6b7280",fontSize:14}}>
+                        <span>⏰</span>
+                        <span style={{fontWeight:600}}>{a.ini} às {a.fim}</span>
+                        {a.sauna&&<span style={{fontSize:12,color:"#16a34a",fontWeight:700,background:"#f0fdf4",padding:"2px 8px",borderRadius:20,marginLeft:4}}>🧖 +sauna</span>}
                       </div>
                     </div>
-                    {sal>0&&(
-                      <button onClick={()=>setModalPag(a.id)}
-                        style={{width:"100%",padding:"14px 16px",background:"#16a34a",color:"white",border:"none",borderRadius:"0 0 14px 14px",fontSize:16,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                        <span>💰 Receber</span>
-                        <span>R$ {sal.toFixed(2)}</span>
-                      </button>
-                    )}
+                    {/* Botão cobrar - destaque total */}
+                    <button onClick={()=>setModalPag(a.id)}
+                      style={{width:"100%",padding:"16px",background:"#16a34a",color:"white",border:"none",fontSize:18,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",letterSpacing:0.3}}>
+                      <span>💰 COBRAR</span>
+                      <span style={{fontSize:22,fontWeight:900}}>R$ {totalCobrar.toFixed(2)}</span>
+                    </button>
                   </div>
                 );
               })}
