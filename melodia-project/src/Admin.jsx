@@ -202,14 +202,36 @@ export default function App(){
     return 0;
   }
 
-  function calcValorAdmin(ini,fim,qid){
+  function calcValorAdmin(ini,fim,qid,pess){
     if(!ini||!fim)return;
     const q=qds.find(x=>x.id===qid);
-    if(!q||q.cob==="pessoas")return;
+    if(!q)return;
     const[ih,im]=ini.split(":").map(Number);
     const[fh,fm]=fim.split(":").map(Number);
     const durMin=(fh*60+fm)-(ih*60+im);
     if(durMin<=0)return;
+    const numSlots=durMin/30;
+    const horas=durMin/60;
+    if(q.cob==="pessoas"){
+      // Areia: R$60/hora base + extra por pessoa acima de 12 por hora completa
+      const num=parseInt(pess||fPess)||0;
+      const base=horas*60;
+      if(num<=0){setFVal(base.toFixed(2));return;}
+      const fx=q.fx||[];
+      const faixa=fx.find(x=>num<=x.a);
+      let valorHora;
+      if(faixa) valorHora=faixa.v;
+      else {
+        const ex=q.fxExtra;
+        const horasCompletas=Math.floor(horas);
+        const extra=(num-(ex?.base||12))*(ex?.acrescimo||10)*horasCompletas;
+        const baseHora=(ex?.valorBase||70);
+        setFVal((horas*baseHora+extra).toFixed(2));
+        return;
+      }
+      setFVal((horas*valorHora).toFixed(2));
+      return;
+    }
     const precoPorHora=q.cob==="horario"&&ini>=(q.horarioNoite||"16:00")?(q.precoNoite||q.preco):q.preco;
     const total=(precoPorHora/60)*durMin;
     setFVal(total.toFixed(2));
@@ -270,10 +292,7 @@ export default function App(){
         await addDoc(collection(db,"agendamentos"),{...base,data});
       }
       addLog(`📅 ${datas.length>1?datas.length+"x ":""}Agendamento: ${fCli||"Avulso"} — ${q?.nome} ${fd(fData)} ${fIni}${datas.length>1?" (recorrente até "+fd(fRepAte)+")":""}`);
-      if(fTel&&datas.length===1){
-        const msg=encodeURIComponent(`Olá ${fCli}! ✅ Sua reserva foi confirmada!\n\n🏟️ ${q?.nome}\n📅 ${fd(fData)}\n🕐 ${fIni} às ${fFim}\n💰 R$${parseFloat(fVal)||0}\n\nQualquer dúvida, fale conosco. Até lá! 👋`);
-        window.open(`https://wa.me/55${fTel.replace(/\D/g,"")}?text=${msg}`,"_blank");
-      }
+      // WhatsApp opcional — disponível no modal de detalhe
       setModalA(false);
       showToast(datas.length>1?`✅ ${datas.length} reservas criadas!`:"✅ Agendamento salvo!");
     } catch(e){ showToast("❌ Erro ao salvar!"); }
@@ -693,7 +712,7 @@ export default function App(){
         {qds.find(x=>x.id===fQid)?.cob==="pessoas"&&(
           <div style={{marginBottom:14}}>
             <label style={lbl}>Número de pessoas</label>
-            <input type="number" style={inp} value={fPess} placeholder="Ex: 10" onChange={e=>{setFPess(e.target.value);calcAreia(e.target.value,fQid);}}/>
+            <input type="number" style={inp} value={fPess} placeholder="Ex: 10" onChange={e=>{setFPess(e.target.value);calcAreia(e.target.value,fQid);calcValorAdmin(fIni,fFim,fQid,e.target.value);}}/>
             <div style={{fontSize:11,color:"#92400e",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:6,padding:"8px 10px",marginTop:6,lineHeight:1.5}}>
               ⚠️ <strong>Conta toda pessoa na extensão da quadra:</strong> quem está jogando, no deck e na churrasqueira privativa.
             </div>
@@ -702,13 +721,21 @@ export default function App(){
         )}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
           <div><label style={lbl}>Data</label><input type="date" style={inp} value={fData} onChange={e=>setFData(e.target.value)}/></div>
-          <div><label style={lbl}>Valor R$</label>
-            <input type="number" style={{...inp,background:"#f9fafb"}} value={fVal} placeholder="0,00" step="0.01" onChange={e=>setFVal(e.target.value)}/>
+          <div><label style={lbl}>Valor R$ (calculado auto)</label>
+            <input type="number" style={{...inp,background:"#f0fdf4",fontWeight:700,color:VE}} value={fVal} placeholder="0,00" step="0.01" onChange={e=>setFVal(e.target.value)}/>
+            {fIni&&fFim&&(()=>{
+              const[ih,im]=fIni.split(":").map(Number);
+              const[fh,fm]=fFim.split(":").map(Number);
+              const dur=(fh*60+fm)-(ih*60+im);
+              if(dur<=0)return null;
+              const h=Math.floor(dur/60),m=dur%60;
+              return <div style={{fontSize:11,color:"#16a34a",fontWeight:700,marginTop:3}}>⏱ {h>0?h+"h":""}{m>0?" "+m+"min":""} de duração</div>;
+            })()}
           </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
-          <div><label style={lbl}>Início</label><input type="time" style={inp} value={fIni} onChange={e=>{setFIni(e.target.value);calcValorAdmin(e.target.value,fFim,fQid);}}/></div>
-          <div><label style={lbl}>Fim</label><input type="time" style={inp} value={fFim} onChange={e=>{setFFim(e.target.value);calcValorAdmin(fIni,e.target.value,fQid);}}/></div>
+          <div><label style={lbl}>Início</label><input type="time" style={inp} value={fIni} onChange={e=>{setFIni(e.target.value);calcValorAdmin(e.target.value,fFim,fQid,fPess);}}/></div>
+          <div><label style={lbl}>Fim</label><input type="time" style={inp} value={fFim} onChange={e=>{setFFim(e.target.value);calcValorAdmin(fIni,e.target.value,fQid,fPess);}}/></div>
         </div>
         <div style={{marginBottom:14}}><label style={lbl}>Cliente</label><input style={inp} value={fCli} placeholder="Nome completo" onChange={e=>setFCli(e.target.value)}/></div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
@@ -818,6 +845,19 @@ export default function App(){
             {modalD.churr&&<Badge t="confirmado">🍖 Churrasqueira</Badge>}
           </div>
           {modalD.obs&&<div style={{background:"#f9fafb",padding:12,borderRadius:8,fontSize:13,marginBottom:16}}><strong>Obs:</strong> {modalD.obs}</div>}
+          {modalD.tel&&(
+            <a href={`https://wa.me/55${modalD.tel.replace(/\D/g,"")}?text=${encodeURIComponent(`Olá ${modalD.cli}! ✅ Reserva confirmada!
+
+🏟️ ${modalD.qnm}
+📅 ${fd(modalD.data)}
+🕐 ${modalD.ini} às ${modalD.fim}
+💰 R$${(modalD.val||0).toFixed(2)}
+
+Até lá! 👋`)}`} target="_blank"
+              style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",padding:"12px",background:"#16a34a",color:"white",borderRadius:8,fontSize:14,fontWeight:700,textDecoration:"none",marginBottom:8}}>
+              💬 Enviar confirmação por WhatsApp
+            </a>
+          )}
           <Btn full onClick={()=>{setModalD(null);abrirEditAg(modalD);}}>✏️ Editar</Btn>
           <div style={{height:8}}/>
           <Btn full onClick={()=>setModalD(null)}>Fechar</Btn>
