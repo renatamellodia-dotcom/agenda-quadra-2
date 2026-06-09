@@ -602,29 +602,28 @@ export default function App(){
                       </div>
                     );
                   })()}
-                    {/* Desfazer último pagamento parcial */}
-                    {agE._hist&&agE._hist.length>0&&totalCobrar>0&&(()=>{
-                      const ultimo=agE._hist[agE._hist.length-1];
-                      return(
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"7px 12px",borderTop:"1px solid #e0e3e8",background:"#fff7ed"}}>
-                          <span style={{fontSize:12,color:"#92400e"}}>Último recebimento: R$ {ultimo.valor.toFixed(2)}</span>
-                          <button onClick={async()=>{
-                            if(!window.confirm("Desfazer último recebimento?"))return;
-                            const novoHist=agE._hist.slice(0,-1);
-                            const valRestaurado=parseFloat((ultimo.valAnterior).toFixed(2));
-                            setEdicoes(p=>({...p,[a.id]:{...p[a.id],val:valRestaurado,_hist:novoHist}}));
-                            setRecebidoHoje(r=>Math.max(0,r-ultimo.valor));
-                            if(ultimo.tipo==="mp_total_dinheiro") setRecebidoDinheiro(r=>Math.max(0,r-ultimo.valor));
-                            else setRecebidoMaquina(r=>Math.max(0,r-ultimo.valor));
-                            try{ await updateDoc(doc(db,"agendamentos",a.id),{val:valRestaurado}); }catch(e){}
-                          }} style={{background:"none",border:"1.5px solid #f97316",borderRadius:8,padding:"4px 8px",fontSize:12,fontWeight:700,color:"#ea580c",cursor:"pointer"}}>
-                            ↩️ Desfazer
-                          </button>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
+                  </div>{/* fecha padding 14px */}
+                {/* Desfazer último pagamento parcial */}
+                {agE._hist&&agE._hist.length>0&&totalCobrar>0&&(()=>{
+                  const ultimo=agE._hist[agE._hist.length-1];
+                  return(
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"7px 12px",background:"#fff7ed",borderTop:"1px solid #fed7aa"}}>
+                      <span style={{fontSize:12,color:"#92400e"}}>↩️ Último: R$ {ultimo.valor.toFixed(2)}</span>
+                      <button onClick={async()=>{
+                        if(!window.confirm("Desfazer último recebimento?"))return;
+                        const novoHist=agE._hist.slice(0,-1);
+                        const valRestaurado=parseFloat((ultimo.valAnterior).toFixed(2));
+                        setEdicoes(p=>({...p,[a.id]:{...p[a.id],val:valRestaurado,_hist:novoHist}}));
+                        setRecebidoHoje(r=>Math.max(0,r-ultimo.valor));
+                        if(ultimo.tipo==="mp_total_dinheiro") setRecebidoDinheiro(r=>Math.max(0,r-ultimo.valor));
+                        else setRecebidoMaquina(r=>Math.max(0,r-ultimo.valor));
+                        try{ await updateDoc(doc(db,"agendamentos",a.id),{val:valRestaurado}); }catch(e){}
+                      }} style={{background:"none",border:"1.5px solid #f97316",borderRadius:8,padding:"4px 8px",fontSize:12,fontWeight:700,color:"#ea580c",cursor:"pointer"}}>
+                        Desfazer
+                      </button>
+                    </div>
+                  );
+                })()}
                 {/* Botão cobrar */}
                 {totalCobrar>0?(
                   <button onClick={()=>setModalPag(a.id)}
@@ -675,6 +674,7 @@ export default function App(){
                   </div>
                 )}
               </div>
+            </div>
             );
           });
         })()}
