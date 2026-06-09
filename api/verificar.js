@@ -114,7 +114,12 @@ export default async function handler(req, res) {
     const htmlEmail = (destino) => `
 <!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="format-detection" content="telephone=no"/>
+  <title>Reserva Confirmada - Complexo Melodia</title>
+</head>
 <body style="margin:0;padding:0;background:#f4f5f7;font-family:system-ui,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:32px 16px;">
   <tr><td align="center">
@@ -207,9 +212,18 @@ export default async function handler(req, res) {
           method: "POST",
           headers: { "Authorization": `Bearer ${RESEND_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({
-            from: `Complexo Melodia <${EMAIL_FROM}>`,
+            from: `Complexo Melodia <reservas@complexomelodia.com.br>`,
+            reply_to: "contato@complexomelodia.com.br",
             to: [emailCliente],
-            subject: `✅ Reserva confirmada — ${quadraNome} · ${dataFmt} · ${ini}`,
+            subject: `Reserva confirmada - ${quadraNome} em ${dataFmt} as ${ini}`,
+            headers: {
+              "X-Entity-Ref-ID": agId,
+              "Precedence": "bulk"
+            },
+            tags: [
+              { name: "category", value: "reserva_confirmada" }
+            ],
+            text: `Reserva confirmada - Complexo Melodia\n\nOla, ${nomeCliente}!\n\nSua reserva foi confirmada.\n\nData: ${dataFmt}\nHorario: ${ini} as ${fim}\nEspaco: ${quadraNome}\nPago online: R$ ${valorPago.toFixed(2)}${valorRestante > 0 ? "\nSaldo na chegada: R$ " + valorRestante.toFixed(2) : ""}${temSauna ? "\nSauna: Sim (pagamento no local - R$ 15,00)" : ""}\n\nDuvidas? WhatsApp: (22) 99900-8085\ncomplexomelodia.com.br`,
             html: htmlEmail("cliente")
           })
         })
@@ -222,9 +236,18 @@ export default async function handler(req, res) {
         method: "POST",
         headers: { "Authorization": `Bearer ${RESEND_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          from: `Complexo Melodia <${EMAIL_FROM}>`,
+          from: `Notificacoes Melodia <notificacoes@complexomelodia.com.br>`,
+          reply_to: "reservas@complexomelodia.com.br",
           to: [EMAIL_ADMIN],
-          subject: `📋 Nova reserva — ${nomeCliente} · ${quadraNome} · ${dataFmt} · ${ini}`,
+          subject: `Nova reserva - ${nomeCliente} | ${quadraNome} | ${dataFmt} ${ini}`,
+          headers: {
+            "X-Entity-Ref-ID": agId + "-admin",
+            "Precedence": "bulk"
+          },
+          tags: [
+            { name: "category", value: "notificacao_admin" }
+          ],
+          text: `Nova reserva - Complexo Melodia\n\nCliente: ${nomeCliente}\nData: ${dataFmt}\nHorario: ${ini} as ${fim}\nEspaco: ${quadraNome}\nPago: R$ ${valorPago.toFixed(2)}${valorRestante > 0 ? "\nSaldo pendente: R$ " + valorRestante.toFixed(2) : ""}${temSauna ? "\nSauna: Sim" : ""}\nTelefone: ${telCliente}`,
           html: htmlEmail("admin")
         })
       })
