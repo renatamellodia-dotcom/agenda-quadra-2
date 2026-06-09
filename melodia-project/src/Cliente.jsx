@@ -542,10 +542,10 @@ export default function App() {
         {[
           ["🏟️","Campo Society",""],
           ["🏖️","Quadra de Areia","Futevôlei, vôlei e beach tennis"],
-          ["🌿","Sauna","R$ 15,00 por pessoa · cobrado na chegada"],
+          ["🧖‍♂️","Sauna","R$ 15,00 por pessoa"],
           ["🍖","Churrasqueira","Mediante reserva antecipada via WhatsApp"],
           ["🚗","Estacionamento gratuito",""],
-          ["📶","Wi-Fi gratuito",""],
+          ["📶","Wi-Fi gratuito","Senha: jogadorcaro"],
           ["🍻","Bar","Bebidas e petiscos"],
         ].map(([ic,nm,det])=>(
           <div key={nm} style={{display:"flex",alignItems:"center",gap:12,padding:"8px 0",borderBottom:"1px solid rgba(255,255,255,0.07)"}}>
@@ -570,7 +570,11 @@ export default function App() {
         <div style={{background:"rgba(255,255,255,0.08)",borderRadius:10,padding:"10px 14px",marginBottom:8}}>
           <div style={{fontWeight:700,color:"white",fontSize:14,marginBottom:2}}>Churrasqueira 1 e Churrasqueira 2</div>
           <div style={{color:"rgba(255,255,255,0.7)",fontSize:13,lineHeight:1.5,marginBottom:10}}>
-            Disponíveis para todos os clientes. Verifique disponibilidade e faça sua reserva pelo WhatsApp.
+            Disponíveis para os clientes do Campo Society aproveitarem a resenha pós-pelada.
+            <br/><br/>
+            <span style={{color:"#fde68a"}}>⚠️</span> Reservas para churrasco com mais de 15 pessoas caracterizam evento e possuem condições específicas de utilização.
+            <br/><br/>
+            📲 Consulte a disponibilidade pelo WhatsApp.
           </div>
           <a href={`https://wa.me/${WPP}?text=Olá! Gostaria de verificar a disponibilidade das churrasqueiras.`}
             style={{display:"inline-flex",alignItems:"center",gap:8,background:LA,color:"white",padding:"9px 16px",borderRadius:10,fontSize:13,fontWeight:700,textDecoration:"none"}}>
@@ -820,7 +824,7 @@ export default function App() {
             <div>
               <div style={{fontWeight:700,fontSize:14,color:"#1a1f2e"}}>🧖 Banho de Sauna</div>
               <div style={{fontSize:12,color:"#6b7280",marginTop:2}}>Seg–Sex 18h–22h · Sáb–Dom 10h–17h</div>
-              <div style={{fontSize:12,color:"#16a34a",fontWeight:700,marginTop:3}}>+ R$ 15,00 cobrado na chegada</div>
+              <div style={{fontSize:12,color:"#16a34a",fontWeight:700,marginTop:3}}>+ R$ 15,00</div>
             </div>
             <div style={{width:44,height:24,borderRadius:12,background:sauna?"#2E7D6B":"#e0e3e8",position:"relative",transition:"background .2s",flexShrink:0}}>
               <div style={{position:"absolute",width:18,height:18,borderRadius:"50%",background:"white",top:3,left:sauna?23:3,transition:"left .2s"}}/>
@@ -1020,7 +1024,7 @@ export default function App() {
           ...(pessoas?[["👥","Pessoas",`${pessoas} pessoas`]]:[]),
           ["💰", "Pago online", `R$ ${(valor*(porcPag/100)).toFixed(2)}`],
           ...(porcPag===50?[["⏳","Saldo na chegada",`R$ ${(valor*0.5).toFixed(2)}`]]:[]),
-          ...(sauna?[["🧖","Sauna reservada","R$ 15,00 (pagamento no local)"]]:[]),
+          ...(sauna?[["🧖‍♂️","Sauna reservada","R$ 15,00 (pagamento no local)"]]:[]),
         ].filter(x=>x[0]).map(([ic,l,v])=>(
           <div key={l} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:"1px solid rgba(255,255,255,0.08)"}}>
             <span style={{fontSize:18,width:26,textAlign:"center",flexShrink:0}}>{ic}</span>
