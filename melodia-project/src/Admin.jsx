@@ -172,6 +172,9 @@ export default function App(){
   const [fObs,setFObs]=useState("");
   const [fChurr,setFChurr]=useState(false);
   const [hintP,setHintP]=useState("");
+  const [fRepetir,setFRepetir]=useState(false);
+  const [fRepAte,setFRepAte]=useState("");
+  const [fRepDia,setFRepDia]=useState("semanal"); // semanal | quinzenal | mensal
 
   const [bQid,setBQid]=useState(qds[0]?.id||"");
   const [bData,setBData]=useState(toDS(hoje()));
@@ -217,7 +220,7 @@ export default function App(){
     setFTipo("avulso");setFQid(qid||qds[0]?.id||"");
     setFData(ds||toDS(dtA));setFIni(ini||"");setFFim(fim||"");
     setFCli("");setFTel("");setFCpf("");setFVal("");setFPess("");setHintP("");
-    setFSt("confirmado");setFPag("pendente");setFObs("");setFChurr(false);
+    setFSt("confirmado");setFPag("pendente");setFObs("");setFChurr(false);setFRepetir(false);setFRepAte("");setFRepDia("semanal");
     if(qid&&ini&&fim)calcValorAdmin(ini,fim,qid);
     else if(qid){const q=qds.find(x=>x.id===qid);if(q&&q.cob!=="pessoas")setFVal(String(q.preco||""));}
     setModalA(true);
@@ -235,20 +238,44 @@ export default function App(){
   async function salvarAg(){
     if(!fData||!fIni||!fFim){showToast("⚠️ Preencha data e horário!");return;}
     const q=qds.find(x=>x.id===fQid);
-    const o={tp:fTipo,qid:fQid,qnm:q?.nome||"",data:fData,ini:fIni,fim:fFim,cli:fCli,tel:fTel,cpf:fCpf,val:parseFloat(fVal)||0,pess:parseInt(fPess)||null,st:fSt,pag:fPag,obs:fObs,churr:fChurr,criadoEm:serverTimestamp()};
+    const base={tp:fTipo,qid:fQid,qnm:q?.nome||"",ini:fIni,fim:fFim,cli:fCli,tel:fTel,cpf:fCpf,val:parseFloat(fVal)||0,pess:parseInt(fPess)||null,st:fSt,pag:fPag,obs:fObs,churr:fChurr,criadoEm:serverTimestamp()};
     try {
       if(editAg){
-        await updateDoc(doc(db,"agendamentos",editAg.id),o);
+        await updateDoc(doc(db,"agendamentos",editAg.id),{...base,data:fData});
         addLog(`✏️ Agendamento editado: ${fCli||"Avulso"} — ${q?.nome} ${fd(fData)} ${fIni}`);
-      } else {
-        await addDoc(collection(db,"agendamentos"),o);
-        addLog(`📅 Novo agendamento: ${fCli||"Avulso"} — ${q?.nome} ${fd(fData)} ${fIni}`);
-        if(fTel){
-          const msg=encodeURIComponent(`Olá ${fCli}! ✅ Sua reserva foi confirmada!\n\n🏟️ ${q?.nome}\n📅 ${fd(fData)}\n🕐 ${fIni} às ${fFim}\n💰 R$${parseFloat(fVal)||0}\n\nQualquer dúvida, fale conosco. Até lá! 👋`);
-          window.open(`https://wa.me/55${fTel.replace(/\D/g,"")}?text=${msg}`,"_blank");
+        setModalA(false);showToast("✅ Agendamento salvo!");
+        return;
+      }
+      // Criar reservas — únicas ou repetidas
+      const datas=[];
+      const dataInicio=new Date(fData+"T12:00:00");
+      datas.push(fData);
+      if(fRepetir && fRepAte && fTipo==="mensalista"){
+        const dataFim=new Date(fRepAte+"T12:00:00");
+        let cur=new Date(dataInicio);
+        const intervalo=fRepDia==="semanal"?7:fRepDia==="quinzenal"?14:null;
+        while(true){
+          if(intervalo){
+            cur=new Date(cur.getTime()+intervalo*24*60*60*1000);
+          } else {
+            // mensal — mesmo dia do mês seguinte
+            cur=new Date(cur);
+            cur.setMonth(cur.getMonth()+1);
+          }
+          if(cur>dataFim)break;
+          datas.push(toDS(cur));
         }
       }
-      setModalA(false);showToast("✅ Agendamento salvo!");
+      for(const data of datas){
+        await addDoc(collection(db,"agendamentos"),{...base,data});
+      }
+      addLog(`📅 ${datas.length>1?datas.length+"x ":""}Agendamento: ${fCli||"Avulso"} — ${q?.nome} ${fd(fData)} ${fIni}${datas.length>1?" (recorrente até "+fd(fRepAte)+")":""}`);
+      if(fTel&&datas.length===1){
+        const msg=encodeURIComponent(`Olá ${fCli}! ✅ Sua reserva foi confirmada!\n\n🏟️ ${q?.nome}\n📅 ${fd(fData)}\n🕐 ${fIni} às ${fFim}\n💰 R$${parseFloat(fVal)||0}\n\nQualquer dúvida, fale conosco. Até lá! 👋`);
+        window.open(`https://wa.me/55${fTel.replace(/\D/g,"")}?text=${msg}`,"_blank");
+      }
+      setModalA(false);
+      showToast(datas.length>1?`✅ ${datas.length} reservas criadas!`:"✅ Agendamento salvo!");
     } catch(e){ showToast("❌ Erro ao salvar!"); }
   }
 
@@ -704,6 +731,36 @@ export default function App(){
         </div>
         <div style={{marginBottom:14}}><label style={lbl}>Observações</label><textarea style={{...inp,resize:"vertical"}} rows={2} value={fObs} placeholder="Churrasqueira, sauna..." onChange={e=>setFObs(e.target.value)}/></div>
         <Switch on={fChurr} onChange={setFChurr} label="Churrasqueira"/>
+        {fTipo==="mensalista"&&!editAg&&(
+          <div style={{background:"#eff6ff",border:"1.5px solid #bfdbfe",borderRadius:12,padding:14,marginTop:12}}>
+            <Switch on={fRepetir} onChange={setFRepetir} label="🔁 Repetir automaticamente"/>
+            {fRepetir&&(
+              <div style={{marginTop:12}}>
+                <div style={{marginBottom:10}}>
+                  <label style={lbl}>Frequência</label>
+                  <div style={{display:"flex",gap:8}}>
+                    {[["semanal","Semanal"],["quinzenal","Quinzenal"],["mensal","Mensal"]].map(([v,l])=>(
+                      <div key={v} onClick={()=>setFRepDia(v)} style={{flex:1,padding:"8px 4px",borderRadius:8,border:`1.5px solid ${fRepDia===v?"#1d4ed8":"#e0e3e8"}`,background:fRepDia===v?"#1d4ed8":"white",color:fRepDia===v?"white":"#374151",fontSize:12,fontWeight:700,cursor:"pointer",textAlign:"center"}}>
+                        {l}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label style={lbl}>Repetir até</label>
+                  <input type="date" style={inp} value={fRepAte} onChange={e=>setFRepAte(e.target.value)} min={fData}/>
+                  {fRepAte&&fData&&(()=>{
+                    const d1=new Date(fData+"T12:00:00"),d2=new Date(fRepAte+"T12:00:00");
+                    const dias=fRepDia==="semanal"?7:fRepDia==="quinzenal"?14:null;
+                    let count=0,cur=new Date(d1);
+                    while(true){if(dias)cur=new Date(cur.getTime()+dias*24*60*60*1000);else{cur=new Date(cur);cur.setMonth(cur.getMonth()+1);}if(cur>d2)break;count++;}
+                    return count>0?<div style={{fontSize:12,color:"#1d4ed8",fontWeight:700,marginTop:6}}>✅ {count+1} reservas serão criadas ({fd(fData)} até {fd(fRepAte)})</div>:null;
+                  })()}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         <div style={{height:14}}/>
         <Btn c="v" full onClick={salvarAg}>Salvar Agendamento</Btn>
         <div style={{height:8}}/>
