@@ -38,6 +38,12 @@ function pagoPeloSite(ag){
 }
 // Pagamento feito ONLINE pelo cliente — não pode ser desfeito pela funcionária
 function isPagoOnline(pag){ return["mp_pix","mp_cartao","mp_total","mp_50"].includes(pag||""); }
+// Valor da sauna: saunaQtd × R$15 (fallback: se sauna=true sem qtd definida, cobra 1 pessoa)
+function valSauna(ag){ 
+  if(!ag||!ag.sauna) return 0;
+  const qtd=ag.saunaQtd!=null?ag.saunaQtd:1;
+  return qtd*15;
+}
 // Pagamento registrado PRESENCIALMENTE pela funcionária — pode ser desfeito
 function isPagoPresencial(pag){ return["mp_total_pix","mp_total_cartao","mp_total_dinheiro"].includes(pag||""); }
 function labelPag(p){
@@ -63,7 +69,47 @@ function tocarSom(){
   }catch(e){}
 }
 
+const SENHA_FUNC = "melodia@shay";
+
+function Login({onLogin}){
+  const [senha,setSenha]=useState("");
+  const [erro,setErro]=useState(false);
+  function tentar(){
+    if(senha===SENHA_FUNC){ onLogin(); }
+    else{ setErro(true); setSenha(""); }
+  }
+  return(
+    <div style={{minHeight:"100vh",background:"#1a5248",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"system-ui,sans-serif",padding:16}}>
+      <div style={{background:"white",borderRadius:20,padding:"36px 28px",width:"100%",maxWidth:360,boxShadow:"0 8px 32px rgba(0,0,0,0.2)"}}>
+        <div style={{textAlign:"center",marginBottom:28}}>
+          <div style={{fontSize:40,marginBottom:8}}>🔐</div>
+          <div style={{fontWeight:900,fontSize:22,color:"#1a1f2e"}}>Área da Funcionária</div>
+          <div style={{fontSize:13,color:"#6b7280",marginTop:4}}>Complexo Melodia</div>
+        </div>
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:12,fontWeight:600,color:"#374151",marginBottom:6}}>Senha</div>
+          <input
+            type="password"
+            value={senha}
+            onChange={e=>{setSenha(e.target.value);setErro(false);}}
+            onKeyDown={e=>e.key==="Enter"&&tentar()}
+            placeholder="Digite a senha"
+            style={{width:"100%",padding:"12px 14px",border:`2px solid ${erro?"#ef4444":"#e0e3e8"}`,borderRadius:10,fontSize:15,outline:"none",boxSizing:"border-box"}}
+            autoFocus
+          />
+          {erro&&<div style={{color:"#ef4444",fontSize:12,marginTop:6}}>Senha incorreta. Tente novamente.</div>}
+        </div>
+        <button onClick={tentar}
+          style={{width:"100%",padding:"13px",background:"#1a5248",color:"white",border:"none",borderRadius:10,fontSize:15,fontWeight:700,cursor:"pointer"}}>
+          Entrar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function App(){
+  const [logado,setLogado]=useState(()=>sessionStorage.getItem("func_auth")==="1");
   const [dia,setDia]=useState(hoje());
   const [showCal,setShowCal]=useState(false);
   const [aberto,setAberto]=useState(null);
@@ -103,7 +149,7 @@ export default function App(){
     const hh=hora.getHours().toString().padStart(2,"0");
     const mm=hora.getMinutes().toString().padStart(2,"0");
     const agoraMin=parseInt(hh)*60+parseInt(mm);
-    const agsDia=agendamentos.filter(a=>a.data===ds&&a.st==="confirmado"&&!finalizados.includes(a.id));
+    const agsDia=agendamentos.filter(a=>a.data===ds&&a.st==="confirmado"&&a.pag&&a.pag!==""&&a.pag!=="pendente"&&!finalizados.includes(a.id));
     for(const ag of agsDia){
       const[fH,fM]=ag.fim.split(":").map(Number);
       if(fH*60+fM===agoraMin&&!alarme){tocarSom();setAlarme(ag);break;}
@@ -111,7 +157,7 @@ export default function App(){
   },[hora,dia,finalizados,agendamentos,alarme]);
 
   const ds=toDS(dia);
-  const agsDia=agendamentos.filter(a=>a.data===ds&&a.st==="confirmado").sort((a,b)=>a.ini.localeCompare(b.ini));
+  const agsDia=agendamentos.filter(a=>a.data===ds&&a.st==="confirmado"&&a.pag&&a.pag!==""&&a.pag!=="pendente").sort((a,b)=>a.ini.localeCompare(b.ini));
 
   function getAg(id){
     const ag=agendamentos.find(x=>x.id===id);
@@ -122,9 +168,12 @@ export default function App(){
   }
 
   // Toggle sauna local + atualiza Firebase
-  async function toggleSauna(id, novoValor){
+  async function setSaunaQtd(id, qtd){
+    // qtd = 0 → sauna desligada; qtd > 0 → N pessoas na sauna
+    const novoValor = qtd > 0 ? true : false;
     setSaunaLocal(p=>({...p,[id]:novoValor}));
-    try{ await updateDoc(doc(db,"agendamentos",id),{sauna:novoValor}); }catch(e){}
+    setEdicoes(p=>({...p,[id]:{...p[id],saunaQtd:qtd}}));
+    try{ await updateDoc(doc(db,"agendamentos",id),{sauna:novoValor, saunaQtd:qtd}); }catch(e){}
   }
 
   function calcAreia(pess, slots){
@@ -156,20 +205,21 @@ export default function App(){
 
   async function confirmarFormaPag(id,tipo,valorCustom){
     const agE=getAg(id);
-    const totalDevido=saldo(agE)+(agE.sauna?15:0);
+    const totalDevido=saldo(agE)+(valSauna(agE));
     const valorRecebido=valorCustom&&valorCustom>0&&valorCustom<totalDevido
       ? valorCustom : totalDevido;
     const isParcialCustom=valorRecebido<totalDevido;
     const isDinheiro=tipo==="mp_total_dinheiro";
 
     if(isParcialCustom){
-      // Pagamento parcial: abate do saldo sem quitar
+      // Pagamento parcial: abate do saldo sem quitar — guarda histórico para desfazer
       const novoVal=parseFloat(((agE.val||0)-valorRecebido).toFixed(2));
-      setEdicoes(p=>({...p,[id]:{...p[id],val:Math.max(0,novoVal),pag:agE.pag||""}}));
-      // Não adiciona a finalizados — reserva continua em aberto
+      const histEntry={valor:valorRecebido,tipo,valAnterior:agE.val||0,ts:Date.now()};
+      setEdicoes(p=>({...p,[id]:{...p[id],val:Math.max(0,novoVal),pag:agE.pag||"",
+        _hist:[...(p[id]?._hist||[]),histEntry]}}));
     } else {
       // Quitado total
-      setEdicoes(p=>({...p,[id]:{...p[id],pag:tipo}}));
+      setEdicoes(p=>({...p,[id]:{...p[id],pag:tipo,_valOriginal:agE.val||0}}));
       setFinalizados(p=>[...p,id]);
     }
 
@@ -193,6 +243,7 @@ export default function App(){
   const salAg=ag?saldo(ag):0;
   const isAreia=ag?.qid==="q2";
 
+  if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("func_auth","1");setLogado(true);}}/>
   return(
     <div style={{fontFamily:"system-ui,sans-serif",background:"#f0f4f8",minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
 
@@ -240,8 +291,8 @@ export default function App(){
                 />
               </div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:16}}>
-              {[["📱","Pix","mp_total_pix"],["💳","Cartão","mp_total_cartao"],["💵","Dinheiro","mp_total_dinheiro"]].map(([ic,label,tipo])=>(
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+              {[["💳","Máquina","mp_total_cartao"],["💵","Dinheiro","mp_total_dinheiro"]].map(([ic,label,tipo])=>(
                 <button key={tipo} onClick={()=>confirmarFormaPag(modalPag,tipo,valorParcial?parseFloat(valorParcial):null)}
                   style={{padding:"18px 8px",background:"#f9fafb",border:"2px solid #e0e3e8",borderRadius:12,cursor:"pointer",textAlign:"center"}}>
                   <div style={{fontSize:28}}>{ic}</div>
@@ -311,7 +362,47 @@ export default function App(){
 
       {/* TOTAL A RECEBER */}
       {agsDia.length>0&&(()=>{
-        const aCobrar=agsDia.filter(a=>!isPago(getAg(a.id).pag)&&!finalizados.includes(a.id)).reduce((s,a)=>{const ag=getAg(a.id);return s+saldo(ag)+(ag.sauna?15:0);},0);
+        // Calcular tudo diretamente dos dados — atualiza sozinho a cada mudança
+        const aCobrar=agsDia.filter(a=>{
+          const ag=getAg(a.id);
+          return !isPago(ag.pag)&&!finalizados.includes(a.id);
+        }).reduce((s,a)=>{const ag=getAg(a.id);return s+saldo(ag)+valSauna(ag);},0);
+
+        // Recebido hoje: soma dos pagamentos presenciais quitados + parciais já abatidos
+        const recebidoPresencial=agsDia.reduce((s,a)=>{
+          const ag=getAg(a.id);
+          if(isPagoPresencial(ag.pag)){
+            // Quitado presencialmente: valor original − saldo restante
+            const orig=ag._valOriginal||ag.val||0;
+            return s+(orig-saldo(ag))+valSauna(ag);
+          }
+          if(ag._hist&&ag._hist.length>0){
+            // Parciais registrados
+            return s+ag._hist.reduce((t,h)=>t+h.valor,0);
+          }
+          return s;
+        },0);
+        // Recebido online (Pix/Cartão pelo site) — já estava pago ao confirmar
+        const recebidoOnline=agsDia.reduce((s,a)=>{
+          const ag=getAg(a.id);
+          return s+pagoPeloSite(ag);
+        },0);
+        const recebidoHojeCalc=recebidoPresencial; // painel mostra só o recebido pela funcionária
+
+        // Máquina vs Dinheiro
+        const maquinaCalc=agsDia.reduce((s,a)=>{
+          const ag=getAg(a.id);
+          if(ag.pag==="mp_total_cartao"){const orig=ag._valOriginal||ag.val||0;return s+(orig-saldo(ag))+valSauna(ag);}
+          if(ag._hist) return s+ag._hist.filter(h=>h.tipo!=="mp_total_dinheiro").reduce((t,h)=>t+h.valor,0);
+          return s;
+        },0);
+        const dinheiroCalc=agsDia.reduce((s,a)=>{
+          const ag=getAg(a.id);
+          if(ag.pag==="mp_total_dinheiro"){const orig=ag._valOriginal||ag.val||0;return s+(orig-saldo(ag))+valSauna(ag);}
+          if(ag._hist) return s+ag._hist.filter(h=>h.tipo==="mp_total_dinheiro").reduce((t,h)=>t+h.valor,0);
+          return s;
+        },0);
+
         const saunaHoje=agsDia.filter(a=>getAg(a.id).sauna).length;
         const proximaSauna=agsDia.filter(a=>getAg(a.id).sauna).sort((a,b)=>a.ini.localeCompare(b.ini))[0];
         const labelSauna=proximaSauna
@@ -321,10 +412,10 @@ export default function App(){
           <div style={{background:VE,padding:"0 16px 14px"}}>
             <div style={{background:"rgba(255,255,255,0.07)",borderRadius:12,overflow:"hidden"}}>
               {[
-                {label:"💰 Recebido hoje",    val:`R$ ${recebidoHoje.toFixed(2)}`,    cor:"#86efac"},
-                {label:"🟡 Falta receber hoje", val:`R$ ${aCobrar.toFixed(2)}`,        cor:"#fde68a"},
-                {label:"💳 Recebido em máquina", val:`R$ ${recebidoMaquina.toFixed(2)}`, cor:"white"},
-                {label:"💵 Recebido em dinheiro", val:`R$ ${recebidoDinheiro.toFixed(2)}`, cor:"white"},
+                {label:"💰 Recebido hoje",    val:`R$ ${recebidoHojeCalc.toFixed(2)}`,    cor:"#86efac"},
+                {label:"🟡 Falta receber hoje", val:`R$ ${aCobrar.toFixed(2)}`,          cor:"#fde68a"},
+                {label:"💳 Recebido em máquina", val:`R$ ${maquinaCalc.toFixed(2)}`,     cor:"white"},
+                {label:"💵 Recebido em dinheiro", val:`R$ ${dinheiroCalc.toFixed(2)}`,   cor:"white"},
                 {label:"🔥 Sauna prevista hoje", val:labelSauna, cor:saunaHoje>0?"#fde68a":"#6b7280"},
               ].map(({label,val,cor},i)=>(
                 <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",borderBottom:"1px solid rgba(255,255,255,0.07)"}}>
@@ -364,7 +455,7 @@ export default function App(){
             const agE=getAg(a.id);
             const recebido=finalizados.includes(a.id)||isPago(agE.pag);
             const salBase=saldo(agE);
-            const salSauna=agE.sauna?15:0;
+            const salSauna=valSauna(agE);
             const totalCobrar=salBase+salSauna;
             if(totalCobrar===0 && isPago(agE.pag) && recebido) return null;
             const q=QUADRAS_MAP[a.qid]||{nome:a.qnm,emoji:"🏟️",cor:V};
@@ -441,21 +532,34 @@ export default function App(){
                         👥 {agE.pess||"—"} pessoas <span style={{fontSize:11,color:"#9ca3af"}}>✏️</span>
                       </span>
                     )}
-                    <button onClick={()=>toggleSauna(a.id,!agE.sauna)}
-                      style={{fontSize:13,fontWeight:700,border:"none",cursor:"pointer",
-                        color:agE.sauna?"#065f46":"#9ca3af",
-                        background:agE.sauna?"#dcfce7":"#f3f4f6",
-                        padding:"4px 12px",borderRadius:20,
-                        outline:"none",transition:"all .2s"}}>
-                      🧖‍♂️ Sauna: {agE.sauna?"Sim ✅":"Não"}
-                    </button>
+                    <div style={{display:"flex",alignItems:"center",gap:6,background:agE.sauna?"#dcfce7":"#f3f4f6",borderRadius:20,padding:"3px 6px 3px 10px"}}>
+                      <span style={{fontSize:13,fontWeight:700,color:agE.sauna?"#065f46":"#9ca3af"}}>🧖‍♂️</span>
+                      {agE.sauna?(
+                        <>
+                          <span style={{fontSize:13,fontWeight:700,color:"#065f46"}}>Sauna:</span>
+                          <button onClick={()=>setSaunaQtd(a.id,Math.max(0,(agE.saunaQtd||1)-1))}
+                            style={{width:24,height:24,border:"none",borderRadius:"50%",background:"rgba(0,0,0,0.1)",cursor:"pointer",fontWeight:900,fontSize:14,color:"#065f46",display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                          <span style={{fontSize:14,fontWeight:800,color:"#065f46",minWidth:16,textAlign:"center"}}>{agE.saunaQtd||1}</span>
+                          <button onClick={()=>setSaunaQtd(a.id,(agE.saunaQtd||1)+1)}
+                            style={{width:24,height:24,border:"none",borderRadius:"50%",background:"rgba(0,0,0,0.1)",cursor:"pointer",fontWeight:900,fontSize:14,color:"#065f46",display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                          <span style={{fontSize:12,color:"#065f46"}}>pessoas ✅</span>
+                          <button onClick={()=>setSaunaQtd(a.id,0)}
+                            style={{border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#9ca3af",padding:"0 4px"}}>✕</button>
+                        </>
+                      ):(
+                        <button onClick={()=>setSaunaQtd(a.id,1)}
+                          style={{border:"none",background:"none",cursor:"pointer",fontSize:13,fontWeight:600,color:"#9ca3af"}}>
+                          Sauna: Não — ativar
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {/* Breakdown financeiro */}
                   <div style={{background:"#f9fafb",borderRadius:10,overflow:"hidden",fontSize:13}}>
                     {[
                       {label:"Valor total",   val:`R$ ${(agE.val||0).toFixed(2)}`,          cor:"#1a1f2e", sempre:true},
                       {label:"Pago online",   val:`R$ ${pagoPeloSite(agE).toFixed(2)}`,      cor:"#2E7D6B", sempre:pagoPeloSite(agE)>0},
-                      {label:"Sauna",         val:"R$ 15,00",                                cor:"#374151", sempre:!!agE.sauna},
+                      {label:`Sauna (${agE.saunaQtd||1}× R$15)`, val:`R$ ${valSauna(agE).toFixed(2)}`, cor:"#374151", sempre:!!agE.sauna},
                     ].filter(r=>r.sempre).map(({label,val,cor},i)=>(
                       <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 12px",borderBottom:"1px solid #e0e3e8"}}>
                         <span style={{color:"#6b7280"}}>{label}</span>
@@ -468,6 +572,27 @@ export default function App(){
                         {totalCobrar>0?`R$ ${totalCobrar.toFixed(2)}`:"✅ Quitado"}
                       </span>
                     </div>
+                    {/* Desfazer último pagamento parcial */}
+                    {agE._hist&&agE._hist.length>0&&totalCobrar>0&&(()=>{
+                      const ultimo=agE._hist[agE._hist.length-1];
+                      return(
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"7px 12px",borderTop:"1px solid #e0e3e8",background:"#fff7ed"}}>
+                          <span style={{fontSize:12,color:"#92400e"}}>Último recebimento: R$ {ultimo.valor.toFixed(2)}</span>
+                          <button onClick={async()=>{
+                            if(!window.confirm("Desfazer último recebimento?"))return;
+                            const novoHist=agE._hist.slice(0,-1);
+                            const valRestaurado=parseFloat((ultimo.valAnterior).toFixed(2));
+                            setEdicoes(p=>({...p,[a.id]:{...p[a.id],val:valRestaurado,_hist:novoHist}}));
+                            setRecebidoHoje(r=>Math.max(0,r-ultimo.valor));
+                            if(ultimo.tipo==="mp_total_dinheiro") setRecebidoDinheiro(r=>Math.max(0,r-ultimo.valor));
+                            else setRecebidoMaquina(r=>Math.max(0,r-ultimo.valor));
+                            try{ await updateDoc(doc(db,"agendamentos",a.id),{val:valRestaurado}); }catch(e){}
+                          }} style={{background:"none",border:"1.5px solid #f97316",borderRadius:8,padding:"4px 8px",fontSize:12,fontWeight:700,color:"#ea580c",cursor:"pointer"}}>
+                            ↩️ Desfazer
+                          </button>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
                 {/* Botão cobrar */}
@@ -490,7 +615,7 @@ export default function App(){
                       <button onClick={()=>setModalPag(a.id)}
                         style={{width:"100%",padding:"14px",background:"#16a34a",color:"white",border:"none",fontSize:16,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                         <span>💰 COBRAR SALDO</span>
-                        <span>R$ {(saldo(agE)+(agE.sauna?15:0)).toFixed(2)}</span>
+                        <span>R$ {(saldo(agE)+(valSauna(agE))).toFixed(2)}</span>
                       </button>
                     )}
                   </div>
@@ -501,21 +626,21 @@ export default function App(){
                       <span style={{fontWeight:800,color:"#065f46",fontSize:15}}>QUITADO</span>
                     </div>
                     <button onClick={async()=>{
-                      if(!window.confirm("Desfazer pagamento presencial?"))return;
+                      if(!window.confirm("Desfazer recebimento?"))return;
                       const agAtual=getAg(a.id);
-                      const valor=saldo(agAtual)+(agAtual.sauna?15:0);
-                      setEdicoes(p=>({...p,[a.id]:{...p[a.id],pag:"pendente"}}));
+                      const valOrig=agAtual._valOriginal||agAtual.val||0;
+                      const valorDevolvido=saldo(agAtual)+valSauna(agAtual);
+                      setEdicoes(p=>({...p,[a.id]:{...p[a.id],pag:"pendente",val:valOrig,_valOriginal:undefined}}));
                       setFinalizados(p=>p.filter(x=>x!==a.id));
-                      setRecebidoHoje(r=>Math.max(0,r-valor));
-                      if(agAtual.pag==="mp_total_dinheiro") setRecebidoDinheiro(r=>Math.max(0,r-valor));
-                      else setRecebidoMaquina(r=>Math.max(0,r-valor));
-                      try{ await updateDoc(doc(db,"agendamentos",a.id),{pag:"pendente"}); }catch(e){}
+                      setRecebidoHoje(r=>Math.max(0,r-valorDevolvido));
+                      if(agAtual.pag==="mp_total_dinheiro") setRecebidoDinheiro(r=>Math.max(0,r-valorDevolvido));
+                      else setRecebidoMaquina(r=>Math.max(0,r-valorDevolvido));
+                      try{ await updateDoc(doc(db,"agendamentos",a.id),{pag:"pendente",val:valOrig}); }catch(e){}
                     }} style={{background:"none",border:"1.5px solid #16a34a",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:700,color:"#16a34a",cursor:"pointer"}}>
                       ↩️ Desfazer
                     </button>
                   </div>
-                ):(
-                  <div style={{padding:"14px 16px",background:"#f0fdf4",display:"flex",alignItems:"center",gap:8}}>
+                ):(                 <div style={{padding:"14px 16px",background:"#f0fdf4",display:"flex",alignItems:"center",gap:8}}>
                     <span style={{fontWeight:700,color:"#16a34a",fontSize:14}}>✅ Pago pelo site — aguardando chegada</span>
                   </div>
                 )}
