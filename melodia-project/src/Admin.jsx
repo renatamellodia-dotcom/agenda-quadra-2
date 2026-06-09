@@ -130,8 +130,50 @@ function Switch({on,onChange,label}){
   </div>;
 }
 
+const SENHA_ADMIN = "melodia@admin";
+
+function Login({onLogin}){
+  const [senha,setSenha]=useState("");
+  const [erro,setErro]=useState(false);
+  function tentar(){
+    if(senha===SENHA_ADMIN){ onLogin(); }
+    else{ setErro(true); setSenha(""); }
+  }
+  return(
+    <div style={{minHeight:"100vh",background:"#f0f4f8",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"system-ui,sans-serif",padding:16}}>
+      <div style={{background:"white",borderRadius:20,padding:"36px 28px",width:"100%",maxWidth:360,boxShadow:"0 8px 32px rgba(0,0,0,0.10)"}}>
+        <div style={{textAlign:"center",marginBottom:28}}>
+          <div style={{fontSize:40,marginBottom:8}}>🔐</div>
+          <div style={{fontWeight:900,fontSize:22,color:"#1a1f2e"}}>Painel Administrativo</div>
+          <div style={{fontSize:13,color:"#6b7280",marginTop:4}}>Complexo Melodia</div>
+        </div>
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:12,fontWeight:600,color:"#374151",marginBottom:6}}>Senha</div>
+          <input
+            type="password"
+            value={senha}
+            onChange={e=>{setSenha(e.target.value);setErro(false);}}
+            onKeyDown={e=>e.key==="Enter"&&tentar()}
+            placeholder="Digite a senha"
+            style={{width:"100%",padding:"12px 14px",border:`2px solid ${erro?"#ef4444":"#e0e3e8"}`,borderRadius:10,fontSize:15,outline:"none",boxSizing:"border-box"}}
+            autoFocus
+          />
+          {erro&&<div style={{color:"#ef4444",fontSize:12,marginTop:6}}>Senha incorreta. Tente novamente.</div>}
+        </div>
+        <button onClick={tentar}
+          style={{width:"100%",padding:"13px",background:"#1a5248",color:"white",border:"none",borderRadius:10,fontSize:15,fontWeight:700,cursor:"pointer"}}>
+          Entrar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function App(){
+  const [logado,setLogado]=useState(()=>sessionStorage.getItem("adm_auth")==="1");
   const [pg,setPg]=useState("agenda");
+
+  if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");setLogado(true);}}/>;
   const [ags,setAgs]=useState([]);
   const [bloqueios,setBloqueios]=useState([]);
   const [qds,setQds]=useState(QP);
