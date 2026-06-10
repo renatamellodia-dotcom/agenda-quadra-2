@@ -16,29 +16,20 @@ export default function Confirmado() {
       // MP aprovou — mostrar confirmado independente do que o verificar retornar
       const mpAprovado = statusMP === "approved" || collectionStatus === "approved";
 
-      if (paymentId) {
-        try {
-          // Chamar verificar para confirmar no Firebase e enviar WhatsApp
-          await fetch(`/api/verificar?id=${paymentId}`);
-        } catch(e) {
-          console.log("Erro ao chamar verificar:", e);
-        }
-      }
-
-      // Se MP disse approved, sempre mostrar confirmado
-      if (mpAprovado) {
-        setStatus("confirmado");
-        return;
-      }
-
-      // Se não tem status do MP mas tem payment_id, tentar verificar
+      // Chamar verificar UMA vez — confirma no Firebase, envia WhatsApp e email
       if (paymentId) {
         try {
           const resp = await fetch(`/api/verificar?id=${paymentId}`);
           const json = await resp.json();
-          setStatus(json.aprovado ? "confirmado" : "erro");
+          // Se MP aprovou OU verificar confirmou, mostrar tela de sucesso
+          if (mpAprovado || json.aprovado) {
+            setStatus("confirmado");
+          } else {
+            setStatus("erro");
+          }
         } catch(e) {
-          setStatus("erro");
+          // Se verificar falhou mas MP disse approved, mostrar confirmado mesmo assim
+          setStatus(mpAprovado ? "confirmado" : "erro");
         }
         return;
       }
