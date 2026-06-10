@@ -236,7 +236,7 @@ export default async function handler(req, res) {
         method: "POST",
         headers: { "Authorization": `Bearer ${RESEND_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          from: `Notificacoes Melodia <notificacoes@complexomelodia.com.br>`,
+          from: `Complexo Melodia <reservas@complexomelodia.com.br>`,
           reply_to: "reservas@complexomelodia.com.br",
           to: [EMAIL_ADMIN],
           subject: `Nova reserva - ${nomeCliente} | ${quadraNome} | ${dataFmt} ${ini}`,
