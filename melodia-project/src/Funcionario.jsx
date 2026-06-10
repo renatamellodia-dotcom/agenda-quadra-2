@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore, collection, query, where, onSnapshot, doc, updateDoc } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -11,7 +11,7 @@ const firebaseConfig = {
   appId: "1:146103424595:web:abcdef"
 };
 
-const app = initializeApp(firebaseConfig);
+const app = getApps().lenght ? getApp(): initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const VE = "#1a5248";
 const SENHA = "melodia@shay";
