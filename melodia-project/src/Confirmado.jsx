@@ -10,38 +10,30 @@ export default function Confirmado() {
     const params = new URLSearchParams(window.location.search);
     const paymentId = params.get("payment_id");
     const statusMP = params.get("status");
-    const collectionStatus = params.get("collection_status"); // MP também envia isso
+    const collectionStatus = params.get("collection_status");
 
     async function confirmar() {
-      // MP aprovou — mostrar confirmado independente do que o verificar retornar
       const mpAprovado = statusMP === "approved" || collectionStatus === "approved";
 
-      // Chamar verificar UMA vez — confirma no Firebase, envia WhatsApp e email
       if (paymentId) {
         try {
-          const resp = await fetch(`/api/verificar?id=${paymentId}`);
-          const json = await resp.json();
-          // Se MP aprovou OU verificar confirmou, mostrar tela de sucesso
-          if (mpAprovado || json.aprovado) {
-            setStatus("confirmado");
-          } else {
-            setStatus("erro");
-          }
+          await fetch("/api/verificar?id=" + paymentId);
         } catch(e) {
-          // Se verificar falhou mas MP disse approved, mostrar confirmado mesmo assim
-          setStatus(mpAprovado ? "confirmado" : "erro");
+          console.log("Erro verificar:", e);
         }
+      }
+
+      if (mpAprovado) {
+        setStatus("confirmado");
         return;
       }
 
-      // Sem informação nenhuma
       setStatus("erro");
     }
 
     confirmar();
   }, []);
 
-  // Countdown para redirecionar
   useEffect(() => {
     if (status === "verificando") return;
     const t = setInterval(() => {
@@ -74,7 +66,7 @@ export default function Confirmado() {
         </p>
         <a href="https://wa.me/5522999008085"
           style={{display:"block",padding:"14px",background:"#16a34a",color:"white",borderRadius:12,fontSize:15,fontWeight:700,textDecoration:"none",marginBottom:12}}>
-          💬 Falar com o Complexo
+          Falar com o Complexo
         </a>
         <button onClick={()=>window.location.href="/"} style={{width:"100%",padding:"12px",background:"none",border:"1.5px solid #e0e3e8",borderRadius:12,fontSize:14,fontWeight:600,cursor:"pointer",color:"#6b7280"}}>
           Voltar ao início
@@ -93,7 +85,7 @@ export default function Confirmado() {
       <div style={{textAlign:"center",marginBottom:28}}>
         <div style={{fontWeight:800,fontSize:30,color:"white",marginBottom:8}}>Reserva Confirmada!</div>
         <div style={{color:"rgba(255,255,255,0.65)",fontSize:15,lineHeight:1.6}}>
-          Tudo certo! Te esperamos no Complexo Melodia. 🎾<br/>
+          Tudo certo! Te esperamos no Complexo Melodia.<br/>
           Você receberá a confirmação por e-mail em instantes.
         </div>
       </div>
