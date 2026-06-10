@@ -543,8 +543,8 @@ export default function App(){
                         />
                         <span style={{fontSize:12,color:"#3b82f6"}}>↵</span>
                       </div>
-                    ):(
-                      <span onClick={()=>setEditPessCard(a.id)} style={{fontSize:13,fontWeight:600,color:"#374151",background:"#f3f4f6",padding:"4px 10px",borderRadius:20,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
+                    ):
+                      (<span onClick={()=>setEditPessCard(a.id)} style={{fontSize:13,fontWeight:600,color:"#374151",background:"#f3f4f6",padding:"4px 10px",borderRadius:20,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
                         👥 {agE.pess||"—"} pessoas <span style={{fontSize:11,color:"#9ca3af"}}>✏️</span>
                       </span>
                     )}
@@ -562,8 +562,8 @@ export default function App(){
                           <button onClick={()=>setSaunaQtd(a.id,0)}
                             style={{border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#9ca3af",padding:"0 4px"}}>✕</button>
                         </>
-                      ):(
-                        <button onClick={()=>setSaunaQtd(a.id,1)}
+                      ):
+                        (<button onClick={()=>setSaunaQtd(a.id,1)}
                           style={{border:"none",background:"none",cursor:"pointer",fontSize:13,fontWeight:600,color:"#9ca3af"}}>
                           Sauna: Não — ativar
                         </button>
@@ -669,7 +669,8 @@ export default function App(){
                       ↩️ Desfazer
                     </button>
                   </div>
-                ):(                 <div style={{padding:"14px 16px",background:"#f0fdf4",display:"flex",alignItems:"center",gap:8}}>
+                ):
+                  (<div style={{padding:"14px 16px",background:"#f0fdf4",display:"flex",alignItems:"center",gap:8}}>
                     <span style={{fontWeight:700,color:"#16a34a",fontSize:14}}>✅ Pago pelo site — aguardando chegada</span>
                   </div>
                 )}
@@ -743,8 +744,8 @@ export default function App(){
                       ✏️ Atualizar
                     </button>
                   </div>
-                ):(
-                  <div>
+                ):
+                  (<div>
                     <div style={{fontSize:13,color:"#374151",marginBottom:10}}>Quantas pessoas estão na quadra agora?</div>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:6,marginBottom:10}}>
                       {[6,8,10,12,14,16].map(n=>(
