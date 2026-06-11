@@ -63,13 +63,12 @@ function valorSauna(ag) {
   return qtd * SAUNA_UNIT;
 }
 
-function valorExcedente(ag) {
+function valorExcedente(ag, pessPresentes) {
   if(!ag || ag.qid!=="q2") return 0;
   const agendadas = parseInt(ag.pess)||0;
-  const presentes = parseInt(ag.pessPresentes)||0;
+  const presentes = parseInt(pessPresentes)||agendadas;
   if(presentes <= agendadas || agendadas <= 0) return 0;
   const excedentes = presentes - agendadas;
-  // calcular horas da reserva
   if(!ag.ini||!ag.fim) return 0;
   const [ih,im] = ag.ini.split(":").map(Number);
   const [fh,fm] = ag.fim.split(":").map(Number);
@@ -242,8 +241,16 @@ export default function App() {
   }
 
   async function salvarPessPresentes(id, qtd) {
-    setEdicoes(p=>({...p,[id]:{...p[id],pessPresentes:qtd}}));
-    try { await updateDoc(doc(db,"agendamentos",id),{pessPresentes:qtd}); } catch(e){}
+    const val = Math.max(0, qtd);
+    setEdicoes(p=>({...p,[id]:{...p[id],pessPresentes:val}}));
+    try { await updateDoc(doc(db,"agendamentos",id),{pessPresentes:val}); } catch(e){}
+  }
+
+  function getPessPresentes(ag) {
+    // Se já foi editado, usa o valor editado; senão usa o agendado
+    if(edicoes[ag.id]?.pessPresentes !== undefined) return parseInt(edicoes[ag.id].pessPresentes)||0;
+    if(ag.pessPresentes !== undefined) return parseInt(ag.pessPresentes)||0;
+    return parseInt(ag.pess)||0; // valor inicial = agendado
   }
 
   const ds = dia;
@@ -374,7 +381,8 @@ export default function App() {
           </div>
         ) : agsDia.map(a=>{
           const agE = getAg(a.id);
-          const cobrar = totalCobrar(agE);
+          const ppCard = getPessPresentes(agE);
+          const cobrar = saldoQuadra(agE) + valorSauna(agE) + valorExcedente(agE, ppCard);
           const agoraMin = hora.getHours()*60+hora.getMinutes();
           const iniMin = parseInt(a.ini.split(":")[0])*60+parseInt(a.ini.split(":")[1]);
           const fimMin = parseInt(a.fim.split(":")[0])*60+parseInt(a.fim.split(":")[1]);
@@ -427,26 +435,30 @@ export default function App() {
                     👥 {agE.pess||a.pess||"?"} pessoas agendadas
                   </span>
                 </div>
-                {agE.qid==="q2" && (
-                  <div style={{background:"#f0f9ff",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 12px",marginBottom:10}}>
-                    <div style={{fontWeight:700,color:"#1e40af",fontSize:13,marginBottom:8}}>👥 Pessoas presentes</div>
-                    <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                      <span style={{fontSize:13,color:"#374151"}}>Presentes:</span>
-                      <div style={{display:"flex",alignItems:"center",gap:8}}>
-                        <button onClick={()=>salvarPessPresentes(a.id, Math.max(0,(parseInt(agE.pessPresentes)||0)-1))}
-                          style={{width:30,height:30,borderRadius:8,border:"1.5px solid #1e40af",background:"white",color:"#1e40af",fontWeight:800,fontSize:18,cursor:"pointer",lineHeight:1}}>−</button>
-                        <span style={{fontWeight:800,fontSize:18,color:"#1e40af",minWidth:24,textAlign:"center"}}>{parseInt(agE.pessPresentes)||0}</span>
-                        <button onClick={()=>salvarPessPresentes(a.id, (parseInt(agE.pessPresentes)||0)+1)}
-                          style={{width:30,height:30,borderRadius:8,border:"1.5px solid #1e40af",background:"#1e40af",color:"white",fontWeight:800,fontSize:18,cursor:"pointer",lineHeight:1}}>+</button>
+                {agE.qid==="q2" && (()=>{
+                  const pp = getPessPresentes(agE);
+                  const agendadas = parseInt(agE.pess)||0;
+                  const excVal = valorExcedente(agE, pp);
+                  const excQtd = pp - agendadas;
+                  return (
+                    <div style={{background:"#f0f9ff",border:"1px solid #bfdbfe",borderRadius:10,padding:"12px",marginBottom:10}}>
+                      <div style={{fontWeight:700,color:"#1e40af",fontSize:13,marginBottom:4}}>👥 Total de pessoas na área exclusiva</div>
+                      <div style={{fontSize:11,color:"#6b7280",marginBottom:10}}>(quadra, deck e churrasqueira)</div>
+                      <div style={{display:"flex",alignItems:"center",gap:12}}>
+                        <button onClick={()=>salvarPessPresentes(a.id, pp-1)}
+                          style={{width:36,height:36,borderRadius:8,border:"1.5px solid #1e40af",background:"white",color:"#1e40af",fontWeight:800,fontSize:22,cursor:"pointer",lineHeight:1}}>−</button>
+                        <span style={{fontWeight:900,fontSize:28,color:"#1e40af",minWidth:36,textAlign:"center"}}>{pp}</span>
+                        <button onClick={()=>salvarPessPresentes(a.id, pp+1)}
+                          style={{width:36,height:36,borderRadius:8,border:"1.5px solid #1e40af",background:"#1e40af",color:"white",fontWeight:800,fontSize:22,cursor:"pointer",lineHeight:1}}>+</button>
+                        {excQtd>0 && (
+                          <span style={{fontSize:13,fontWeight:700,color:"#dc2626",background:"#fee2e2",padding:"4px 10px",borderRadius:20}}>
+                            +{excQtd} excedente{excQtd>1?"s":""} = R$ {excVal.toFixed(2)}
+                          </span>
+                        )}
                       </div>
-                      {valorExcedente(agE)>0 && (
-                        <span style={{fontSize:13,fontWeight:700,color:"#dc2626",background:"#fee2e2",padding:"2px 8px",borderRadius:20}}>
-                          +{(parseInt(agE.pessPresentes)||0)-(parseInt(agE.pess)||0)} excedentes = R$ {valorExcedente(agE).toFixed(2)}
-                        </span>
-                      )}
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Sauna */}
                 <div style={{background:(agE.sauna&&saunaQtd>0)?"#f0fdf4":"#f9fafb",border:`1px solid ${(agE.sauna&&saunaQtd>0)?"#bbf7d0":"#e0e3e8"}`,borderRadius:10,padding:"10px 12px",marginBottom:10}}>
@@ -483,7 +495,9 @@ export default function App() {
 
                 {/* Breakdown financeiro detalhado */}
                 {(()=>{
-                  const excVal = valorExcedente(agE);
+                  const ppLocal = getPessPresentes(agE);
+                  const excVal = valorExcedente(agE, ppLocal);
+                  const excQtdLocal = ppLocal - (parseInt(agE.pess)||0);
                   const totalVal = quadraVal + excVal + saunaVal;
                   return (
                     <div style={{background:"#f9fafb",borderRadius:10,overflow:"hidden",fontSize:13}}>
@@ -493,7 +507,7 @@ export default function App() {
                       </div>
                       {excVal>0 && (
                         <div style={{display:"flex",justifyContent:"space-between",padding:"7px 12px",borderBottom:"1px solid #e0e3e8"}}>
-                          <span style={{color:"#dc2626"}}>Excedentes ({(parseInt(agE.pessPresentes)||0)-(parseInt(agE.pess)||0)} pessoas)</span>
+                          <span style={{color:"#dc2626"}}>Excedentes (+{excQtdLocal} pessoas)</span>
                           <span style={{fontWeight:700,color:"#dc2626"}}>R$ {excVal.toFixed(2)}</span>
                         </div>
                       )}
