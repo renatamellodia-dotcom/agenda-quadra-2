@@ -35,14 +35,6 @@ function isPago(pag) {
   return ["mp_total","mp_total_pix","mp_total_cartao","mp_total_dinheiro",
     "pix_total","cartao_total","pago_total","dinheiro","mp_pix","mp_cartao"].includes(pag||"");
 }
-function saldoQuadra(ag) {
-  if(!ag) return 0;
-  const val = parseFloat(ag.val)||0;
-  const pag = ag.pag||"";
-  if(isPago(pag)) return 0;
-  if(["mp_50","pix_50","cartao_50","pago_50"].includes(pag)) return val*0.5;
-  return val;
-}
 function pagoPeloSite(ag) {
   if(!ag) return 0;
   const val = parseFloat(ag.val)||0;
@@ -51,6 +43,24 @@ function pagoPeloSite(ag) {
   if(pag==="mp_50") return val*0.5;
   return 0;
 }
+
+function saldoQuadra(ag) {
+  if(!ag) return 0;
+  const val = parseFloat(ag.val)||0;
+  const pag = ag.pag||"";
+  const pago = pagoPeloSite(ag);
+  // Sempre: valor atual - o que já foi pago online
+  const saldo = val - pago;
+  if(saldo <= 0.01) return 0;
+  // Se não pagou nada online e está pendente
+  if(pag==="pendente") return val;
+  // Se pagou 50% online e tem saldo restante
+  if(["mp_50","pix_50","cartao_50","pago_50"].includes(pag)) return Math.max(0, saldo);
+  // Se pagou total online mas adicionou tempo (val aumentou)
+  if(isPago(pag)) return Math.max(0, saldo);
+  return val;
+}
+
 function valorExcedente(ag, pessPresentes) {
   if(!ag || ag.qid!=="q2") return 0;
   const agendadas = parseInt(ag.pess)||0;
@@ -62,6 +72,41 @@ function valorExcedente(ag, pessPresentes) {
   const horas = Math.floor(minutos/60);
   if(horas < 1) return 0;
   return excedentes * 10 * horas;
+}
+
+function tocarSom(tipo) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if(tipo === "aviso") {
+      // Som discreto: 2 bipes curtos
+      [0, 0.3].forEach(t => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = 880;
+        gain.gain.setValueAtTime(0.3, ctx.currentTime+t);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+t+0.2);
+        osc.start(ctx.currentTime+t);
+        osc.stop(ctx.currentTime+t+0.2);
+      });
+    } else {
+      // Som principal: 3 bipes mais fortes
+      [0, 0.4, 0.8].forEach(t => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = 660;
+        gain.gain.setValueAtTime(0.5, ctx.currentTime+t);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+t+0.3);
+        osc.start(ctx.currentTime+t);
+        osc.stop(ctx.currentTime+t+0.3);
+      });
+    }
+    // Vibração no celular
+    if(navigator.vibrate) {
+      tipo === "aviso" ? navigator.vibrate([200,100,200]) : navigator.vibrate([400,200,400,200,400]);
+    }
+  } catch(e) {}
 }
 
 function Login({ onLogin }) {
@@ -105,6 +150,7 @@ export default function App() {
   const [modalPag, setModalPag] = useState(null);
   const [edicoes, setEdicoes] = useState({});
   const [alarme, setAlarme] = useState(null);
+  const [aviso5min, setAviso5min] = useState(null);
   const [recebidoMaquina, setRecebidoMaquina] = useState(0);
   const [recebidoDinheiro, setRecebidoDinheiro] = useState(0);
   const [filtro, setFiltro] = useState("todos");
@@ -141,17 +187,28 @@ export default function App() {
     setRecebidoDinheiro(din);
   },[agendamentos,edicoes,dia,logado]);
 
-  // Alarme fim de jogo
+  // Alarme fim de jogo + aviso 5 minutos antes
   useEffect(()=>{
     if(!logado) return;
     const agsDia = agendamentos.filter(a=>a.data===dia&&a.st==="confirmado");
     for(const ag of agsDia){
-      if(!ag.fim) continue;
+      const agE = getAg(ag.id);
+      const fim = agE.fim||ag.fim;
+      if(!fim) continue;
       const fimMs = new Date();
-      const[fH,fM]=ag.fim.split(":").map(Number);
+      const[fH,fM]=fim.split(":").map(Number);
       fimMs.setHours(fH,fM,0,0);
       const diff = fimMs-hora;
-      if(diff>0&&diff<60000) setAlarme(ag);
+      // Aviso 5 minutos antes (entre 5min e 4min59s)
+      if(diff>240000&&diff<=300000&&aviso5min?.id!==ag.id) {
+        setAviso5min(ag);
+        tocarSom("aviso");
+      }
+      // Alarme principal no fim (últimos 60s)
+      if(diff>0&&diff<=60000&&alarme?.id!==ag.id) {
+        setAlarme(ag);
+        tocarSom("principal");
+      }
     }
   },[hora,agendamentos,dia,logado]);
 
@@ -246,6 +303,22 @@ export default function App() {
   return (
     <div style={{fontFamily:"system-ui,sans-serif",background:"#f0f4f8",minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
 
+      {/* AVISO 5 MINUTOS */}
+      {aviso5min && (
+        <div style={{position:"fixed",top:0,left:"50%",transform:"translateX(-50%)",zIndex:500,maxWidth:480,width:"100%",padding:"0 12px",paddingTop:8}}>
+          <div style={{background:"#fef3c7",border:"2px solid #f59e0b",borderRadius:12,padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:"0 4px 20px rgba(0,0,0,0.2)"}}>
+            <div>
+              <div style={{fontWeight:800,fontSize:14,color:"#92400e"}}>⏰ Faltam 5 minutos!</div>
+              <div style={{fontSize:13,color:"#92400e",marginTop:2}}>{aviso5min.cli} — termina às {getAg(aviso5min.id).fim||aviso5min.fim}</div>
+            </div>
+            <button onClick={()=>setAviso5min(null)}
+              style={{background:"#f59e0b",border:"none",color:"white",borderRadius:8,padding:"6px 12px",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ALARME */}
       {alarme && (
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.7)",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
@@ -285,7 +358,7 @@ export default function App() {
       <div style={{background:"#f0f4f8",padding:"10px 16px 4px",display:"flex",gap:8}}>
         {[["todos","Todos"],["society","⚽ Society"],["areia","🏐 Areia"]].map(([k,l])=>(
           <button key={k} onClick={()=>setFiltro(k)}
-            style={{flex:1,padding:"8px 4px",borderRadius:20,border:"none",background:filtro===k?(k==="society"?VE:k==="areia"?"#0891b2":"#374151"):"#e2e8f0",color:filtro===k?"white":"#6b7280",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+            style={{flex:1,padding:"8px 4px",borderRadius:20,border:"none",background:filtro===k?(k==="society"?VE:k==="areia"?"#E8861A":"#374151"):"#e2e8f0",color:filtro===k?"white":"#6b7280",fontWeight:700,fontSize:13,cursor:"pointer"}}>
             {l}
           </button>
         ))}
@@ -363,10 +436,10 @@ export default function App() {
           const fimMin = toMin(agE.fim||a.fim);
           const emAndamento = agoraMin>=iniMin&&agoraMin<fimMin;
           const qNome = agE.qid==="q2" ? "🏐 Quadra de Areia" : "⚽ Campo Society";
-          const qCor = agE.qid==="q2" ? "#0891b2" : VE;
+          const qCor = agE.qid==="q2" ? "#E8861A" : VE;
 
           return (
-            <div key={a.id} style={{marginBottom:10,background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 3px 12px rgba(0,0,0,.08)",borderLeft:`4px solid ${agE.qid==="q2"?"#0891b2":VE}`}}>
+            <div key={a.id} style={{marginBottom:10,background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 3px 12px rgba(0,0,0,.08)",borderLeft:`4px solid ${agE.qid==="q2"?"#E8861A":VE}`}}>
               <div style={{padding:"14px 16px"}}>
 
                 {/* Cabeçalho do card */}
@@ -403,9 +476,18 @@ export default function App() {
                     )}
                   </div>
                   {(()=>{
+                    const isHoje = dia === hoje();
                     const now = hora.getHours()*60+hora.getMinutes();
                     const ini2 = toMin(agE.ini||a.ini);
                     const fim2 = toMin(agE.fim||a.fim);
+                    // Só mostrar contador no dia atual
+                    if(!isHoje) {
+                      return (
+                        <div style={{fontSize:13,fontWeight:600,color:"#6b7280",background:"#f3f4f6",borderRadius:6,padding:"3px 8px",display:"inline-block"}}>
+                          📅 {agE.ini||a.ini} às {agE.fim||a.fim}
+                        </div>
+                      );
+                    }
                     if(now < ini2) {
                       const diff = ini2 - now;
                       const h = Math.floor(diff/60), m = diff%60;
