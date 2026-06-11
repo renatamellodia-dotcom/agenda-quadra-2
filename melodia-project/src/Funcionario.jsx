@@ -63,8 +63,24 @@ function valorSauna(ag) {
   return qtd * SAUNA_UNIT;
 }
 
+function valorExcedente(ag) {
+  if(!ag || ag.qid!=="q2") return 0;
+  const agendadas = parseInt(ag.pess)||0;
+  const presentes = parseInt(ag.pessPresentes)||0;
+  if(presentes <= agendadas || agendadas <= 0) return 0;
+  const excedentes = presentes - agendadas;
+  // calcular horas da reserva
+  if(!ag.ini||!ag.fim) return 0;
+  const [ih,im] = ag.ini.split(":").map(Number);
+  const [fh,fm] = ag.fim.split(":").map(Number);
+  const minutos = (fh*60+fm)-(ih*60+im);
+  const horas = Math.floor(minutos/60);
+  const precoExc = horas>0 ? excedentes*10*horas : excedentes*10;
+  return precoExc;
+}
+
 function totalCobrar(ag) {
-  return saldoQuadra(ag) + valorSauna(ag);
+  return saldoQuadra(ag) + valorSauna(ag) + valorExcedente(ag);
 }
 
 function Login({ onLogin }) {
@@ -225,6 +241,11 @@ export default function App() {
     try { await updateDoc(doc(db,"agendamentos",id),{saunaQtd:qtd}); } catch(e){}
   }
 
+  async function salvarPessPresentes(id, qtd) {
+    setEdicoes(p=>({...p,[id]:{...p[id],pessPresentes:qtd}}));
+    try { await updateDoc(doc(db,"agendamentos",id),{pessPresentes:qtd}); } catch(e){}
+  }
+
   const ds = dia;
   const agsDia = agendamentos
     .filter(a=>a.data===ds&&a.st==="confirmado")
@@ -304,9 +325,15 @@ export default function App() {
 
       {/* PAINEL SUPERIOR */}
       <div style={{background:VE,padding:"0 16px 14px"}}>
+
+        {/* DESTAQUE: Falta receber no balcão */}
+        <div style={{background:"rgba(253,230,138,0.15)",border:"2px solid #fde68a",borderRadius:14,padding:"16px",marginBottom:10,textAlign:"center"}}>
+          <div style={{fontSize:11,fontWeight:700,color:"#fde68a",textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>💰 FALTA RECEBER NO BALCÃO</div>
+          <div style={{fontWeight:900,fontSize:34,color:"#fde68a"}}>{`R$ ${aCobrar.toFixed(2)}`}</div>
+        </div>
+
         <div style={{background:"rgba(255,255,255,0.07)",borderRadius:12,overflow:"hidden"}}>
           {[
-            {label:"🟡 Falta receber no balcão", val:`R$ ${aCobrar.toFixed(2)}`,             cor:"#fde68a"},
             {label:"💳 Recebido em máquina",     val:`R$ ${recebidoMaquina.toFixed(2)}`,     cor:"white"},
             {label:"💵 Recebido em dinheiro",    val:`R$ ${recebidoDinheiro.toFixed(2)}`,    cor:"white"},
             {label:"⚽ Recebido Society",         val:`R$ ${recebidoSociety.toFixed(2)}`,     cor:"rgba(255,255,255,0.7)"},
@@ -394,30 +421,58 @@ export default function App() {
                   ⏰ <span style={{fontWeight:600}}>{a.ini} às {a.fim}</span>
                 </div>
 
-                {/* Pessoas */}
-                <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+                {/* Pessoas agendadas + excedentes (Areia) */}
+                <div style={{marginBottom:10}}>
                   <span style={{fontSize:13,fontWeight:600,color:"#374151",background:"#f3f4f6",padding:"4px 10px",borderRadius:20}}>
-                    👥 {agE.pess||a.pess||"?"} pessoas
+                    👥 {agE.pess||a.pess||"?"} pessoas agendadas
                   </span>
                 </div>
+                {agE.qid==="q2" && (
+                  <div style={{background:"#f0f9ff",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 12px",marginBottom:10}}>
+                    <div style={{fontWeight:700,color:"#1e40af",fontSize:13,marginBottom:8}}>👥 Pessoas presentes</div>
+                    <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                      <span style={{fontSize:13,color:"#374151"}}>Presentes:</span>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <button onClick={()=>salvarPessPresentes(a.id, Math.max(0,(parseInt(agE.pessPresentes)||0)-1))}
+                          style={{width:30,height:30,borderRadius:8,border:"1.5px solid #1e40af",background:"white",color:"#1e40af",fontWeight:800,fontSize:18,cursor:"pointer",lineHeight:1}}>−</button>
+                        <span style={{fontWeight:800,fontSize:18,color:"#1e40af",minWidth:24,textAlign:"center"}}>{parseInt(agE.pessPresentes)||0}</span>
+                        <button onClick={()=>salvarPessPresentes(a.id, (parseInt(agE.pessPresentes)||0)+1)}
+                          style={{width:30,height:30,borderRadius:8,border:"1.5px solid #1e40af",background:"#1e40af",color:"white",fontWeight:800,fontSize:18,cursor:"pointer",lineHeight:1}}>+</button>
+                      </div>
+                      {valorExcedente(agE)>0 && (
+                        <span style={{fontSize:13,fontWeight:700,color:"#dc2626",background:"#fee2e2",padding:"2px 8px",borderRadius:20}}>
+                          +{(parseInt(agE.pessPresentes)||0)-(parseInt(agE.pess)||0)} excedentes = R$ {valorExcedente(agE).toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
 
-                {/* Sauna com qtd editável */}
-                {agE.sauna && (
-                  <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"10px 12px",marginBottom:10}}>
-                    <div style={{fontWeight:700,color:"#065f46",fontSize:13,marginBottom:8}}>🧖 Sauna</div>
+                {/* Sauna */}
+                <div style={{background:(agE.sauna&&saunaQtd>0)?"#f0fdf4":"#f9fafb",border:`1px solid ${(agE.sauna&&saunaQtd>0)?"#bbf7d0":"#e0e3e8"}`,borderRadius:10,padding:"10px 12px",marginBottom:10}}>
+                  <div style={{fontWeight:700,color:"#374151",fontSize:13,marginBottom:8}}>🧖 Sauna</div>
+                  <div style={{display:"flex",gap:10,marginBottom:8}}>
+                    {[["Não",0],["Sim",saunaQtd>0?saunaQtd:1]].map(([label,val])=>(
+                      <button key={label} onClick={()=>salvarSaunaQtd(a.id, label==="Não"?0:(saunaQtd>0?saunaQtd:1))}
+                        style={{flex:1,padding:"7px",borderRadius:8,border:`1.5px solid ${(label==="Não"&&saunaQtd===0)||(label==="Sim"&&saunaQtd>0)?"#16a34a":"#e0e3e8"}`,background:(label==="Não"&&saunaQtd===0)||(label==="Sim"&&saunaQtd>0)?"#16a34a":"white",color:(label==="Não"&&saunaQtd===0)||(label==="Sim"&&saunaQtd>0)?"white":"#374151",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+                        {label==="Não"?"☐ Não":"☑ Sim"}
+                      </button>
+                    ))}
+                  </div>
+                  {saunaQtd>0 && (
                     <div style={{display:"flex",alignItems:"center",gap:10}}>
                       <span style={{fontSize:13,color:"#374151"}}>Pessoas na sauna:</span>
                       <div style={{display:"flex",alignItems:"center",gap:8}}>
-                        <button onClick={()=>salvarSaunaQtd(a.id, Math.max(0, saunaQtd-1))}
+                        <button onClick={()=>salvarSaunaQtd(a.id, Math.max(1, saunaQtd-1))}
                           style={{width:30,height:30,borderRadius:8,border:"1.5px solid #16a34a",background:"white",color:"#16a34a",fontWeight:800,fontSize:18,cursor:"pointer",lineHeight:1}}>−</button>
                         <span style={{fontWeight:800,fontSize:18,color:VE,minWidth:24,textAlign:"center"}}>{saunaQtd}</span>
                         <button onClick={()=>salvarSaunaQtd(a.id, saunaQtd+1)}
                           style={{width:30,height:30,borderRadius:8,border:"1.5px solid #16a34a",background:"#16a34a",color:"white",fontWeight:800,fontSize:18,cursor:"pointer",lineHeight:1}}>+</button>
+                        <span style={{fontSize:13,fontWeight:700,color:"#065f46"}}>= R$ {saunaVal.toFixed(2)}</span>
                       </div>
-                      {saunaVal>0 && <span style={{fontSize:13,fontWeight:700,color:"#065f46"}}>R$ {saunaVal.toFixed(2)}</span>}
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 {/* Observação */}
                 {(agE.obs||a.obs) && (
@@ -427,34 +482,46 @@ export default function App() {
                 )}
 
                 {/* Breakdown financeiro detalhado */}
-                <div style={{background:"#f9fafb",borderRadius:10,overflow:"hidden",fontSize:13}}>
-                  <div style={{display:"flex",justifyContent:"space-between",padding:"7px 12px",borderBottom:"1px solid #e0e3e8"}}>
-                    <span style={{color:"#6b7280"}}>Valor da quadra</span>
-                    <span style={{fontWeight:700,color:"#1a1f2e"}}>R$ {quadraVal.toFixed(2)}</span>
-                  </div>
-                  {saunaVal>0 && (
-                    <div style={{display:"flex",justifyContent:"space-between",padding:"7px 12px",borderBottom:"1px solid #e0e3e8"}}>
-                      <span style={{color:"#6b7280"}}>Valor da sauna ({saunaQtd}×R${SAUNA_UNIT})</span>
-                      <span style={{fontWeight:700,color:"#065f46"}}>R$ {saunaVal.toFixed(2)}</span>
+                {(()=>{
+                  const excVal = valorExcedente(agE);
+                  const totalVal = quadraVal + excVal + saunaVal;
+                  return (
+                    <div style={{background:"#f9fafb",borderRadius:10,overflow:"hidden",fontSize:13}}>
+                      <div style={{display:"flex",justifyContent:"space-between",padding:"7px 12px",borderBottom:"1px solid #e0e3e8"}}>
+                        <span style={{color:"#6b7280"}}>Valor da quadra</span>
+                        <span style={{fontWeight:700,color:"#1a1f2e"}}>R$ {quadraVal.toFixed(2)}</span>
+                      </div>
+                      {excVal>0 && (
+                        <div style={{display:"flex",justifyContent:"space-between",padding:"7px 12px",borderBottom:"1px solid #e0e3e8"}}>
+                          <span style={{color:"#dc2626"}}>Excedentes ({(parseInt(agE.pessPresentes)||0)-(parseInt(agE.pess)||0)} pessoas)</span>
+                          <span style={{fontWeight:700,color:"#dc2626"}}>R$ {excVal.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {saunaVal>0 && (
+                        <div style={{display:"flex",justifyContent:"space-between",padding:"7px 12px",borderBottom:"1px solid #e0e3e8"}}>
+                          <span style={{color:"#6b7280"}}>Sauna ({saunaQtd}×R${SAUNA_UNIT})</span>
+                          <span style={{fontWeight:700,color:"#065f46"}}>R$ {saunaVal.toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div style={{display:"flex",justifyContent:"space-between",padding:"7px 12px",borderBottom:"1px solid #e0e3e8",background:"#f3f4f6"}}>
+                        <span style={{fontWeight:700,color:"#374151"}}>Valor total</span>
+                        <span style={{fontWeight:800,color:"#1a1f2e"}}>R$ {totalVal.toFixed(2)}</span>
+                      </div>
+                      {pagoSite>0 && (
+                        <div style={{display:"flex",justifyContent:"space-between",padding:"7px 12px",borderBottom:"1px solid #e0e3e8"}}>
+                          <span style={{color:"#6b7280"}}>Pago online</span>
+                          <span style={{fontWeight:700,color:"#2E7D6B"}}>R$ {pagoSite.toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div style={{display:"flex",justifyContent:"space-between",padding:"9px 12px",background:cobrar>0?"#fff7ed":"#f9fafb"}}>
+                        <span style={{fontWeight:700,color:"#374151"}}>Falta receber no balcão</span>
+                        <span style={{fontWeight:800,fontSize:15,color:cobrar>0?"#ea580c":"#9ca3af"}}>
+                          {cobrar>0 ? `R$ ${cobrar.toFixed(2)}` : "✅ Quitado"}
+                        </span>
+                      </div>
                     </div>
-                  )}
-                  <div style={{display:"flex",justifyContent:"space-between",padding:"7px 12px",borderBottom:"1px solid #e0e3e8",background:"#f3f4f6"}}>
-                    <span style={{fontWeight:700,color:"#374151"}}>Valor total</span>
-                    <span style={{fontWeight:800,color:"#1a1f2e"}}>R$ {(quadraVal+saunaVal).toFixed(2)}</span>
-                  </div>
-                  {pagoSite>0 && (
-                    <div style={{display:"flex",justifyContent:"space-between",padding:"7px 12px",borderBottom:"1px solid #e0e3e8"}}>
-                      <span style={{color:"#6b7280"}}>Pago online</span>
-                      <span style={{fontWeight:700,color:"#2E7D6B"}}>R$ {pagoSite.toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div style={{display:"flex",justifyContent:"space-between",padding:"9px 12px",background:cobrar>0?"#f0fdf4":"#f9fafb"}}>
-                    <span style={{fontWeight:700,color:"#374151"}}>Falta receber</span>
-                    <span style={{fontWeight:800,fontSize:15,color:cobrar>0?"#16a34a":"#9ca3af"}}>
-                      {cobrar>0 ? `R$ ${cobrar.toFixed(2)}` : "✅ Quitado"}
-                    </span>
-                  </div>
-                </div>
+                  );
+                })()}
               </div>
 
               {/* Botão de ação */}
