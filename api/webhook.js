@@ -1,38 +1,49 @@
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(200).end();
+  // Aceitar apenas POST do Mercado Pago
+  if (req.method !== "POST") {
+    return res.status(200).json({ ok: true });
+  }
 
-  // Responde 200 imediatamente para o MP não dar timeout
-  res.status(200).json({ ok: true });
-
-  const MP_ACCESS_TOKEN = "APP_USR-6072226638550144-060413-d83b1b373f8d5638dcd1391941826a23-237821225";
+  const MP_TOKEN = "APP_USR-6072226638550144-060413-d83b1b373f8d5638dcd1391941826a23-237821225";
   const FIREBASE_KEY = "AIzaSyAX5kKNmUsqs6g0eD_wpbRAalcu1A8ViWI";
   const PROJECT_ID = "agendamento-quadras-ad13b";
   const CALLMEBOT_KEY = "3912259";
   const RENATA_TEL = "5522999008085";
+  const FUNC_TEL = "5522999815178";
+  const RESEND_KEY = "re_EPZUyHnp_2Ane4iXt9DYSzaKtLx2AfA2P";
+  const EMAIL_FROM = "reservas@complexomelodia.com.br";
+  const EMAIL_ADMIN = "complexoesportivo@gmail.com";
 
   try {
-    const body = req.body || {};
+    const body = req.body;
 
-    const isPayment =
-      (body.type === "payment" || body.action === "payment.updated" || body.action === "payment.created") &&
-      body.data?.id;
+    // MP envia: { type: "payment", data: { id: "123" } }
+    if (body?.type !== "payment") {
+      return res.status(200).json({ ok: true, msg: "not a payment event" });
+    }
 
-    if (!isPayment) return;
+    const paymentId = body?.data?.id;
+    if (!paymentId) {
+      return res.status(200).json({ ok: true, msg: "no payment id" });
+    }
 
-    const paymentId = body.data.id;
-
-    const mpResp = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-      headers: { "Authorization": `Bearer ${MP_ACCESS_TOKEN}` }
+    // 1. Buscar pagamento no MP
+    const mpResp = await fetch("https://api.mercadopago.com/v1/payments/" + paymentId, {
+      headers: { "Authorization": "Bearer " + MP_TOKEN }
     });
     const payment = await mpResp.json();
-    if (payment.status !== "approved") return;
+
+    if (payment.status !== "approved") {
+      return res.status(200).json({ ok: true, msg: "not approved: " + payment.status });
+    }
 
     const extRef = payment.external_reference;
-    if (!extRef) return;
+    const tipoPag = payment.payment_type_id === "pix" ? "pix" : "cartao";
+    const valorPago = payment.transaction_amount || 0;
 
-    // Busca agendamento pelo extRef
+    // 2. Buscar agendamento no Firebase
     const queryResp = await fetch(
-      `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents:runQuery?key=${FIREBASE_KEY}`,
+      "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID + "/databases/(default)/documents:runQuery?key=" + FIREBASE_KEY,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -53,64 +64,98 @@ export default async function handler(req, res) {
     );
 
     const queryResult = await queryResp.json();
-    const doc = queryResult[0]?.document;
-    if (!doc) return;
+    const docFound = queryResult[0]?.document;
+    if (!docFound) {
+      return res.status(200).json({ ok: true, msg: "agendamento not found: " + extRef });
+    }
 
-    const fields = doc.fields || {};
-    const docPath = doc.name;
+    const fields = docFound.fields || {};
+    const docPath = docFound.name;
+    const agId = docPath.split("/").pop();
 
-    // Atualiza status para confirmado
+    // Se já confirmado, não processa de novo
+    if (fields.st?.stringValue === "confirmado") {
+      return res.status(200).json({ ok: true, msg: "already confirmed" });
+    }
+
+    // 3. Dados da reserva
+    const valorTotal = fields.val?.doubleValue || fields.val?.integerValue || 0;
+    const isParcial = valorTotal > 0 && valorPago < valorTotal * 0.75;
+    const temSauna = fields.sauna?.booleanValue === true;
+    const nomeCliente = fields.cli?.stringValue || "Cliente";
+    const quadraNome = fields.qnm?.stringValue || "Quadra";
+    const dataAg = fields.data?.stringValue || "";
+    const ini = fields.ini?.stringValue || "";
+    const fim = fields.fim?.stringValue || "";
+    const telCliente = (fields.tel?.stringValue || "").replace(/\D/g, "");
+    const emailCliente = fields.email?.stringValue || "";
+    const pagCod = isParcial ? "mp_50" : (tipoPag === "pix" ? "mp_pix" : "mp_cartao");
+    const valorRestante = isParcial ? valorTotal * 0.5 : 0;
+    const dataFmt = dataAg ? dataAg.split("-").reverse().join("/") : "";
+
+    // 4. Atualizar Firebase
     await fetch(
-      `https://firestore.googleapis.com/v1/${docPath}?updateMask.fieldPaths=st&updateMask.fieldPaths=pag&updateMask.fieldPaths=pagamentoId&key=${FIREBASE_KEY}`,
+      "https://firestore.googleapis.com/v1/" + docPath + "?updateMask.fieldPaths=st&updateMask.fieldPaths=pag&updateMask.fieldPaths=pagamentoId&key=" + FIREBASE_KEY,
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fields: {
             st: { stringValue: "confirmado" },
-            pag: { stringValue: payment.payment_type_id === "pix" ? "mp_pix" : "mp_cartao" },
+            pag: { stringValue: pagCod },
             pagamentoId: { stringValue: String(paymentId) }
           }
         })
       }
     );
 
-    const nomeCliente = fields.cli?.stringValue || "Cliente";
-    const quadraNome = fields.qnm?.stringValue || "Quadra";
-    const dataAg = fields.data?.stringValue || "";
-    const ini = fields.ini?.stringValue || "";
-    const fim = fields.fim?.stringValue || "";
-    const valor = fields.val?.doubleValue || fields.val?.integerValue || "";
-    const telCliente = fields.tel?.stringValue || "";
-
-    // WhatsApp para a Renata
-    const msgRenata = encodeURIComponent(
+    // 5. WhatsApp Renata + Shay
+    const msgWA = encodeURIComponent(
       "🎾 *Novo agendamento confirmado!*\n\n" +
       "👤 *Cliente:* " + nomeCliente + "\n" +
       "🏟️ *Quadra:* " + quadraNome + "\n" +
-      "📅 *Data:* " + dataAg + "\n" +
+      "📅 *Data:* " + dataFmt + "\n" +
       "⏰ *Horário:* " + ini + " às " + fim + "\n" +
-      "💰 *Valor pago:* R$ " + valor + "\n" +
-      "📱 *Tel:* " + telCliente
+      (temSauna ? "🧖 *Sauna:* Sim\n" : "") +
+      "💰 *Pago agora:* R$ " + valorPago.toFixed(2) +
+      (isParcial ? "\n⏳ *Restante na chegada:* R$ " + valorRestante.toFixed(2) : "\n✅ *Pago total*") + "\n" +
+      "📱 *Tel:* " + telCliente + "\n" +
+      "🔔 _via webhook_"
     );
-    await fetch(`https://api.callmebot.com/whatsapp.php?phone=${RENATA_TEL}&text=${msgRenata}&apikey=${CALLMEBOT_KEY}`);
+    await fetch("https://api.callmebot.com/whatsapp.php?phone=" + RENATA_TEL + "&text=" + msgWA + "&apikey=" + CALLMEBOT_KEY);
+    await fetch("https://api.callmebot.com/whatsapp.php?phone=" + FUNC_TEL + "&text=" + msgWA + "&apikey=" + CALLMEBOT_KEY);
 
-    // WhatsApp para o cliente
-    if (telCliente) {
-      const telLimpo = telCliente.replace(/\D/g, "");
-      const telIntl = telLimpo.startsWith("55") ? telLimpo : "55" + telLimpo;
-      const msgCliente = encodeURIComponent(
-        "✅ *Reserva confirmada — Complexo Melodia!*\n\n" +
-        "Olá, " + nomeCliente + "! Seu pagamento foi aprovado.\n\n" +
-        "🏟️ *Quadra:* " + quadraNome + "\n" +
-        "📅 *Data:* " + dataAg + "\n" +
-        "⏰ *Horário:* " + ini + " às " + fim + "\n\n" +
-        "Qualquer dúvida entre em contato. Até lá! 🎾"
-      );
-      await fetch(`https://api.callmebot.com/whatsapp.php?phone=${telIntl}&text=${msgCliente}&apikey=${CALLMEBOT_KEY}`);
+    // 6. Email cliente
+    if (emailCliente) {
+      await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + RESEND_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from: "Complexo Melodia <" + EMAIL_FROM + ">",
+          to: [emailCliente],
+          subject: "✅ Reserva Confirmada | " + quadraNome + " | " + dataFmt + " às " + ini + " | Complexo Melodia",
+          text: "Olá " + nomeCliente + "! Sua reserva foi confirmada.\n\nData: " + dataFmt + "\nHorário: " + ini + " às " + fim + "\nEspaço: " + quadraNome + "\nPago: R$ " + valorPago.toFixed(2) + (valorRestante > 0 ? "\nSaldo na chegada: R$ " + valorRestante.toFixed(2) : "") + "\n\ncomplexomelodia.com.br"
+        })
+      });
     }
 
-  } catch(e) {
-    console.error("Webhook error:", e.message);
+    // 7. Email admin
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + RESEND_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: "Complexo Melodia <" + EMAIL_FROM + ">",
+        to: [EMAIL_ADMIN],
+        subject: "📅 Nova Reserva | " + nomeCliente + " | " + quadraNome + " | " + dataFmt + " " + ini,
+        text: "Nova reserva confirmada!\n\nCliente: " + nomeCliente + "\nData: " + dataFmt + "\nHorário: " + ini + " às " + fim + "\nEspaço: " + quadraNome + "\nPago: R$ " + valorPago.toFixed(2) + (valorRestante > 0 ? "\nSaldo pendente: R$ " + valorRestante.toFixed(2) : "") + (temSauna ? "\nSauna: Sim" : "") + "\nTel: " + telCliente + "\n🔔 via webhook"
+      })
+    });
+
+    return res.status(200).json({ ok: true, agId });
+
+  } catch (e) {
+    console.error("Webhook erro:", e.message);
+    // Sempre retornar 200 para o MP não retentar infinitamente
+    return res.status(200).json({ ok: false, erro: e.message });
   }
 }
