@@ -64,7 +64,7 @@ function saldoQuadra(ag) {
 // Regras centrais (espelho do src/regras.js)
 const AREIA_LIMITE_SEM_EXTRA = 12; // até 12 pessoas = sem cobrança
 const AREIA_PRECO_EXCEDENTE = 10;  // R$ por pessoa acima de 12, por hora
-const SAUNA_UNIT = 15;             // R$ por pessoa de sauna
+
 
 function valorExcedente(ag, pessPresentes) {
   if(!ag || ag.qid!=="q2") return 0;
