@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -10,7 +10,7 @@ const firebaseConfig = {
   messagingSenderId: "228136379926",
   appId: "1:228136379926:web:7741e85184909b1ecff737"
 };
-const fbApp = initializeApp(firebaseConfig);
+const fbApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(fbApp);
 
 const V="#2E7D6B",VE="#1a5248",LA="#E8861A",VM="#e53e3e",BG="#f4f5f7";
