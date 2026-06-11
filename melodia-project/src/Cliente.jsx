@@ -607,15 +607,6 @@ export default function App() {
             🍖 Reservar Churrasqueira
           </a>
         </div>
-        <div style={{background:"rgba(255,255,255,0.08)",borderRadius:10,padding:"10px 14px"}}>
-          <div style={{fontWeight:700,color:"white",fontSize:14,marginBottom:2}}>Churrasqueira Exclusiva da Areia</div>
-          <div style={{color:"rgba(255,255,255,0.7)",fontSize:13,lineHeight:1.5,marginBottom:6}}>
-            Inclusa na locação da Quadra de Areia com <strong style={{color:"white"}}>mínimo de 5 horas</strong>.
-          </div>
-          <div style={{background:"rgba(232,134,26,0.3)",borderRadius:8,padding:"6px 10px",fontSize:12,fontWeight:700,color:"white",display:"inline-flex",alignItems:"center",gap:6}}>
-            ⏱️ Mínimo 5 horas de locação
-          </div>
-        </div>
       </div>
 
       <div style={{display:"flex",alignItems:"center",gap:12,padding:"0 16px 16px"}}>
