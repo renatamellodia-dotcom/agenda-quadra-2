@@ -637,29 +637,20 @@ export default function App() {
 
       {/* MODAL PAGAMENTO */}
       {modalPag && (
-        <div onClick={()=>setModalPag(null)}
-          style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 16px"}}>
-          <div onClick={e=>e.stopPropagation()}
-            style={{background:"white",borderRadius:20,width:"100%",maxWidth:420,padding:"28px 20px 24px",boxShadow:"0 8px 40px rgba(0,0,0,0.25)"}}>
-            <div style={{width:40,height:4,background:"#e0e3e8",borderRadius:2,margin:"0 auto 20px"}}/>
-            <div style={{fontWeight:800,fontSize:20,marginBottom:6,color:"#1a1f2e"}}>Como o cliente pagou?</div>
-            <div style={{fontSize:14,color:"#6b7280",marginBottom:20}}>
-              Registrar recebimento de <strong>R$ {(()=>{
-                const agE=getAg(modalPag);
-                const pp=getPP(agE);
-                const saunaVal=(parseInt(agE.saunaQtd)||0)*SAUNA_UNIT;
-                const excVal=valorExcedente(agE,pp);
-                return (saldoQuadra(agE)+saunaVal+excVal).toFixed(2);
-              })()}</strong>
-            </div>
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 16px"}}>
+          <div style={{background:"white",borderRadius:20,width:"100%",maxWidth:420,padding:"28px 20px 24px",boxShadow:"0 8px 40px rgba(0,0,0,0.25)"}}>
+            <div style={{fontWeight:800,fontSize:20,marginBottom:16,color:"#1a1f2e",textAlign:"center"}}>Como o cliente pagou?</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
-              {[["💳","Máquina","mp_total_cartao"],["💵","Dinheiro","mp_total_dinheiro"]].map(([ic,label,tipo])=>(
-                <button key={tipo} onClick={()=>confirmarPag(modalPag,tipo)}
-                  style={{padding:"18px 8px",background:"#f9fafb",border:"2px solid #e0e3e8",borderRadius:12,cursor:"pointer",textAlign:"center"}}>
-                  <div style={{fontSize:28}}>{ic}</div>
-                  <div style={{fontSize:14,fontWeight:700,color:"#1a1f2e",marginTop:8}}>{label}</div>
-                </button>
-              ))}
+              <button style={{padding:"20px 8px",background:"#eff6ff",border:"2px solid #1e40af",borderRadius:12,cursor:"pointer",textAlign:"center"}}
+                onClick={()=>confirmarPag(modalPag,"mp_total_cartao")}>
+                <div style={{fontSize:32}}>💳</div>
+                <div style={{fontSize:15,fontWeight:800,color:"#1e40af",marginTop:8}}>Máquina</div>
+              </button>
+              <button style={{padding:"20px 8px",background:"#f0fdf4",border:"2px solid #16a34a",borderRadius:12,cursor:"pointer",textAlign:"center"}}
+                onClick={()=>confirmarPag(modalPag,"mp_total_dinheiro")}>
+                <div style={{fontSize:32}}>💵</div>
+                <div style={{fontSize:15,fontWeight:800,color:"#16a34a",marginTop:8}}>Dinheiro</div>
+              </button>
             </div>
             <button onClick={()=>setModalPag(null)}
               style={{width:"100%",padding:"13px",background:"none",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14,fontWeight:600,cursor:"pointer",color:"#6b7280"}}>
