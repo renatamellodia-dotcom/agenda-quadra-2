@@ -107,6 +107,7 @@ export default function App() {
   const [alarme, setAlarme] = useState(null);
   const [recebidoMaquina, setRecebidoMaquina] = useState(0);
   const [recebidoDinheiro, setRecebidoDinheiro] = useState(0);
+  const [filtro, setFiltro] = useState("todos");
 
   useEffect(()=>{
     if(!logado) return;
@@ -215,7 +216,7 @@ export default function App() {
   }
 
   const agsDia = agendamentos
-    .filter(a=>a.data===dia&&a.st==="confirmado")
+    .filter(a=>a.data===dia&&a.st==="confirmado"&&(filtro==="todos"||a.qid===(filtro==="society"?"q1":"q2")))
     .sort((a,b)=>a.ini.localeCompare(b.ini));
 
   // Total falta receber no balcão
@@ -278,6 +279,16 @@ export default function App() {
         <div style={{color:"white",fontWeight:700,fontSize:14,textTransform:"capitalize"}}>{nomeDia(dia)}</div>
         <button onClick={()=>mudarDia(1)}
           style={{background:"rgba(255,255,255,0.15)",border:"none",color:"white",width:36,height:36,borderRadius:8,fontSize:20,cursor:"pointer"}}>›</button>
+      </div>
+
+      {/* FILTRO */}
+      <div style={{background:"#f0f4f8",padding:"10px 16px 4px",display:"flex",gap:8}}>
+        {[["todos","Todos"],["society","⚽ Society"],["areia","🏐 Areia"]].map(([k,l])=>(
+          <button key={k} onClick={()=>setFiltro(k)}
+            style={{flex:1,padding:"8px 4px",borderRadius:20,border:"none",background:filtro===k?(k==="society"?VE:k==="areia"?"#0891b2":"#374151"):"#e2e8f0",color:filtro===k?"white":"#6b7280",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+            {l}
+          </button>
+        ))}
       </div>
 
       {/* PAINEL SUPERIOR */}
@@ -355,7 +366,7 @@ export default function App() {
           const qCor = agE.qid==="q2" ? "#0891b2" : VE;
 
           return (
-            <div key={a.id} style={{marginBottom:10,background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 3px 12px rgba(0,0,0,.08)"}}>
+            <div key={a.id} style={{marginBottom:10,background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 3px 12px rgba(0,0,0,.08)",borderLeft:`4px solid ${agE.qid==="q2"?"#0891b2":VE}`}}>
               <div style={{padding:"14px 16px"}}>
 
                 {/* Cabeçalho do card */}
@@ -398,14 +409,27 @@ export default function App() {
                     if(now < ini2) {
                       const diff = ini2 - now;
                       const h = Math.floor(diff/60), m = diff%60;
-                      return <div style={{fontSize:13,color:"#6b7280",fontWeight:600}}>⏰ Faltam {h>0?h+"h ":""}{m>0?m+"min":""} para a reserva</div>;
+                      const urgente = diff <= 15;
+                      return (
+                        <div style={{fontSize:13,fontWeight:700,color:urgente?"#d97706":"#6b7280",background:urgente?"#fef3c7":"transparent",borderRadius:6,padding:urgente?"3px 8px":"0",display:"inline-block"}}>
+                          ⏰ Faltam {h>0?h+"h ":""}{m>0?m+"min":""} para a reserva
+                        </div>
+                      );
                     }
                     if(now >= ini2 && now < fim2) {
                       const restam = fim2 - now;
                       const h = Math.floor(restam/60), m = restam%60;
-                      return <div style={{fontSize:13,color:"#16a34a",fontWeight:700}}>🟢 Em andamento — restam {h>0?h+"h ":""}{m>0?m+"min":""}</div>;
+                      return (
+                        <div style={{fontSize:13,fontWeight:700,color:"#16a34a",background:"#dcfce7",borderRadius:6,padding:"3px 8px",display:"inline-block"}}>
+                          🟢 Em andamento — restam {h>0?h+"h ":""}{m>0?m+"min":""}
+                        </div>
+                      );
                     }
-                    return <div style={{fontSize:13,color:"#6b7280",fontWeight:600}}>✅ Reserva encerrada</div>;
+                    return (
+                      <div style={{fontSize:13,fontWeight:600,color:"#9ca3af",background:"#f3f4f6",borderRadius:6,padding:"3px 8px",display:"inline-block"}}>
+                        ✅ Encerrada
+                      </div>
+                    );
                   })()}
                 </div>
 
