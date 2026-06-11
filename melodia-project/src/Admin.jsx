@@ -130,7 +130,7 @@ function Switch({on,onChange,label}){
   </div>;
 }
 
-const SENHA_ADMIN = "melodia@admin";
+const SENHA_ADMIN = "renata proprietaria";
 
 function Login({onLogin}){
   const [senha,setSenha]=useState("");
