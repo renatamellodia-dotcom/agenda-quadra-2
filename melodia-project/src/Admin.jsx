@@ -431,6 +431,10 @@ export default function App(){
   const finPend=finL.filter(a=>a.pag==="pendente"&&a.st!=="cancelado").reduce((s,a)=>s+(a.val||0),0);
   const finSite=finL.filter(a=>["mp_pix","mp_cartao","mp_total","mp_50"].includes(a.pag)&&isPago(a.pag)).reduce((s,a)=>s+(a.val||0),0);
   const finBalcao=finL.filter(a=>["mp_total_pix","mp_total_cartao","mp_total_dinheiro"].includes(a.pag)).reduce((s,a)=>s+(a.val||0),0);
+  // Breakdown por quadra
+  const finSociety=finL.filter(a=>a.qid==="q1"&&(isPago(a.pag)||isParcial(a.pag))&&a.st!=="cancelado").reduce((s,a)=>s+(isParcial(a.pag)?a.val*0.5:a.val||0),0);
+  const finAreia=finL.filter(a=>a.qid==="q2"&&(isPago(a.pag)||isParcial(a.pag))&&a.st!=="cancelado").reduce((s,a)=>s+(isParcial(a.pag)?a.val*0.5:a.val||0),0);
+  const finSauna=finL.filter(a=>(isPago(a.pag)||isParcial(a.pag))&&a.st!=="cancelado"&&(parseInt(a.saunaQtd)||0)>0).reduce((s,a)=>s+((parseInt(a.saunaQtd)||0)*15),0);
   const finPorDia={};
   finL.filter(a=>isPago(a.pag)||["mp_total_pix","mp_total_cartao","mp_total_dinheiro"].includes(a.pag)).forEach(a=>{
     const d=a.data||"";
@@ -620,7 +624,7 @@ export default function App(){
           <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}><div style={{fontWeight:800,fontSize:22,color:"#854d0e"}}>R${finParcial.toFixed(0)}</div><div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Falta 50%</div></div>
           <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}><div style={{fontWeight:800,fontSize:22,color:VM}}>R${finPend.toFixed(0)}</div><div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Não pago</div></div>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
           <div style={{background:"#eff6ff",borderRadius:12,padding:14,border:"1.5px solid #bfdbfe",textAlign:"center"}}>
             <div style={{fontSize:14,marginBottom:2}}>💻</div>
             <div style={{fontWeight:800,fontSize:20,color:"#1e40af"}}>R${finSite.toFixed(0)}</div>
@@ -630,6 +634,27 @@ export default function App(){
             <div style={{fontSize:14,marginBottom:2}}>🏟️</div>
             <div style={{fontWeight:800,fontSize:20,color:"#065f46"}}>R${finBalcao.toFixed(0)}</div>
             <div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Balcão — mês</div>
+          </div>
+        </div>
+        {/* Breakdown por quadra */}
+        <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",marginBottom:16}}>
+          <div style={{fontWeight:700,fontSize:13,color:"#6b7280",textTransform:"uppercase",letterSpacing:0.5,marginBottom:12}}>Breakdown por quadra</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+            <div style={{background:"#f0fdf4",borderRadius:10,padding:12,textAlign:"center",border:"1.5px solid #bbf7d0"}}>
+              <div style={{fontSize:16,marginBottom:2}}>⚽</div>
+              <div style={{fontWeight:800,fontSize:18,color:"#065f46"}}>R${finSociety.toFixed(0)}</div>
+              <div style={{fontSize:10,color:"#6b7280",fontWeight:600,marginTop:2}}>Society</div>
+            </div>
+            <div style={{background:"#fff7ed",borderRadius:10,padding:12,textAlign:"center",border:"1.5px solid #fed7aa"}}>
+              <div style={{fontSize:16,marginBottom:2}}>🏐</div>
+              <div style={{fontWeight:800,fontSize:18,color:"#c2410c"}}>R${finAreia.toFixed(0)}</div>
+              <div style={{fontSize:10,color:"#6b7280",fontWeight:600,marginTop:2}}>Areia</div>
+            </div>
+            <div style={{background:"#fef9c3",borderRadius:10,padding:12,textAlign:"center",border:"1.5px solid #fde68a"}}>
+              <div style={{fontSize:16,marginBottom:2}}>🧖</div>
+              <div style={{fontWeight:800,fontSize:18,color:"#854d0e"}}>R${finSauna.toFixed(0)}</div>
+              <div style={{fontSize:10,color:"#6b7280",fontWeight:600,marginTop:2}}>Sauna</div>
+            </div>
           </div>
         </div>
         {finDias.length>0&&<div style={{marginBottom:16}}>
