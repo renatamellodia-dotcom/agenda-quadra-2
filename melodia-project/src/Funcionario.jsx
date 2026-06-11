@@ -48,16 +48,12 @@ function saldoQuadra(ag) {
   if(!ag) return 0;
   const val = parseFloat(ag.val)||0;
   const pag = ag.pag||"";
-  const pago = pagoPeloSite(ag);
-  // Sempre: valor atual - o que já foi pago online
-  const saldo = val - pago;
-  if(saldo <= 0.01) return 0;
-  // Se não pagou nada online e está pendente
-  if(pag==="pendente") return val;
-  // Se pagou 50% online e tem saldo restante
-  if(["mp_50","pix_50","cartao_50","pago_50"].includes(pag)) return Math.max(0, saldo);
-  // Se pagou total online mas adicionou tempo (val aumentou)
-  if(isPago(pag)) return Math.max(0, saldo);
+  // Pago total no balcão ou online = sem saldo
+  if(isPagoPresencial(pag)) return 0;
+  if(["mp_pix","mp_cartao","mp_total"].includes(pag)) return 0;
+  // Pago 50% online = falta metade
+  if(["mp_50","pix_50","cartao_50","pago_50"].includes(pag)) return val*0.5;
+  // Pendente = valor total
   return val;
 }
 
