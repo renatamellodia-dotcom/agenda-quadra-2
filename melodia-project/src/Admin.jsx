@@ -139,6 +139,25 @@ function Login({onLogin}){
     if(senha===SENHA_ADMIN){ onLogin(); }
     else{ setErro(true); setSenha(""); }
   }
+  function exportarCSV() {
+    const periodo = finTipo==="mes" ? finMes : finTipo==="semana" ? "7dias" : finTipo==="quinzena" ? "15dias" : finDe+"_"+finAte;
+    const cab = "Data;Horario;Cliente;Quadra;Pessoas;Pagamento;Valor;Pago Online;A Receber;Status";
+    const rows = [...finL].sort(function(a,b){return a.data.localeCompare(b.data);}).map(function(a){
+      return [fd(a.data),a.ini+" as "+a.fim,a.cli||"Avulso",a.qnm||"",a.pess||"",a.pag||"",(a.val||0).toFixed(2),pagoPeloSite(a).toFixed(2),saldoRestante(a).toFixed(2),a.st||""].join(";");
+    });
+    const csv = cab + "
+" + rows.join("
+");
+    const blob = new Blob([csv],{type:"text/csv;charset=utf-8;"});
+    const url = URL.createObjectURL(blob);
+    const el = document.createElement("a");
+    el.href = url;
+    el.download = "financeiro_"+periodo+".csv";
+    el.click();
+    URL.revokeObjectURL(url);
+    showToast("Exportado!");
+  }
+
   return(
     <div style={{minHeight:"100vh",background:"#f0f4f8",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"system-ui,sans-serif",padding:16}}>
       <div style={{background:"white",borderRadius:20,padding:"36px 28px",width:"100%",maxWidth:360,boxShadow:"0 8px 32px rgba(0,0,0,0.10)"}}>
@@ -234,55 +253,7 @@ export default function App(){
 
   function showToast(m){setToast(m);setTimeout(()=>setToast(""),2800);}
 
-  function exportarCSV() { const periodo = finTipo==="mes" ? finMes : finTipo==="semana" ? "7dias" : finTipo==="quinzena" ? "15dias" : finDe+"_"+finAte; const cab = ["Data","Horario","Cliente","Quadra","Pessoas","Pagamento","Valor","Pago Online","A Receber","Status"].join(";"); const rows = [...finL].sort(function(a,b){return a.data.localeCompare(b.data);}).map(function(a){return [fd(a.data),a.ini+" as "+a.fim,a.cli||"Avulso",a.qnm||"",a.pess||"",a.pag||"",(a.val||0).toFixed(2),pagoPeloSite(a).toFixed(2),saldoRestante(a).toFixed(2),a.st||""].join(";");}); const csv = cab + String.fromCharCode(13,10) + rows.join(String.fromCharCode(13,10)); const blob = new Blob([csv],{type:"text/csv;charset=utf-8;"}); const url = URL.createObjectURL(blob); const el = document.createElement("a"); el.href = url; el.download = "financeiro_"+periodo+".csv"; el.click(); URL.revokeObjectURL(url); showToast("Exportado!"); }
-  function addLog(msg){setCfg(c=>({...c,logs:[{msg,em:agora()},...(c.logs||[])].slice(0,50)}));}
-
-  function exportarCSV() {
-    const linhas = [
-      ["Data","Cliente","Quadra","Início","Fim","Pessoas","Pagamento","Valor (R$)","Pago Site (R$)","Saldo Balcão (R$)","Sauna","Status"]
-    ];
-    [...finL].sort((a,b)=>b.data.localeCompare(a.data)).forEach(a=>{
-      const pago = pagoPeloSite(a);
-      const saldo = saldoRestante(a);
-      linhas.push([
-        fd(a.data),
-        a.cli||"Avulso",
-        a.qnm||"",
-        a.ini||"",
-        a.fim||"",
-        a.pess||"",
-        labelPag(a.pag,a.val),
-        (a.val||0).toFixed(2),
-        pago.toFixed(2),
-        saldo.toFixed(2),
-        a.sauna?"Sim":"Não",
-        a.st||""
-      ]);
-    });
-    const csv = linhas.map(l=>l.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")).join("
-");
-    const blob = new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8;"});
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    const periodo = finTipo==="mes"?finMes:finTipo==="semana"?"7dias":finTipo==="quinzena"?"15dias":`${finDe}_${finAte}`;
-    link.href = url;
-    link.download = `complexo-melodia-${periodo}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-    showToast("✅ CSV exportado!");
-  }
-
-  function calcAreia(n,qid){
-    const q=qds.find(x=>x.id===(qid||fQid));
-    if(!q||q.cob!=="pessoas"||!n||parseInt(n)<=0){setHintP("");return 0;}
-    const num=parseInt(n);
-    const fx=q.fx||[];
-    const faixa=fx.find(x=>num<=x.a);
-    if(faixa){setHintP(`${num} pessoa${num>1?"s":""} → R$${faixa.v}/hora`);setFVal(String(faixa.v));return faixa.v;}
-    const ex=q.fxExtra;
-    if(ex){const extra=num-ex.base;const total=ex.valorBase+(extra*ex.acrescimo);setHintP(`${num} pessoas → R$${ex.valorBase} + ${extra}×R$${ex.acrescimo} = R$${total}/hora`);setFVal(String(total));return total;}
-    return 0;
-  }
+  
 
   function calcValorAdmin(ini,fim,qid,pess){
     if(!ini||!fim)return;
@@ -581,34 +552,7 @@ export default function App(){
     );
   }
 
-  function exportarCSV() {
-    const headers = ["Cliente","Quadra","Data","Início","Fim","Pessoas","Pagamento","Valor (R$)","Pago Site (R$)","Saldo Balcão (R$)","Status","Observação"];
-    const rows = finL.map(a => [
-      a.cli||"Avulso",
-      a.qnm||"",
-      fd(a.data),
-      a.ini||"",
-      a.fim||"",
-      a.pess||"",
-      labelPag(a.pag, a.val),
-      (a.val||0).toFixed(2),
-      pagoPeloSite(a).toFixed(2),
-      saldoRestante(a).toFixed(2),
-      a.st||"",
-      a.obs||""
-    ]);
-    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(",")).join("
-");
-    const blob = new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8;"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    const periodo = finTipo==="mes" ? finMes : finTipo==="semana" ? "7dias" : finTipo==="quinzena" ? "15dias" : finDe+"_"+finAte;
-    a.download = "financeiro_melodia_"+periodo+".csv";
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast("✅ CSV exportado!");
-  }
+  
 
   return(
     <div style={{fontFamily:"system-ui,sans-serif",background:BG,minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
@@ -721,10 +665,7 @@ export default function App(){
 
       {/* ── FINANCEIRO ── */}
       {pg==="fin"&&<div style={{padding:16,paddingBottom:80}}>
-        <button onClick={exportarCSV}
-          style={{width:"100%",padding:"12px",background:V,color:"white",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-          ⬇️ Exportar CSV
-        </button>
+
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
           <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}><div style={{fontWeight:800,fontSize:22,color:"#065f46"}}>R${finRec.toFixed(0)}</div><div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Quitado</div></div>
           <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}><div style={{fontWeight:800,fontSize:22,color:"#854d0e"}}>R${finParcial.toFixed(0)}</div><div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Falta 50%</div></div>
