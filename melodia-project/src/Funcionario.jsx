@@ -382,16 +382,17 @@ export default function App() {
         ) : agsDia.map(a=>{
           const agE = getAg(a.id);
           const ppCard = getPessPresentes(agE);
-          const cobrar = saldoQuadra(agE) + valorSauna(agE) + valorExcedente(agE, ppCard);
+          const saunaQtd = parseInt(agE.saunaQtd)||0;
+          const saunaVal = saunaQtd * SAUNA_UNIT;
+          const excVal = valorExcedente(agE, ppCard);
+          const quadraVal = parseFloat(agE.val)||0;
+          const cobrar = saldoQuadra(agE) + saunaVal + excVal;
           const agoraMin = hora.getHours()*60+hora.getMinutes();
           const iniMin = parseInt(a.ini.split(":")[0])*60+parseInt(a.ini.split(":")[1]);
           const fimMin = parseInt(a.fim.split(":")[0])*60+parseInt(a.fim.split(":")[1]);
           const emAndamento = agoraMin>=iniMin&&agoraMin<fimMin;
           const qNome = agE.qid==="q2" ? "🏐 Quadra de Areia" : "⚽ Campo Society";
           const qCor = agE.qid==="q2" ? "#0891b2" : VE;
-          const saunaQtd = parseInt(agE.saunaQtd)||0;
-          const saunaVal = valorSauna(agE);
-          const quadraVal = parseFloat(agE.val)||0;
           const pagoSite = pagoPeloSite(agE);
           const saldoQ = saldoQuadra(agE);
 
@@ -495,9 +496,7 @@ export default function App() {
 
                 {/* Breakdown financeiro detalhado */}
                 {(()=>{
-                  const ppLocal = getPessPresentes(agE);
-                  const excVal = valorExcedente(agE, ppLocal);
-                  const excQtdLocal = ppLocal - (parseInt(agE.pess)||0);
+                  const excQtdLocal = ppCard - (parseInt(agE.pess)||0);
                   const totalVal = quadraVal + excVal + saunaVal;
                   return (
                     <div style={{background:"#f9fafb",borderRadius:10,overflow:"hidden",fontSize:13}}>
