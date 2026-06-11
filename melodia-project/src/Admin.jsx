@@ -188,6 +188,9 @@ export default function App(){
   const [editQ,setEditQ]=useState(null);
   const [editAg,setEditAg]=useState(null);
   const [finMes,setFinMes]=useState(new Date().toISOString().slice(0,7));
+  const [finTipo,setFinTipo]=useState("mes"); // mes | semana | quinzena | custom
+  const [finDe,setFinDe]=useState(toDS(hoje()));
+  const [finAte,setFinAte]=useState(toDS(hoje()));
   const [busca,setBusca]=useState("");
 
   useEffect(()=>{
@@ -230,7 +233,77 @@ export default function App(){
   const [qF2a,setQF2a]=useState(12);const [qF2v,setQF2v]=useState(70);const [qF3v,setQF3v]=useState(10);
 
   function showToast(m){setToast(m);setTimeout(()=>setToast(""),2800);}
+
+  function exportarCSV() {
+    const periodo = finTipo==="mes" ? finMes : finTipo==="semana" ? "ultimos-7-dias" : finTipo==="quinzena" ? "ultimos-15-dias" : finDe+"_"+finAte;
+    const linhas = [
+      ["Data","Horário","Cliente","Quadra","Pessoas","Pagamento","Valor Total","Pago Online","A Receber","Status","Sauna"]
+    ];
+    [...finL].sort((a,b)=>a.data.localeCompare(b.data)).forEach(a=>{
+      const pago = pagoPeloSite(a);
+      const receber = saldoRestante(a);
+      const saunaVal = (parseInt(a.saunaQtd)||0)*15;
+      linhas.push([
+        fd(a.data),
+        a.ini+" às "+a.fim,
+        a.cli||"Avulso",
+        a.qnm||"",
+        a.pess||"",
+        labelPag(a.pag,a.val),
+        (parseFloat(a.val)||0).toFixed(2),
+        pago.toFixed(2),
+        receber.toFixed(2),
+        a.st||"",
+        saunaVal>0?"R$ "+saunaVal.toFixed(2):"Não"
+      ]);
+    });
+    const csv = linhas.map(l=>l.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(";")).join("
+");
+    const blob = new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8;"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "complexo-melodia-"+periodo+".csv";
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("✅ CSV exportado!");
+  }
   function addLog(msg){setCfg(c=>({...c,logs:[{msg,em:agora()},...(c.logs||[])].slice(0,50)}));}
+
+  function exportarCSV() {
+    const linhas = [
+      ["Data","Cliente","Quadra","Início","Fim","Pessoas","Pagamento","Valor (R$)","Pago Site (R$)","Saldo Balcão (R$)","Sauna","Status"]
+    ];
+    [...finL].sort((a,b)=>b.data.localeCompare(a.data)).forEach(a=>{
+      const pago = pagoPeloSite(a);
+      const saldo = saldoRestante(a);
+      linhas.push([
+        fd(a.data),
+        a.cli||"Avulso",
+        a.qnm||"",
+        a.ini||"",
+        a.fim||"",
+        a.pess||"",
+        labelPag(a.pag,a.val),
+        (a.val||0).toFixed(2),
+        pago.toFixed(2),
+        saldo.toFixed(2),
+        a.sauna?"Sim":"Não",
+        a.st||""
+      ]);
+    });
+    const csv = linhas.map(l=>l.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")).join("
+");
+    const blob = new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8;"});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const periodo = finTipo==="mes"?finMes:finTipo==="semana"?"7dias":finTipo==="quinzena"?"15dias":`${finDe}_${finAte}`;
+    link.href = url;
+    link.download = `complexo-melodia-${periodo}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast("✅ CSV exportado!");
+  }
 
   function calcAreia(n,qid){
     const q=qds.find(x=>x.id===(qid||fQid));
@@ -305,7 +378,14 @@ export default function App(){
     const base={tp:fTipo,qid:fQid,qnm:q?.nome||"",ini:fIni,fim:fFim,cli:fCli,tel:fTel,cpf:fCpf,val:parseFloat(fVal)||0,pess:parseInt(fPess)||null,st:fSt,pag:fPag,obs:fObs,churr:fChurr,criadoEm:serverTimestamp()};
     try {
       if(editAg){
-        await updateDoc(doc(db,"agendamentos",editAg.id),{...base,data:fData});
+        const historico = editAg.historico || [];
+        const entrada = {
+          msg: `✏️ Editado por Admin`,
+          de: `${editAg.ini}–${editAg.fim} · R$${editAg.val||0}`,
+          para: `${fIni}–${fFim} · R$${fVal}`,
+          em: agora()
+        };
+        await updateDoc(doc(db,"agendamentos",editAg.id),{...base,data:fData,historico:[entrada,...historico].slice(0,20)});
         addLog(`✏️ Agendamento editado: ${fCli||"Avulso"} — ${q?.nome} ${fd(fData)} ${fIni}`);
         setModalA(false);showToast("✅ Agendamento salvo!");
         return;
@@ -359,7 +439,9 @@ export default function App(){
     if(!novoFim)return;
     const a=ags.find(x=>x.id===editAg.id);
     try {
-      await updateDoc(doc(db,"agendamentos",editAg.id),{data:novaData,ini:novoIni,fim:novoFim,remarcado:true,dataOriginal:a?.data||"",iniOriginal:a?.ini||""});
+      const histRem = a?.historico || [];
+      const entradaRem = {msg:`🔄 Remarcado por Admin`,de:`${fd(a?.data)} ${a?.ini}`,para:`${fd(novaData)} ${novoIni}`,em:agora()};
+      await updateDoc(doc(db,"agendamentos",editAg.id),{data:novaData,ini:novoIni,fim:novoFim,remarcado:true,dataOriginal:a?.data||"",iniOriginal:a?.ini||"",historico:[entradaRem,...histRem].slice(0,20)});
       addLog("🔄 Agendamento remarcado: "+(a?.cli||"Avulso")+" — "+a?.qnm+" de "+fd(a?.data)+" "+a?.ini+" para "+fd(novaData)+" "+novoIni);
       setModalA(false);showToast("🔄 Agendamento remarcado!");
     } catch(e){ showToast("❌ Erro ao remarcar"); }
@@ -369,7 +451,9 @@ export default function App(){
     if(!confirm("Cancelar este agendamento?"))return;
     const a=ags.find(x=>x.id===editAg.id);
     try {
-      await updateDoc(doc(db,"agendamentos",editAg.id),{st:"cancelado"});
+      const historico = a?.historico || [];
+      const entrada = {msg:"❌ Cancelado por Admin",em:agora()};
+      await updateDoc(doc(db,"agendamentos",editAg.id),{st:"cancelado",historico:[entrada,...historico].slice(0,20)});
       addLog(`❌ Agendamento cancelado: ${a?.cli||"Avulso"} — ${a?.qnm} ${fd(a?.data)} ${a?.ini}`);
       setModalA(false);showToast("❌ Agendamento cancelado");
     } catch(e){ showToast("❌ Erro ao cancelar!"); }
@@ -425,7 +509,29 @@ export default function App(){
   else if(filtro==="parcial")agFilt=agFilt.filter(a=>isParcial(a.pag)&&a.st!=="cancelado");
   else if(filtro==="pago")agFilt=agFilt.filter(a=>isPago(a.pag));
 
-  const finL=ags.filter(a=>{if(!finMes)return true;const[y,m]=finMes.split("-");return a.data?.startsWith(`${y}-${m}`);});
+  // Calcular período selecionado
+  const finPeriodo = (()=>{
+    const hj = toDS(hoje());
+    if(finTipo==="mes") {
+      const[y,m]=finMes.split("-");
+      return {de:`${y}-${m}-01`,ate:`${y}-${m}-31`};
+    }
+    if(finTipo==="semana") {
+      const d=new Date(hoje());
+      d.setDate(d.getDate()-6);
+      return {de:toDS(d),ate:hj};
+    }
+    if(finTipo==="quinzena") {
+      const d=new Date(hoje());
+      d.setDate(d.getDate()-14);
+      return {de:toDS(d),ate:hj};
+    }
+    return {de:finDe,ate:finAte};
+  })();
+  const finL=ags.filter(a=>{
+    if(!a.data) return false;
+    return a.data>=finPeriodo.de && a.data<=finPeriodo.ate;
+  });
   const finRec=finL.filter(a=>isPago(a.pag)).reduce((s,a)=>s+(a.val||0),0);
   const finParcial=finL.filter(a=>isParcial(a.pag)).reduce((s,a)=>s+(a.val*0.5),0);
   const finPend=finL.filter(a=>a.pag==="pendente"&&a.st!=="cancelado").reduce((s,a)=>s+(a.val||0),0);
@@ -506,6 +612,35 @@ export default function App(){
         })}
       </div>
     );
+  }
+
+  function exportarCSV() {
+    const headers = ["Cliente","Quadra","Data","Início","Fim","Pessoas","Pagamento","Valor (R$)","Pago Site (R$)","Saldo Balcão (R$)","Status","Observação"];
+    const rows = finL.map(a => [
+      a.cli||"Avulso",
+      a.qnm||"",
+      fd(a.data),
+      a.ini||"",
+      a.fim||"",
+      a.pess||"",
+      labelPag(a.pag, a.val),
+      (a.val||0).toFixed(2),
+      pagoPeloSite(a).toFixed(2),
+      saldoRestante(a).toFixed(2),
+      a.st||"",
+      a.obs||""
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(",")).join("
+");
+    const blob = new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8;"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const periodo = finTipo==="mes" ? finMes : finTipo==="semana" ? "7dias" : finTipo==="quinzena" ? "15dias" : finDe+"_"+finAte;
+    a.download = "financeiro_melodia_"+periodo+".csv";
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("✅ CSV exportado!");
   }
 
   return(
@@ -619,6 +754,10 @@ export default function App(){
 
       {/* ── FINANCEIRO ── */}
       {pg==="fin"&&<div style={{padding:16,paddingBottom:80}}>
+        <button onClick={exportarCSV}
+          style={{width:"100%",padding:"12px",background:V,color:"white",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+          ⬇️ Exportar CSV
+        </button>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
           <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}><div style={{fontWeight:800,fontSize:22,color:"#065f46"}}>R${finRec.toFixed(0)}</div><div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Quitado</div></div>
           <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}><div style={{fontWeight:800,fontSize:22,color:"#854d0e"}}>R${finParcial.toFixed(0)}</div><div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Falta 50%</div></div>
@@ -669,10 +808,42 @@ export default function App(){
             </div>
           ))}
         </div>}
-        <div style={{marginBottom:12}}>
-          <label style={lbl}>Mês</label>
-          <input type="month" style={inp} value={finMes} onChange={e=>setFinMes(e.target.value)}/>
+        {/* Seletor de período */}
+        <div style={{marginBottom:16}}>
+          <label style={lbl}>Período</label>
+          <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+            {[["mes","📅 Mês"],["semana","7 dias"],["quinzena","15 dias"],["custom","Personalizado"]].map(([k,l])=>(
+              <div key={k} onClick={()=>setFinTipo(k)}
+                style={{padding:"6px 14px",borderRadius:20,border:`1.5px solid ${finTipo===k?V:"#e0e3e8"}`,background:finTipo===k?V:"white",fontSize:12,fontWeight:600,cursor:"pointer",color:finTipo===k?"white":"#6b7280"}}>
+                {l}
+              </div>
+            ))}
+          </div>
+          {finTipo==="mes" && (
+            <input type="month" style={inp} value={finMes} onChange={e=>setFinMes(e.target.value)}/>
+          )}
+          {finTipo==="custom" && (
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              <div>
+                <label style={lbl}>De</label>
+                <input type="date" style={inp} value={finDe} onChange={e=>setFinDe(e.target.value)}/>
+              </div>
+              <div>
+                <label style={lbl}>Até</label>
+                <input type="date" style={inp} value={finAte} onChange={e=>setFinAte(e.target.value)}/>
+              </div>
+            </div>
+          )}
+          {(finTipo==="semana"||finTipo==="quinzena") && (
+            <div style={{fontSize:12,color:"#6b7280",background:"#f9fafb",padding:"8px 12px",borderRadius:8}}>
+              📅 {finTipo==="semana"?"Últimos 7 dias":"Últimos 15 dias"} — até hoje
+            </div>
+          )}
         </div>
+        <Btn c="v" full onClick={exportarCSV}>⬇️ Exportar CSV do período</Btn>
+        <div style={{height:12}}/>
+        <Btn c="v" full onClick={exportarCSV}>📥 Exportar CSV</Btn>
+        <div style={{height:10}}/>
         <Card>
           <CardH title="Pagamentos"/>
           {[...finL].sort((a,b)=>b.data.localeCompare(a.data)).map(a=>(
@@ -912,6 +1083,21 @@ export default function App(){
             {modalD.churr&&<Badge t="confirmado">🍖 Churrasqueira</Badge>}
           </div>
           {modalD.obs&&<div style={{background:"#f9fafb",padding:12,borderRadius:8,fontSize:13,marginBottom:16}}><strong>Obs:</strong> {modalD.obs}</div>}
+
+          {/* Histórico de alterações */}
+          {(modalD.historico||[]).length>0&&(
+            <div style={{marginBottom:16}}>
+              <div style={{fontWeight:700,fontSize:13,color:"#6b7280",textTransform:"uppercase",letterSpacing:0.5,marginBottom:8}}>📋 Histórico</div>
+              {(modalD.historico||[]).map((h,i)=>(
+                <div key={i} style={{background:"#f9fafb",borderRadius:8,padding:"8px 12px",marginBottom:6,fontSize:12}}>
+                  <div style={{fontWeight:700,color:"#374151"}}>{h.msg}</div>
+                  {h.de&&<div style={{color:"#6b7280",marginTop:2}}>De: {h.de}</div>}
+                  {h.para&&<div style={{color:"#6b7280"}}>Para: {h.para}</div>}
+                  <div style={{color:"#9ca3af",marginTop:2}}>{new Date(h.em).toLocaleString("pt-BR")}</div>
+                </div>
+              ))}
+            </div>
+          )}
           {modalD.tel&&(
             <a href={`https://wa.me/55${modalD.tel.replace(/\D/g,"")}?text=${encodeURIComponent(`Olá ${modalD.cli}! ✅ Reserva confirmada!
 
