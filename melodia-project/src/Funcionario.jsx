@@ -306,14 +306,13 @@ export default function App() {
       <div style={{background:VE,padding:"0 16px 14px"}}>
         <div style={{background:"rgba(255,255,255,0.07)",borderRadius:12,overflow:"hidden"}}>
           {[
-            {label:"💰 Recebido hoje",         val:`R$ ${recebidoHoje.toFixed(2)}`,        cor:"#86efac"},
-            {label:"🟡 Falta receber hoje",     val:`R$ ${aCobrar.toFixed(2)}`,             cor:"#fde68a"},
-            {label:"💳 Recebido em máquina",    val:`R$ ${recebidoMaquina.toFixed(2)}`,     cor:"white"},
-            {label:"💵 Recebido em dinheiro",   val:`R$ ${recebidoDinheiro.toFixed(2)}`,    cor:"white"},
-            {label:"⚽ Recebido Society",        val:`R$ ${recebidoSociety.toFixed(2)}`,     cor:"rgba(255,255,255,0.7)"},
-            {label:"🏐 Recebido Areia",          val:`R$ ${recebidoAreia.toFixed(2)}`,       cor:"rgba(255,255,255,0.7)"},
-            {label:"🧖 Recebido Sauna",          val:`R$ ${recebidoSaunaTotal.toFixed(2)}`,  cor:"rgba(255,255,255,0.7)"},
-            {label:"🔥 Saunas previstas hoje",   val:`${saunaHoje.length} reserva${saunaHoje.length!==1?"s":""}`, cor:saunaHoje.length>0?"#fde68a":"rgba(255,255,255,0.4)"},
+            {label:"🟡 Falta receber no balcão", val:`R$ ${aCobrar.toFixed(2)}`,             cor:"#fde68a"},
+            {label:"💳 Recebido em máquina",     val:`R$ ${recebidoMaquina.toFixed(2)}`,     cor:"white"},
+            {label:"💵 Recebido em dinheiro",    val:`R$ ${recebidoDinheiro.toFixed(2)}`,    cor:"white"},
+            {label:"⚽ Recebido Society",         val:`R$ ${recebidoSociety.toFixed(2)}`,     cor:"rgba(255,255,255,0.7)"},
+            {label:"🏐 Recebido Areia",           val:`R$ ${recebidoAreia.toFixed(2)}`,       cor:"rgba(255,255,255,0.7)"},
+            {label:"🧖 Recebido Sauna",           val:`R$ ${recebidoSaunaTotal.toFixed(2)}`,  cor:"rgba(255,255,255,0.7)"},
+            {label:"🔥 Saunas previstas hoje",    val:`${saunaHoje.length} reserva${saunaHoje.length!==1?"s":""}`, cor:saunaHoje.length>0?"#fde68a":"rgba(255,255,255,0.4)"},
           ].map(({label,val,cor},i)=>(
             <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",borderBottom:"1px solid rgba(255,255,255,0.07)"}}>
               <span style={{fontSize:13,color:"rgba(255,255,255,0.75)"}}>{label}</span>
