@@ -15,6 +15,7 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 const VE = "#1a5248";
 const SENHA = "melodia@shay";
+const SAUNA_UNIT = 15;
 
 function hoje() {
   const d = new Date();
@@ -38,11 +39,13 @@ function isPago(pag) {
     "pix_total","cartao_total","pago_total","dinheiro","mp_pix","mp_cartao"].includes(pag||"");
 }
 
-function saldo(ag) {
+function saldoQuadra(ag) {
   if(!ag) return 0;
-  if(isPago(ag.pag)) return 0;
-  if(["mp_50","pix_50","cartao_50","pago_50"].includes(ag.pag||"")) return (ag.val||0)*0.5;
-  return ag.val||0;
+  const val = parseFloat(ag.val)||0;
+  const pag = ag.pag||"";
+  if(isPago(pag)) return 0;
+  if(["mp_50","pix_50","cartao_50","pago_50"].includes(pag)) return val*0.5;
+  return val;
 }
 
 function pagoPeloSite(ag) {
@@ -52,6 +55,16 @@ function pagoPeloSite(ag) {
   if(["mp_pix","mp_cartao","mp_total"].includes(pag)) return val;
   if(pag==="mp_50") return val*0.5;
   return 0;
+}
+
+function valorSauna(ag) {
+  const qtd = parseInt(ag?.saunaQtd)||0;
+  if(!ag?.sauna || qtd<=0) return 0;
+  return qtd * SAUNA_UNIT;
+}
+
+function totalCobrar(ag) {
+  return saldoQuadra(ag) + valorSauna(ag);
 }
 
 function Login({ onLogin }) {
@@ -97,12 +110,16 @@ export default function App() {
   const [agendamentos, setAgendamentos] = useState([]);
   const [hora, setHora] = useState(new Date());
   const [modalPag, setModalPag] = useState(null);
-  const [finalizados, setFinalizados] = useState([]);
   const [edicoes, setEdicoes] = useState({});
+  const [alarme, setAlarme] = useState(null);
+
+  // Totais do dia (contabilizam pagamentos online + presenciais)
   const [recebidoHoje, setRecebidoHoje] = useState(0);
   const [recebidoMaquina, setRecebidoMaquina] = useState(0);
   const [recebidoDinheiro, setRecebidoDinheiro] = useState(0);
-  const [alarme, setAlarme] = useState(null);
+  const [recebidoSociety, setRecebidoSociety] = useState(0);
+  const [recebidoAreia, setRecebidoAreia] = useState(0);
+  const [recebidoSaunaTotal, setRecebidoSaunaTotal] = useState(0);
 
   useEffect(()=>{
     if(!logado) return;
@@ -120,17 +137,65 @@ export default function App() {
     return ()=>clearInterval(t);
   },[]);
 
+  // Recalcular totais sempre que agendamentos ou edicoes mudarem
+  useEffect(()=>{
+    if(!logado) return;
+    const ds = dia;
+    const agsDia = agendamentos.filter(a=>a.data===ds&&a.st==="confirmado");
+    
+    let rHoje=0, rMaq=0, rDin=0, rSoc=0, rAr=0, rSauna=0;
+
+    agsDia.forEach(a=>{
+      const agE = {...a,...(edicoes[a.id]||{})};
+      const val = parseFloat(agE.val)||0;
+      const pag = agE.pag||"";
+      const isSociety = agE.qid==="q1";
+      const saunaVal = valorSauna(agE);
+
+      // Pagamento online (já recebido)
+      if(["mp_pix","mp_cartao","mp_total"].includes(pag)) {
+        rHoje += val + saunaVal;
+        if(isSociety) rSoc += val; else rAr += val;
+        rSauna += saunaVal;
+      } else if(pag==="mp_50") {
+        rHoje += val*0.5 + saunaVal;
+        if(isSociety) rSoc += val*0.5; else rAr += val*0.5;
+        rSauna += saunaVal;
+      }
+      // Pagamento presencial
+      else if(pag==="mp_total_cartao") {
+        rHoje += val + saunaVal;
+        rMaq += val + saunaVal;
+        if(isSociety) rSoc += val; else rAr += val;
+        rSauna += saunaVal;
+      } else if(pag==="mp_total_dinheiro") {
+        rHoje += val + saunaVal;
+        rDin += val + saunaVal;
+        if(isSociety) rSoc += val; else rAr += val;
+        rSauna += saunaVal;
+      }
+    });
+
+    setRecebidoHoje(rHoje);
+    setRecebidoMaquina(rMaq);
+    setRecebidoDinheiro(rDin);
+    setRecebidoSociety(rSoc);
+    setRecebidoAreia(rAr);
+    setRecebidoSaunaTotal(rSauna);
+  },[agendamentos, edicoes, dia, logado]);
+
   // Alarme fim de jogo
   useEffect(()=>{
     if(!logado) return;
     const ds = dia;
-    const agsDia = agendamentos.filter(a=>a.data===ds&&a.st==="confirmado"&&a.pag&&a.pag!=="");
+    const agsDia = agendamentos.filter(a=>a.data===ds&&a.st==="confirmado");
     for(const ag of agsDia){
+      if(!ag.fim) continue;
       const [fH,fM] = ag.fim.split(":").map(Number);
       const fimMs = new Date();
       fimMs.setHours(fH,fM,0,0);
       const diff = fimMs-hora;
-      if(diff>0&&diff<60000&&!finalizados.includes(ag.id)){
+      if(diff>0&&diff<60000){
         setAlarme(ag);
       }
     }
@@ -144,47 +209,43 @@ export default function App() {
   }
 
   async function confirmarPag(id, tipo) {
-    const agE = getAg(id);
-    const total = saldo(agE);
-    const isDinheiro = tipo==="mp_total_dinheiro";
     setEdicoes(p=>({...p,[id]:{...p[id],pag:tipo}}));
-    setFinalizados(p=>[...p,id]);
-    setRecebidoHoje(r=>r+total);
-    if(isDinheiro) setRecebidoDinheiro(r=>r+total);
-    else setRecebidoMaquina(r=>r+total);
     setModalPag(null);
     try { await updateDoc(doc(db,"agendamentos",id),{pag:tipo}); } catch(e){}
   }
 
   async function desfazerPag(id) {
     if(!window.confirm("Desfazer recebimento?")) return;
-    const agE = getAg(id);
-    const total = saldo(agE);
-    const isDinheiro = agE.pag==="mp_total_dinheiro";
     setEdicoes(p=>({...p,[id]:{...p[id],pag:"pendente"}}));
-    setFinalizados(p=>p.filter(x=>x!==id));
-    setRecebidoHoje(r=>Math.max(0,r-total));
-    if(isDinheiro) setRecebidoDinheiro(r=>Math.max(0,r-total));
-    else setRecebidoMaquina(r=>Math.max(0,r-total));
     try { await updateDoc(doc(db,"agendamentos",id),{pag:"pendente"}); } catch(e){}
+  }
+
+  async function salvarSaunaQtd(id, qtd) {
+    setEdicoes(p=>({...p,[id]:{...p[id],saunaQtd:qtd}}));
+    try { await updateDoc(doc(db,"agendamentos",id),{saunaQtd:qtd}); } catch(e){}
   }
 
   const ds = dia;
   const agsDia = agendamentos
-    .filter(a=>a.data===ds&&a.st==="confirmado"&&a.pag&&a.pag!=="")
+    .filter(a=>a.data===ds&&a.st==="confirmado")
     .sort((a,b)=>a.ini.localeCompare(b.ini));
 
-  const aCobrar = agsDia.filter(a=>{
-    const ag = getAg(a.id);
-    return !isPago(ag.pag)&&!finalizados.includes(a.id);
-  }).reduce((s,a)=>{
-    const ag = getAg(a.id);
-    return s+saldo(ag)+(ag.sauna?15:0);
+  const aCobrar = agsDia.reduce((s,a)=>{
+    const agE = getAg(a.id);
+    return s + totalCobrar(agE);
   },0);
 
-  const saunaHoje = agsDia.filter(a=>getAg(a.id).sauna).length;
+  const saunaHoje = agsDia.filter(a=>getAg(a.id).sauna);
+  
+  // Próxima sauna
+  const agoraMin = hora.getHours()*60+hora.getMinutes();
+  const proximaSauna = saunaHoje.find(a=>{
+    const agE = getAg(a.id);
+    if(!agE.ini) return false;
+    const [h,m] = agE.ini.split(":").map(Number);
+    return h*60+m >= agoraMin;
+  });
 
-  // Navegar dias
   function mudarDia(dir) {
     const d = new Date(dia+"T12:00:00");
     d.setDate(d.getDate()+dir);
@@ -245,11 +306,14 @@ export default function App() {
       <div style={{background:VE,padding:"0 16px 14px"}}>
         <div style={{background:"rgba(255,255,255,0.07)",borderRadius:12,overflow:"hidden"}}>
           {[
-            {label:"💰 Recebido hoje",      val:`R$ ${recebidoHoje.toFixed(2)}`,    cor:"#86efac"},
-            {label:"🟡 Falta receber hoje", val:`R$ ${aCobrar.toFixed(2)}`,          cor:"#fde68a"},
-            {label:"💳 Recebido em máquina",val:`R$ ${recebidoMaquina.toFixed(2)}`,  cor:"white"},
-            {label:"💵 Recebido em dinheiro",val:`R$ ${recebidoDinheiro.toFixed(2)}`,cor:"white"},
-            {label:"🔥 Sauna prevista hoje", val:`${saunaHoje} reserva${saunaHoje!==1?"s":""}`, cor:saunaHoje>0?"#fde68a":"rgba(255,255,255,0.4)"},
+            {label:"💰 Recebido hoje",         val:`R$ ${recebidoHoje.toFixed(2)}`,        cor:"#86efac"},
+            {label:"🟡 Falta receber hoje",     val:`R$ ${aCobrar.toFixed(2)}`,             cor:"#fde68a"},
+            {label:"💳 Recebido em máquina",    val:`R$ ${recebidoMaquina.toFixed(2)}`,     cor:"white"},
+            {label:"💵 Recebido em dinheiro",   val:`R$ ${recebidoDinheiro.toFixed(2)}`,    cor:"white"},
+            {label:"⚽ Recebido Society",        val:`R$ ${recebidoSociety.toFixed(2)}`,     cor:"rgba(255,255,255,0.7)"},
+            {label:"🏐 Recebido Areia",          val:`R$ ${recebidoAreia.toFixed(2)}`,       cor:"rgba(255,255,255,0.7)"},
+            {label:"🧖 Recebido Sauna",          val:`R$ ${recebidoSaunaTotal.toFixed(2)}`,  cor:"rgba(255,255,255,0.7)"},
+            {label:"🔥 Saunas previstas hoje",   val:`${saunaHoje.length} reserva${saunaHoje.length!==1?"s":""}`, cor:saunaHoje.length>0?"#fde68a":"rgba(255,255,255,0.4)"},
           ].map(({label,val,cor},i)=>(
             <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",borderBottom:"1px solid rgba(255,255,255,0.07)"}}>
               <span style={{fontSize:13,color:"rgba(255,255,255,0.75)"}}>{label}</span>
@@ -257,6 +321,22 @@ export default function App() {
             </div>
           ))}
         </div>
+
+        {/* PRÓXIMA SAUNA */}
+        {proximaSauna && (
+          <div style={{background:"rgba(255,220,100,0.15)",border:"1px solid rgba(255,220,100,0.3)",borderRadius:10,padding:"10px 14px",marginTop:10}}>
+            <div style={{fontSize:11,fontWeight:700,color:"#fde68a",textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>🔥 Próxima Sauna</div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{fontWeight:800,color:"white",fontSize:15}}>{proximaSauna.ini}</div>
+                <div style={{color:"rgba(255,255,255,0.7)",fontSize:13}}>{proximaSauna.cli}</div>
+              </div>
+              <div style={{color:"#fde68a",fontWeight:700,fontSize:14}}>
+                {parseInt(getAg(proximaSauna.id).saunaQtd)||"?"} pessoas
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* LISTA DE RESERVAS */}
@@ -268,95 +348,127 @@ export default function App() {
           </div>
         ) : agsDia.map(a=>{
           const agE = getAg(a.id);
-          const totalCobrar = saldo(agE)+(agE.sauna?15:0);
+          const cobrar = totalCobrar(agE);
           const agoraMin = hora.getHours()*60+hora.getMinutes();
           const iniMin = parseInt(a.ini.split(":")[0])*60+parseInt(a.ini.split(":")[1]);
           const fimMin = parseInt(a.fim.split(":")[0])*60+parseInt(a.fim.split(":")[1]);
           const emAndamento = agoraMin>=iniMin&&agoraMin<fimMin;
           const qNome = agE.qid==="q2" ? "🏐 Quadra de Areia" : "⚽ Campo Society";
           const qCor = agE.qid==="q2" ? "#0891b2" : VE;
+          const saunaQtd = parseInt(agE.saunaQtd)||0;
+          const saunaVal = valorSauna(agE);
+          const quadraVal = parseFloat(agE.val)||0;
+          const pagoSite = pagoPeloSite(agE);
+          const saldoQ = saldoQuadra(agE);
 
           return (
             <div key={a.id} style={{marginBottom:10,background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 3px 12px rgba(0,0,0,.08)"}}>
               <div style={{padding:"14px 16px"}}>
-                {/* Selo modalidade */}
-                <div style={{display:"inline-flex",alignItems:"center",gap:6,background:qCor,borderRadius:20,padding:"3px 12px",marginBottom:8}}>
-                  <span style={{fontSize:12,fontWeight:700,color:"white"}}>{qNome}</span>
-                </div>
-                {/* Em andamento */}
-                {emAndamento && (
-                  <div style={{display:"inline-flex",alignItems:"center",gap:6,background:"#16a34a",borderRadius:20,padding:"3px 12px",marginBottom:8,marginLeft:6}}>
-                    <span style={{fontSize:12,fontWeight:700,color:"white"}}>🟢 EM ANDAMENTO</span>
+
+                {/* Selo modalidade + EM ANDAMENTO */}
+                <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
+                  <div style={{display:"inline-flex",alignItems:"center",gap:6,background:qCor,borderRadius:20,padding:"3px 12px"}}>
+                    <span style={{fontSize:12,fontWeight:700,color:"white"}}>{qNome}</span>
                   </div>
-                )}
+                  {emAndamento && (
+                    <div style={{display:"inline-flex",alignItems:"center",gap:6,background:"#16a34a",borderRadius:20,padding:"3px 12px"}}>
+                      <span style={{fontSize:12,fontWeight:700,color:"white"}}>🟢 EM ANDAMENTO</span>
+                    </div>
+                  )}
+                </div>
+
                 {/* Nome */}
                 <div style={{fontWeight:800,fontSize:17,color:"#1a1f2e",textTransform:"uppercase",marginBottom:4}}>
                   {agE.cli||a.cli}
                 </div>
-                {/* Telefone */}
+
+                {/* Telefone clicável */}
                 {(agE.tel||a.tel) && (
-                  <div style={{fontSize:13,color:"#6b7280",marginBottom:6}}>📞 {agE.tel||a.tel}</div>
+                  <a href={`https://wa.me/55${(agE.tel||a.tel).replace(/\D/g,"")}`} target="_blank"
+                    style={{display:"block",fontSize:13,color:"#16a34a",marginBottom:6,textDecoration:"none",fontWeight:600}}>
+                    📞 {agE.tel||a.tel} 💬
+                  </a>
                 )}
+
                 {/* Horário */}
                 <div style={{fontSize:14,color:"#6b7280",marginBottom:10}}>
                   ⏰ <span style={{fontWeight:600}}>{a.ini} às {a.fim}</span>
                 </div>
-                {/* Pessoas e Sauna */}
+
+                {/* Pessoas */}
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
                   <span style={{fontSize:13,fontWeight:600,color:"#374151",background:"#f3f4f6",padding:"4px 10px",borderRadius:20}}>
                     👥 {agE.pess||a.pess||"?"} pessoas
                   </span>
-                  <span style={{fontSize:13,fontWeight:700,
-                    color:agE.sauna?"#065f46":"#9ca3af",
-                    background:agE.sauna?"#dcfce7":"#f9fafb",
-                    padding:"4px 10px",borderRadius:20}}>
-                    🧖 Sauna: {agE.sauna?"Sim ✅":"Não"}
-                  </span>
                 </div>
+
+                {/* Sauna com qtd editável */}
+                {agE.sauna && (
+                  <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"10px 12px",marginBottom:10}}>
+                    <div style={{fontWeight:700,color:"#065f46",fontSize:13,marginBottom:8}}>🧖 Sauna</div>
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <span style={{fontSize:13,color:"#374151"}}>Pessoas na sauna:</span>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <button onClick={()=>salvarSaunaQtd(a.id, Math.max(0, saunaQtd-1))}
+                          style={{width:30,height:30,borderRadius:8,border:"1.5px solid #16a34a",background:"white",color:"#16a34a",fontWeight:800,fontSize:18,cursor:"pointer",lineHeight:1}}>−</button>
+                        <span style={{fontWeight:800,fontSize:18,color:VE,minWidth:24,textAlign:"center"}}>{saunaQtd}</span>
+                        <button onClick={()=>salvarSaunaQtd(a.id, saunaQtd+1)}
+                          style={{width:30,height:30,borderRadius:8,border:"1.5px solid #16a34a",background:"#16a34a",color:"white",fontWeight:800,fontSize:18,cursor:"pointer",lineHeight:1}}>+</button>
+                      </div>
+                      {saunaVal>0 && <span style={{fontSize:13,fontWeight:700,color:"#065f46"}}>R$ {saunaVal.toFixed(2)}</span>}
+                    </div>
+                  </div>
+                )}
+
                 {/* Observação */}
                 {(agE.obs||a.obs) && (
                   <div style={{background:"#fef9c3",border:"1px solid #fde68a",borderRadius:8,padding:"6px 10px",fontSize:12,color:"#92400e",marginBottom:8}}>
                     📝 {agE.obs||a.obs}
                   </div>
                 )}
-                {/* Breakdown financeiro */}
+
+                {/* Breakdown financeiro detalhado */}
                 <div style={{background:"#f9fafb",borderRadius:10,overflow:"hidden",fontSize:13}}>
                   <div style={{display:"flex",justifyContent:"space-between",padding:"7px 12px",borderBottom:"1px solid #e0e3e8"}}>
-                    <span style={{color:"#6b7280"}}>Valor total</span>
-                    <span style={{fontWeight:700,color:"#1a1f2e"}}>R$ {(agE.val||0).toFixed(2)}</span>
+                    <span style={{color:"#6b7280"}}>Valor da quadra</span>
+                    <span style={{fontWeight:700,color:"#1a1f2e"}}>R$ {quadraVal.toFixed(2)}</span>
                   </div>
-                  {pagoPeloSite(agE)>0 && (
+                  {saunaVal>0 && (
+                    <div style={{display:"flex",justifyContent:"space-between",padding:"7px 12px",borderBottom:"1px solid #e0e3e8"}}>
+                      <span style={{color:"#6b7280"}}>Valor da sauna ({saunaQtd}×R${SAUNA_UNIT})</span>
+                      <span style={{fontWeight:700,color:"#065f46"}}>R$ {saunaVal.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div style={{display:"flex",justifyContent:"space-between",padding:"7px 12px",borderBottom:"1px solid #e0e3e8",background:"#f3f4f6"}}>
+                    <span style={{fontWeight:700,color:"#374151"}}>Valor total</span>
+                    <span style={{fontWeight:800,color:"#1a1f2e"}}>R$ {(quadraVal+saunaVal).toFixed(2)}</span>
+                  </div>
+                  {pagoSite>0 && (
                     <div style={{display:"flex",justifyContent:"space-between",padding:"7px 12px",borderBottom:"1px solid #e0e3e8"}}>
                       <span style={{color:"#6b7280"}}>Pago online</span>
-                      <span style={{fontWeight:700,color:"#2E7D6B"}}>R$ {pagoPeloSite(agE).toFixed(2)}</span>
+                      <span style={{fontWeight:700,color:"#2E7D6B"}}>R$ {pagoSite.toFixed(2)}</span>
                     </div>
                   )}
-                  {agE.sauna && (
-                    <div style={{display:"flex",justifyContent:"space-between",padding:"7px 12px",borderBottom:"1px solid #e0e3e8"}}>
-                      <span style={{color:"#6b7280"}}>Sauna</span>
-                      <span style={{fontWeight:700,color:"#374151"}}>R$ 15,00</span>
-                    </div>
-                  )}
-                  <div style={{display:"flex",justifyContent:"space-between",padding:"9px 12px",background:totalCobrar>0?"#f0fdf4":"#f9fafb"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",padding:"9px 12px",background:cobrar>0?"#f0fdf4":"#f9fafb"}}>
                     <span style={{fontWeight:700,color:"#374151"}}>Falta receber</span>
-                    <span style={{fontWeight:800,fontSize:15,color:totalCobrar>0?"#16a34a":"#9ca3af"}}>
-                      {totalCobrar>0 ? `R$ ${totalCobrar.toFixed(2)}` : "✅ Quitado"}
+                    <span style={{fontWeight:800,fontSize:15,color:cobrar>0?"#16a34a":"#9ca3af"}}>
+                      {cobrar>0 ? `R$ ${cobrar.toFixed(2)}` : "✅ Quitado"}
                     </span>
                   </div>
                 </div>
               </div>
 
               {/* Botão de ação */}
-              {isPagoOnline(agE.pag) && totalCobrar===0 ? (
+              {isPagoOnline(agE.pag) && cobrar===0 ? (
                 <div style={{padding:"12px 16px",background:"#eff6ff",display:"flex",alignItems:"center",gap:10}}>
                   <span style={{fontSize:16}}>🔒</span>
                   <span style={{fontWeight:700,color:"#1e40af",fontSize:13}}>Pago online — não pode ser desfeito</span>
                 </div>
-              ) : totalCobrar>0 ? (
+              ) : cobrar>0 ? (
                 <button onClick={()=>setModalPag(a.id)}
                   style={{width:"100%",padding:16,background:"#16a34a",color:"white",border:"none",fontSize:18,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                   <span>💰 COBRAR</span>
-                  <span style={{fontSize:22,fontWeight:900}}>R$ {totalCobrar.toFixed(2)}</span>
+                  <span style={{fontSize:22,fontWeight:900}}>R$ {cobrar.toFixed(2)}</span>
                 </button>
               ) : isPagoPresencial(agE.pag) ? (
                 <div style={{padding:"12px 16px",background:"#dcfce7",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -388,7 +500,7 @@ export default function App() {
             <div style={{width:40,height:4,background:"#e0e3e8",borderRadius:2,margin:"0 auto 20px"}}/>
             <div style={{fontWeight:800,fontSize:20,marginBottom:6,color:"#1a1f2e"}}>Como o cliente pagou?</div>
             <div style={{fontSize:14,color:"#6b7280",marginBottom:20}}>
-              Registrar recebimento de <strong>R$ {saldo(getAg(modalPag)).toFixed(2)}</strong>
+              Registrar recebimento de <strong>R$ {totalCobrar(getAg(modalPag)).toFixed(2)}</strong>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
               {[["💳","Máquina","mp_total_cartao"],["💵","Dinheiro","mp_total_dinheiro"]].map(([ic,label,tipo])=>(
