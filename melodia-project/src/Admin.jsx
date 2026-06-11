@@ -234,45 +234,7 @@ export default function App(){
 
   function showToast(m){setToast(m);setTimeout(()=>setToast(""),2800);}
 
-  function exportarCSV() {
-    const periodo = finTipo==="mes" ? finMes : finTipo==="semana" ? "ultimos-7-dias" : finTipo==="quinzena" ? "ultimos-15-dias" : finDe+"_"+finAte;
-    const linhas = [
-      ["Data","Horário","Cliente","Quadra","Pessoas","Pagamento","Valor Total","Pago Online","A Receber","Status","Sauna"]
-    ];
-    [...finL].sort((a,b)=>a.data.localeCompare(b.data)).forEach(a=>{
-      const pago = pagoPeloSite(a);
-      const receber = saldoRestante(a);
-      const saunaVal = (parseInt(a.saunaQtd)||0)*15;
-      linhas.push([
-        fd(a.data),
-        a.ini+" às "+a.fim,
-        a.cli||"Avulso",
-        a.qnm||"",
-        a.pess||"",
-        labelPag(a.pag, a.val),
-        (a.val||0).toFixed(2),
-        pago.toFixed(2),
-        receber.toFixed(2),
-        a.st||"",
-        saunaVal>0?"R$ "+saunaVal.toFixed(2):"Não"
-      ]);
-    });
-    const sep = ";";
-    const csv = linhas.map(function(l){
-      return l.map(function(v){
-        var s = String(v).replace(/"/g, '""');
-        return '"' + s + '"';
-      }).join(sep);
-    }).join("\n");
-    const blob = new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
-    const url = URL.createObjectURL(blob);
-    const el = document.createElement("a");
-    el.href = url;
-    el.download = "financeiro_melodia_"+periodo+".csv";
-    el.click();
-    URL.revokeObjectURL(url);
-    showToast("✅ CSV exportado!");
-  }
+  function exportarCSV() { const periodo = finTipo==="mes" ? finMes : finTipo==="semana" ? "7dias" : finTipo==="quinzena" ? "15dias" : finDe+"_"+finAte; const cab = ["Data","Horario","Cliente","Quadra","Pessoas","Pagamento","Valor","Pago Online","A Receber","Status"].join(";"); const rows = [...finL].sort(function(a,b){return a.data.localeCompare(b.data);}).map(function(a){return [fd(a.data),a.ini+" as "+a.fim,a.cli||"Avulso",a.qnm||"",a.pess||"",a.pag||"",(a.val||0).toFixed(2),pagoPeloSite(a).toFixed(2),saldoRestante(a).toFixed(2),a.st||""].join(";");}); const csv = cab + String.fromCharCode(13,10) + rows.join(String.fromCharCode(13,10)); const blob = new Blob([csv],{type:"text/csv;charset=utf-8;"}); const url = URL.createObjectURL(blob); const el = document.createElement("a"); el.href = url; el.download = "financeiro_"+periodo+".csv"; el.click(); URL.revokeObjectURL(url); showToast("Exportado!"); }
   function addLog(msg){setCfg(c=>({...c,logs:[{msg,em:agora()},...(c.logs||[])].slice(0,50)}));}
 
   function exportarCSV() {
