@@ -249,22 +249,27 @@ export default function App(){
         a.cli||"Avulso",
         a.qnm||"",
         a.pess||"",
-        labelPag(a.pag,a.val),
-        (parseFloat(a.val)||0).toFixed(2),
+        labelPag(a.pag, a.val),
+        (a.val||0).toFixed(2),
         pago.toFixed(2),
         receber.toFixed(2),
         a.st||"",
         saunaVal>0?"R$ "+saunaVal.toFixed(2):"Não"
       ]);
     });
-    const csv = linhas.map(l=>l.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(";")).join("
-");
-    const blob = new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8;"});
+    const sep = ";";
+    const csv = linhas.map(function(l){
+      return l.map(function(v){
+        var s = String(v).replace(/"/g, '""');
+        return '"' + s + '"';
+      }).join(sep);
+    }).join("\n");
+    const blob = new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "complexo-melodia-"+periodo+".csv";
-    a.click();
+    const el = document.createElement("a");
+    el.href = url;
+    el.download = "financeiro_melodia_"+periodo+".csv";
+    el.click();
     URL.revokeObjectURL(url);
     showToast("✅ CSV exportado!");
   }
