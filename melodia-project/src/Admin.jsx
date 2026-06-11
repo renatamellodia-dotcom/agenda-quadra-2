@@ -145,9 +145,7 @@ function Login({onLogin}){
     const rows = [...finL].sort(function(a,b){return a.data.localeCompare(b.data);}).map(function(a){
       return [fd(a.data),a.ini+" as "+a.fim,a.cli||"Avulso",a.qnm||"",a.pess||"",a.pag||"",(a.val||0).toFixed(2),pagoPeloSite(a).toFixed(2),saldoRestante(a).toFixed(2),a.st||""].join(";");
     });
-    const csv = cab + "
-" + rows.join("
-");
+    const csv = cab + "\r\n" + rows.join("\r\n");
     const blob = new Blob([csv],{type:"text/csv;charset=utf-8;"});
     const url = URL.createObjectURL(blob);
     const el = document.createElement("a");
