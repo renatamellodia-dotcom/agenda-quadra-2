@@ -190,7 +190,6 @@ export default function App(){
   const [logado,setLogado]=useState(()=>sessionStorage.getItem("adm_auth")==="1");
   const [pg,setPg]=useState("agenda");
 
-  if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");setLogado(true);}}/>;
   const [ags,setAgs]=useState([]);
   const [bloqueios,setBloqueios]=useState([]);
   const [blackouts,setBlackouts]=useState([]);
@@ -588,6 +587,8 @@ export default function App(){
   }
 
   
+
+  if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");setLogado(true);}}/>;
 
   return(
     <div style={{fontFamily:"system-ui,sans-serif",background:BG,minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
