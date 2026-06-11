@@ -186,9 +186,13 @@ export default function App() {
     setEdicoes(p=>({...p,[id]:{...p[id],saunaQtd:val}}));
     try { await updateDoc(doc(db,"agendamentos",id),{saunaQtd:val}); } catch(e){}
   }
-  async function adicionarTempo(ag, mins) {
-    const novoFimMin = toMin(ag.fim) + mins;
-    if(novoFimMin < toMin(ag.ini)+30) {
+  async function adicionarTempo(id, mins) {
+    const agE = getAg(id);
+    const fimAtual = agE.fim || agendamentos.find(x=>x.id===id)?.fim || "";
+    const iniAtual = agE.ini || agendamentos.find(x=>x.id===id)?.ini || "";
+    const qid = agE.qid || agendamentos.find(x=>x.id===id)?.qid || "";
+    const novoFimMin = toMin(fimAtual) + mins;
+    if(novoFimMin < toMin(iniAtual)+30) {
       alert("Não é possível reduzir abaixo de 30 minutos.");
       return;
     }
@@ -196,18 +200,18 @@ export default function App() {
     // Verificar conflito apenas ao adicionar tempo
     if(mins > 0) {
       const conflito = agendamentos.some(x=>
-        x.id!==ag.id && x.qid===ag.qid && x.data===ag.data &&
-        x.st==="confirmado" && x.ini>=ag.fim && x.ini<novoFim
+        x.id!==id && x.qid===qid && x.data===agE.data &&
+        x.st==="confirmado" && x.ini>=fimAtual && x.ini<novoFim
       );
       if(conflito) { alert("⚠️ Horário seguinte já está ocupado!"); return; }
     }
-    // Recalcular valor
-    const duracaoMin = novoFimMin - toMin(ag.ini);
+    // Recalcular valor da quadra
+    const duracaoMin = novoFimMin - toMin(iniAtual);
     const horas = duracaoMin/60;
-    const precoHora = ag.qid==="q1" ? (ag.ini>="16:00"?130:120) : 60;
+    const precoHora = qid==="q1" ? (iniAtual>="16:00"?130:120) : 60;
     const novoVal = parseFloat((precoHora*horas).toFixed(2));
-    setEdicoes(p=>({...p,[ag.id]:{...p[ag.id],fim:novoFim,val:novoVal}}));
-    try { await updateDoc(doc(db,"agendamentos",ag.id),{fim:novoFim,val:novoVal}); } catch(e){}
+    setEdicoes(p=>({...p,[id]:{...p[id],fim:novoFim,val:novoVal}}));
+    try { await updateDoc(doc(db,"agendamentos",id),{fim:novoFim,val:novoVal}); } catch(e){}
   }
 
   const agsDia = agendamentos
@@ -280,13 +284,17 @@ export default function App() {
       <div style={{background:VE,padding:"0 16px 14px"}}>
 
         {/* DESTAQUE PRINCIPAL */}
-        <div style={{background:"rgba(253,230,138,0.15)",border:"2px solid #fde68a",borderRadius:14,padding:"16px",marginBottom:10,textAlign:"center"}}>
-          <div style={{fontSize:11,fontWeight:700,color:"#fde68a",textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>💰 FALTA RECEBER NO BALCÃO</div>
-          <div style={{fontWeight:900,fontSize:36,color:"#fde68a"}}>R$ {totalFalta.toFixed(2)}</div>
+        <div style={{background:totalFalta>0?"rgba(253,230,138,0.15)":"rgba(134,239,172,0.15)",border:`2px solid ${totalFalta>0?"#fde68a":"#86efac"}`,borderRadius:14,padding:"16px",marginBottom:10,textAlign:"center"}}>
+          <div style={{fontSize:11,fontWeight:700,color:totalFalta>0?"#fde68a":"#86efac",textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>
+            {totalFalta>0?"💰 FALTA RECEBER NO BALCÃO":"✅ TUDO RECEBIDO"}
+          </div>
+          <div style={{fontWeight:900,fontSize:36,color:totalFalta>0?"#fde68a":"#86efac"}}>
+            {totalFalta>0?`R$ ${totalFalta.toFixed(2)}`:"R$ 0,00"}
+          </div>
         </div>
 
         {/* MÁQUINA E DINHEIRO */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
           {[
             {label:"💳 Máquina", val:recebidoMaquina},
             {label:"💵 Dinheiro", val:recebidoDinheiro},
@@ -297,6 +305,30 @@ export default function App() {
             </div>
           ))}
         </div>
+
+        {/* PRÓXIMA SAUNA */}
+        {(()=>{
+          const agoraMin2 = hora.getHours()*60+hora.getMinutes();
+          const proxSauna = agsDia.find(a=>{
+            const agE2 = getAg(a.id);
+            return (parseInt(agE2.saunaQtd)||0)>0 && toMin(a.ini)>=agoraMin2;
+          });
+          if(!proxSauna) return null;
+          const agE2 = getAg(proxSauna.id);
+          const qtd = parseInt(agE2.saunaQtd)||0;
+          return (
+            <div style={{background:"rgba(255,220,100,0.15)",border:"1px solid rgba(255,220,100,0.3)",borderRadius:10,padding:"10px 14px"}}>
+              <div style={{fontSize:11,fontWeight:700,color:"#fde68a",textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>🔥 Próxima Sauna</div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <div style={{fontWeight:800,color:"white",fontSize:15}}>{proxSauna.ini}</div>
+                  <div style={{color:"rgba(255,255,255,0.7)",fontSize:13}}>{proxSauna.cli}</div>
+                </div>
+                <div style={{color:"#fde68a",fontWeight:700,fontSize:14}}>{qtd} pessoa{qtd!==1?"s":""}</div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* LISTA DE RESERVAS */}
@@ -350,7 +382,12 @@ export default function App() {
                 )}
 
                 <div style={{fontSize:14,color:"#6b7280",marginBottom:12}}>
-                  ⏰ <span style={{fontWeight:600}}>{a.ini} às {agE.fim||a.fim}</span>
+                  ⏰ <span style={{fontWeight:600}}>{agE.ini||a.ini} às {agE.fim||a.fim}</span>
+                  {agE.fim && agE.fim!==a.fim && (
+                    <span style={{fontSize:11,color:"#1e40af",fontWeight:700,marginLeft:8,background:"#eff6ff",padding:"2px 8px",borderRadius:20}}>
+                      atualizado
+                    </span>
+                  )}
                 </div>
 
                 {/* ── PERGUNTA 1: Mais pessoas? (só Areia) ── */}
@@ -404,7 +441,7 @@ export default function App() {
                   <div style={{fontSize:12,fontWeight:700,color:"#374151",marginBottom:8}}>⏱️ Adicionar ou remover tempo</div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6}}>
                     {[["-1h",-60],["-30min",-30],["+30min",30],["+1h",60]].map(([label,mins])=>(
-                      <button key={label} onClick={()=>adicionarTempo(agE.fim?agE:a, mins)}
+                      <button key={label} onClick={()=>adicionarTempo(a.id, mins)}
                         style={{padding:"8px 4px",borderRadius:8,border:`1.5px solid ${mins>0?"#1e40af":"#dc2626"}`,background:"white",color:mins>0?"#1e40af":"#dc2626",fontWeight:700,fontSize:12,cursor:"pointer"}}>
                         {label}
                       </button>
