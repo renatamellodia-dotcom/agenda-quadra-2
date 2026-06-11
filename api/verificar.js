@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   const SHAY_TEL = "5522999815178";
   const RESEND_KEY = "re_EPZUyHnp_2Ane4iXt9DYSzaKtLx2AfA2P";
   const EMAIL_FROM = "reservas@complexomelodia.com.br";
-  const EMAIL_ADMIN = "reservas@complexomelodia.com.br";
+  const EMAIL_ADMIN = "complexoesportivo@gmail.com";
 
   const { id } = req.query;
   if (!id) return res.status(400).json({ aprovado: false });
@@ -147,7 +147,7 @@ export default async function handler(req, res) {
           from: "Complexo Melodia <" + EMAIL_FROM + ">",
           reply_to: EMAIL_FROM,
           to: [emailCliente],
-          subject: "Reserva confirmada - " + quadraNome + " - " + dataFmt + " - " + ini,
+          subject: "✅ Reserva Confirmada | " + quadraNome + " | " + dataFmt + " às " + ini + " | Complexo Melodia",
           text: "Ola " + nomeCliente + "! Sua reserva foi confirmada.\n\nData: " + dataFmt + "\nHorario: " + ini + " as " + fim + "\nEspaco: " + quadraNome + "\nPago: R$ " + valorPago.toFixed(2) + (valorRestante > 0 ? "\nSaldo na chegada: R$ " + valorRestante.toFixed(2) : "") + "\n\ncomplexomelodia.com.br",
           html: htmlCliente
         })
@@ -165,7 +165,7 @@ export default async function handler(req, res) {
         from: "Complexo Melodia <" + EMAIL_FROM + ">",
         reply_to: EMAIL_FROM,
         to: [EMAIL_ADMIN],
-        subject: "Nova reserva - " + nomeCliente + " - " + quadraNome + " - " + dataFmt,
+        subject: "📅 Nova Reserva | " + nomeCliente + " | " + quadraNome + " | " + dataFmt + " " + ini,
         text: "Nova reserva confirmada!\n\nCliente: " + nomeCliente + "\nData: " + dataFmt + "\nHorario: " + ini + " as " + fim + "\nEspaco: " + quadraNome + "\nPago: R$ " + valorPago.toFixed(2) + (valorRestante > 0 ? "\nSaldo pendente: R$ " + valorRestante.toFixed(2) : "") + (temSauna ? "\nSauna: Sim" : "") + "\nTel: " + telCliente
       })
     });
