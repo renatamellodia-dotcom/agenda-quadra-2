@@ -381,13 +381,32 @@ export default function App() {
                   </a>
                 )}
 
-                <div style={{fontSize:14,color:"#6b7280",marginBottom:12}}>
-                  ⏰ <span style={{fontWeight:600}}>{agE.ini||a.ini} às {agE.fim||a.fim}</span>
-                  {agE.fim && agE.fim!==a.fim && (
-                    <span style={{fontSize:11,color:"#1e40af",fontWeight:700,marginLeft:8,background:"#eff6ff",padding:"2px 8px",borderRadius:20}}>
-                      atualizado
-                    </span>
-                  )}
+                {/* Horário em destaque + status */}
+                <div style={{background:"#f8fafc",borderRadius:10,padding:"10px 14px",marginBottom:12}}>
+                  <div style={{fontWeight:900,fontSize:22,color:"#1a1f2e",marginBottom:4}}>
+                    ⏰ {agE.ini||a.ini} às {agE.fim||a.fim}
+                    {agE.fim && agE.fim!==a.fim && (
+                      <span style={{fontSize:11,color:"#1e40af",fontWeight:700,marginLeft:8,background:"#eff6ff",padding:"2px 8px",borderRadius:20,verticalAlign:"middle"}}>
+                        atualizado
+                      </span>
+                    )}
+                  </div>
+                  {(()=>{
+                    const now = hora.getHours()*60+hora.getMinutes();
+                    const ini2 = toMin(agE.ini||a.ini);
+                    const fim2 = toMin(agE.fim||a.fim);
+                    if(now < ini2) {
+                      const diff = ini2 - now;
+                      const h = Math.floor(diff/60), m = diff%60;
+                      return <div style={{fontSize:13,color:"#6b7280",fontWeight:600}}>⏰ Faltam {h>0?h+"h ":""}{m>0?m+"min":""} para a reserva</div>;
+                    }
+                    if(now >= ini2 && now < fim2) {
+                      const restam = fim2 - now;
+                      const h = Math.floor(restam/60), m = restam%60;
+                      return <div style={{fontSize:13,color:"#16a34a",fontWeight:700}}>🟢 Em andamento — restam {h>0?h+"h ":""}{m>0?m+"min":""}</div>;
+                    }
+                    return <div style={{fontSize:13,color:"#6b7280",fontWeight:600}}>✅ Reserva encerrada</div>;
+                  })()}
                 </div>
 
                 {/* ── PERGUNTA 1: Mais pessoas? (só Areia) ── */}
@@ -395,6 +414,24 @@ export default function App() {
                   <div style={{background:"#f0f9ff",border:"1px solid #bfdbfe",borderRadius:10,padding:"12px",marginBottom:10}}>
                     <div style={{fontSize:12,color:"#1e40af",fontWeight:700,marginBottom:2}}>👥 Total de pessoas na área exclusiva</div>
                     <div style={{fontSize:11,color:"#6b7280",marginBottom:10}}>(quadra, deck e churrasqueira)</div>
+                    {/* Comparação agendadas vs presentes */}
+                    <div style={{display:"flex",gap:12,marginBottom:10,fontSize:13}}>
+                      <div style={{background:"#e0f2fe",borderRadius:8,padding:"6px 12px",textAlign:"center"}}>
+                        <div style={{color:"#0369a1",fontWeight:600}}>Agendadas</div>
+                        <div style={{fontWeight:900,fontSize:18,color:"#0369a1"}}>{agendadas}</div>
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",color:"#6b7280",fontSize:16}}>→</div>
+                      <div style={{background:excQtd>0?"#fee2e2":"#f0f9ff",borderRadius:8,padding:"6px 12px",textAlign:"center"}}>
+                        <div style={{color:excQtd>0?"#dc2626":"#0369a1",fontWeight:600}}>Presentes</div>
+                        <div style={{fontWeight:900,fontSize:18,color:excQtd>0?"#dc2626":"#0369a1"}}>{pp}</div>
+                      </div>
+                      {excQtd>0 && (
+                        <div style={{background:"#fee2e2",borderRadius:8,padding:"6px 12px",textAlign:"center"}}>
+                          <div style={{color:"#dc2626",fontWeight:600}}>Excedentes</div>
+                          <div style={{fontWeight:900,fontSize:18,color:"#dc2626"}}>+{excQtd}</div>
+                        </div>
+                      )}
+                    </div>
                     <div style={{display:"flex",alignItems:"center",gap:12}}>
                       <button onClick={()=>salvarPP(a.id, pp-1)}
                         style={{width:36,height:36,borderRadius:8,border:"1.5px solid #1e40af",background:"white",color:"#1e40af",fontWeight:800,fontSize:22,cursor:"pointer"}}>−</button>
@@ -402,8 +439,8 @@ export default function App() {
                       <button onClick={()=>salvarPP(a.id, pp+1)}
                         style={{width:36,height:36,borderRadius:8,border:"1.5px solid #1e40af",background:"#1e40af",color:"white",fontWeight:800,fontSize:22,cursor:"pointer"}}>+</button>
                       {excQtd>0 && (
-                        <span style={{fontSize:13,fontWeight:700,color:"#dc2626",background:"#fee2e2",padding:"4px 10px",borderRadius:20}}>
-                          +{excQtd} excedente{excQtd>1?"s":""} = R$ {excVal.toFixed(2)}
+                        <span style={{fontSize:13,fontWeight:700,color:"#dc2626"}}>
+                          = R$ {excVal.toFixed(2)} a mais
                         </span>
                       )}
                     </div>
@@ -450,42 +487,39 @@ export default function App() {
                 </div>
 
                 {/* ── PERGUNTA 4: Quanto cobrar? ── */}
-                <div style={{background:cobrar>0?"#fff7ed":"#f0fdf4",border:`1.5px solid ${cobrar>0?"#fed7aa":"#bbf7d0"}`,borderRadius:10,padding:"12px",textAlign:"center"}}>
-                  <div style={{fontSize:12,color:"#6b7280",marginBottom:4}}>Falta receber no balcão</div>
-                  <div style={{fontWeight:900,fontSize:28,color:cobrar>0?"#ea580c":"#16a34a"}}>
-                    {cobrar>0 ? `R$ ${cobrar.toFixed(2)}` : "✅ Quitado"}
+                {cobrar>0 ? (
+                  <div style={{background:"#fff7ed",border:"1.5px solid #fed7aa",borderRadius:12,overflow:"hidden",marginTop:4}}>
+                    <div style={{padding:"10px 14px",textAlign:"center",borderBottom:"1px solid #fed7aa"}}>
+                      <div style={{fontSize:11,color:"#92400e",fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:2}}>Falta receber no balcão</div>
+                      <div style={{fontWeight:900,fontSize:30,color:"#ea580c"}}>R$ {cobrar.toFixed(2)}</div>
+                    </div>
+                    <button onClick={()=>setModalPag(a.id)}
+                      style={{width:"100%",padding:"14px",background:"#16a34a",color:"white",border:"none",fontSize:18,fontWeight:800,cursor:"pointer"}}>
+                      💰 COBRAR R$ {cobrar.toFixed(2)}
+                    </button>
                   </div>
-                </div>
+                ) : isPagoOnline(agE.pag) ? (
+                  <div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:10,padding:"12px 14px",display:"flex",alignItems:"center",gap:10,marginTop:4}}>
+                    <span style={{fontSize:16}}>🔒</span>
+                    <span style={{fontWeight:700,color:"#1e40af",fontSize:13}}>Pago online — não pode ser desfeito</span>
+                  </div>
+                ) : isPagoPresencial(agE.pag) ? (
+                  <div style={{background:"#dcfce7",border:"1px solid #bbf7d0",borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:4}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:20}}>✅</span>
+                      <span style={{fontWeight:800,color:"#065f46",fontSize:15}}>QUITADO</span>
+                    </div>
+                    <button onClick={()=>desfazerPag(a.id)}
+                      style={{background:"none",border:"1.5px solid #16a34a",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:700,color:"#16a34a",cursor:"pointer"}}>
+                      ↩️ Desfazer
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"10px 14px",marginTop:4}}>
+                    <span style={{fontWeight:700,color:"#16a34a",fontSize:13}}>✅ Pago pelo site — aguardando chegada</span>
+                  </div>
+                )}
               </div>
-
-              {/* BOTÃO DE AÇÃO */}
-              {isPagoOnline(agE.pag) && cobrar===0 ? (
-                <div style={{padding:"12px 16px",background:"#eff6ff",display:"flex",alignItems:"center",gap:10}}>
-                  <span style={{fontSize:16}}>🔒</span>
-                  <span style={{fontWeight:700,color:"#1e40af",fontSize:13}}>Pago online — não pode ser desfeito</span>
-                </div>
-              ) : cobrar>0 ? (
-                <button onClick={()=>setModalPag(a.id)}
-                  style={{width:"100%",padding:16,background:"#16a34a",color:"white",border:"none",fontSize:18,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                  <span>💰 COBRAR</span>
-                  <span style={{fontSize:22,fontWeight:900}}>R$ {cobrar.toFixed(2)}</span>
-                </button>
-              ) : isPagoPresencial(agE.pag) ? (
-                <div style={{padding:"12px 16px",background:"#dcfce7",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{fontSize:20}}>✅</span>
-                    <span style={{fontWeight:800,color:"#065f46",fontSize:15}}>QUITADO</span>
-                  </div>
-                  <button onClick={()=>desfazerPag(a.id)}
-                    style={{background:"none",border:"1.5px solid #16a34a",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:700,color:"#16a34a",cursor:"pointer"}}>
-                    ↩️ Desfazer
-                  </button>
-                </div>
-              ) : (
-                <div style={{padding:"12px 16px",background:"#f0fdf4",display:"flex",alignItems:"center",gap:8}}>
-                  <span style={{fontWeight:700,color:"#16a34a",fontSize:13}}>✅ Pago pelo site — aguardando chegada</span>
-                </div>
-              )}
             </div>
           );
         })}
