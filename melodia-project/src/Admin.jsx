@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp } from "firebase/firestore";
+import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp, getDocs } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAX5kKNmUsqs6g0eD_wpbRAalcu1A8ViWI",
@@ -193,6 +193,10 @@ export default function App(){
   if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");setLogado(true);}}/>;
   const [ags,setAgs]=useState([]);
   const [bloqueios,setBloqueios]=useState([]);
+  const [blackouts,setBlackouts]=useState([]);
+  const [blackoutData,setBlackoutData]=useState("");
+  const [blackoutQid,setBlackoutQid]=useState("todas");
+  const [blackoutMotivo,setBlackoutMotivo]=useState("");
   const [qds,setQds]=useState(QP);
   const [cfg,setCfg]=useState(CFG0);
   const [dtA,setDtA]=useState(hoje());
@@ -217,6 +221,15 @@ export default function App(){
       });
       return ()=>unsub();
     } catch(e){ console.log("Firebase offline",e); }
+  },[]);
+
+  useEffect(()=>{
+    try {
+      const unsub = onSnapshot(collection(db,"blackouts"), snap=>{
+        setBlackouts(snap.docs.map(d=>({id:d.id,...d.data()})));
+      });
+      return ()=>unsub();
+    } catch(e){ console.log("Firebase blackouts offline",e); }
   },[]);
 
   const [fTipo,setFTipo]=useState("avulso");
@@ -250,6 +263,30 @@ export default function App(){
   const [qF2a,setQF2a]=useState(12);const [qF2v,setQF2v]=useState(70);const [qF3v,setQF3v]=useState(10);
 
   function showToast(m){setToast(m);setTimeout(()=>setToast(""),2800);}
+
+  async function salvarBlackout(){
+    if(!blackoutData){showToast("⚠️ Selecione uma data!");return;}
+    const b={data:blackoutData,qid:blackoutQid,motivo:blackoutMotivo,em:agora()};
+    try {
+      await addDoc(collection(db,"blackouts"),b);
+      addLog("🚫 Dia bloqueado: "+fd(blackoutData)+(blackoutQid!=="todas"?" — "+(qds.find(x=>x.id===blackoutQid)?.nome||""):" — Todas as quadras")+(blackoutMotivo?" ("+blackoutMotivo+")":""));
+      setBlackoutData("");setBlackoutMotivo("");
+      showToast("🚫 Dia bloqueado!");
+    } catch(e){ showToast("❌ Erro ao bloquear!"); }
+  }
+
+  async function removerBlackout(id){
+    const b=blackouts.find(x=>x.id===id);
+    try {
+      await deleteDoc(doc(db,"blackouts",id));
+      addLog("✅ Bloqueio removido: "+fd(b?.data));
+      showToast("✅ Bloqueio removido!");
+    } catch(e){ showToast("❌ Erro ao remover!"); }
+  }
+
+  function isDiaBloqueado(ds, qid){
+    return blackouts.some(b=>b.data===ds&&(b.qid==="todas"||b.qid===qid));
+  }
 
   
 
@@ -603,7 +640,23 @@ export default function App(){
           );
         })()}
 
-        {qds.map(q=><SlotAgenda key={q.id} q={q}/>)}
+        {/* Aviso de dia bloqueado */}
+        {qds.map(q=>{
+          const bl=blackouts.find(b=>b.data===ds&&(b.qid==="todas"||b.qid===q.id));
+          if(!bl) return <SlotAgenda key={q.id} q={q}/>;
+          return (
+            <div key={q.id} style={{background:"#fee2e2",border:"1.5px solid #fca5a5",borderRadius:12,padding:16,marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div>
+                <div style={{fontWeight:700,color:"#dc2626",fontSize:15}}>🚫 {q.nome} — Dia bloqueado</div>
+                {bl.motivo&&<div style={{fontSize:13,color:"#6b7280",marginTop:4}}>{bl.motivo}</div>}
+              </div>
+              <button onClick={()=>removerBlackout(bl.id)}
+                style={{background:"none",border:"1.5px solid #dc2626",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:700,color:"#dc2626",cursor:"pointer"}}>
+                Desbloquear
+              </button>
+            </div>
+          );
+        })}
       </div>}
 
       {/* ── PAINEL ── */}
@@ -805,6 +858,49 @@ export default function App(){
           </div>
         </Card>
         <Btn c="v" full onClick={()=>showToast("✅ Informações salvas!")}>💾 Salvar</Btn>
+
+        {/* BLACKOUT DE DATAS */}
+        <div style={{marginTop:20}}>
+          <Card>
+            <CardH title="🚫 Bloquear Dia Inteiro"/>
+            <div style={{padding:16}}>
+              <div style={{marginBottom:12}}>
+                <label style={lbl}>Data</label>
+                <input type="date" style={inp} value={blackoutData} onChange={e=>setBlackoutData(e.target.value)}/>
+              </div>
+              <div style={{marginBottom:12}}>
+                <label style={lbl}>Quadra</label>
+                <select style={inp} value={blackoutQid} onChange={e=>setBlackoutQid(e.target.value)}>
+                  <option value="todas">Todas as quadras</option>
+                  {qds.map(q=><option key={q.id} value={q.id}>{q.nome}</option>)}
+                </select>
+              </div>
+              <div style={{marginBottom:14}}>
+                <label style={lbl}>Motivo (opcional)</label>
+                <input style={inp} value={blackoutMotivo} placeholder="Ex: Feriado, manutenção, chuva..." onChange={e=>setBlackoutMotivo(e.target.value)}/>
+              </div>
+              <Btn c="r" full onClick={salvarBlackout}>🚫 Bloquear dia inteiro</Btn>
+            </div>
+          </Card>
+
+          {blackouts.length>0&&(
+            <Card>
+              <CardH title="Dias bloqueados"/>
+              {blackouts.sort((a,b)=>a.data.localeCompare(b.data)).map(b=>(
+                <div key={b.id} style={{padding:"12px 14px",borderBottom:"1px solid #e0e3e8",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:14,color:"#dc2626"}}>🚫 {fd(b.data)}</div>
+                    <div style={{fontSize:12,color:"#6b7280"}}>{b.qid==="todas"?"Todas as quadras":(qds.find(x=>x.id===b.qid)?.nome||b.qid)}{b.motivo?" — "+b.motivo:""}</div>
+                  </div>
+                  <button onClick={()=>removerBlackout(b.id)}
+                    style={{background:"none",border:"1.5px solid #dc2626",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:700,color:"#dc2626",cursor:"pointer"}}>
+                    Remover
+                  </button>
+                </div>
+              ))}
+            </Card>
+          )}
+        </div>
       </div>}
 
       {/* ── CONFIG ── */}
