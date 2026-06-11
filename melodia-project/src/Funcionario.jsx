@@ -61,17 +61,21 @@ function saldoQuadra(ag) {
   return val;
 }
 
+// Regras centrais (espelho do src/regras.js)
+const AREIA_LIMITE_SEM_EXTRA = 12; // até 12 pessoas = sem cobrança
+const AREIA_PRECO_EXCEDENTE = 10;  // R$ por pessoa acima de 12, por hora
+const SAUNA_UNIT = 15;             // R$ por pessoa de sauna
+
 function valorExcedente(ag, pessPresentes) {
   if(!ag || ag.qid!=="q2") return 0;
-  const agendadas = parseInt(ag.pess)||0;
-  const presentes = parseInt(pessPresentes)||agendadas;
-  if(presentes <= agendadas) return 0;
-  const excedentes = presentes - agendadas;
+  const presentes = parseInt(pessPresentes)||0;
+  if(presentes <= AREIA_LIMITE_SEM_EXTRA) return 0;
+  const excedentes = presentes - AREIA_LIMITE_SEM_EXTRA;
   if(!ag.ini||!ag.fim) return 0;
   const minutos = toMin(ag.fim) - toMin(ag.ini);
   const horas = Math.floor(minutos/60);
   if(horas < 1) return 0;
-  return excedentes * 10 * horas;
+  return excedentes * AREIA_PRECO_EXCEDENTE * horas;
 }
 
 function tocarSom(tipo) {
@@ -429,7 +433,7 @@ export default function App() {
           const saunaQtd = parseInt(agE.saunaQtd)||0;
           const saunaVal = saunaQtd * SAUNA_UNIT;
           const excVal = valorExcedente(agE, pp);
-          const excQtd = pp - agendadas;
+          const excQtd = Math.max(0, pp - 12);
           const cobrar = saldoQuadra(agE) + saunaVal + excVal;
           const agoraMin = hora.getHours()*60+hora.getMinutes();
           const iniMin = toMin(a.ini);
