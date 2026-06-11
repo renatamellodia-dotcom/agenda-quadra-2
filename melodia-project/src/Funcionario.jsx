@@ -129,10 +129,9 @@ export default function App() {
   const [alarme, setAlarme] = useState(null);
 
   // Totais do dia (contabilizam pagamentos online + presenciais)
-  const [recebidoHoje, setRecebidoHoje] = useState(0);
   const [recebidoMaquina, setRecebidoMaquina] = useState(0);
   const [recebidoDinheiro, setRecebidoDinheiro] = useState(0);
-  const [recebidoSociety, setRecebidoSociety] = useState(0);
+  const [recebidoSociety, setRecebidoSociety] = useState(0); // falta receber society
   const [recebidoAreia, setRecebidoAreia] = useState(0);
   const [recebidoSaunaTotal, setRecebidoSaunaTotal] = useState(0);
 
@@ -158,45 +157,37 @@ export default function App() {
     const ds = dia;
     const agsDia = agendamentos.filter(a=>a.data===ds&&a.st==="confirmado");
     
-    let rHoje=0, rMaq=0, rDin=0, rSoc=0, rAr=0, rSauna=0;
+    let rMaq=0, rDin=0, fSoc=0, fAr=0, fSauna=0;
 
     agsDia.forEach(a=>{
       const agE = {...a,...(edicoes[a.id]||{})};
       const val = parseFloat(agE.val)||0;
       const pag = agE.pag||"";
       const isSociety = agE.qid==="q1";
-      const saunaVal = valorSauna(agE);
+      const ppLocal = getPessPresentes(agE);
+      const saunaQtdLocal = parseInt(agE.saunaQtd)||0;
+      const saunaValLocal = saunaQtdLocal * SAUNA_UNIT;
+      const excValLocal = valorExcedente(agE, ppLocal);
+      const saldoQ = saldoQuadra(agE);
+      const totalFalta = saldoQ + saunaValLocal + excValLocal;
 
-      // Pagamento online (já recebido)
-      if(["mp_pix","mp_cartao","mp_total"].includes(pag)) {
-        rHoje += val + saunaVal;
-        if(isSociety) rSoc += val; else rAr += val;
-        rSauna += saunaVal;
-      } else if(pag==="mp_50") {
-        rHoje += val*0.5 + saunaVal;
-        if(isSociety) rSoc += val*0.5; else rAr += val*0.5;
-        rSauna += saunaVal;
+      // Falta receber por categoria
+      if(totalFalta > 0) {
+        if(isSociety) fSoc += saldoQ + excValLocal;
+        else fAr += saldoQ + excValLocal;
+        fSauna += saunaValLocal;
       }
-      // Pagamento presencial
-      else if(pag==="mp_total_cartao") {
-        rHoje += val + saunaVal;
-        rMaq += val + saunaVal;
-        if(isSociety) rSoc += val; else rAr += val;
-        rSauna += saunaVal;
-      } else if(pag==="mp_total_dinheiro") {
-        rHoje += val + saunaVal;
-        rDin += val + saunaVal;
-        if(isSociety) rSoc += val; else rAr += val;
-        rSauna += saunaVal;
-      }
+
+      // Recebido em máquina/dinheiro
+      if(pag==="mp_total_cartao") rMaq += val + saunaValLocal;
+      else if(pag==="mp_total_dinheiro") rDin += val + saunaValLocal;
     });
 
-    setRecebidoHoje(rHoje);
     setRecebidoMaquina(rMaq);
     setRecebidoDinheiro(rDin);
-    setRecebidoSociety(rSoc);
-    setRecebidoAreia(rAr);
-    setRecebidoSaunaTotal(rSauna);
+    setRecebidoSociety(fSoc);
+    setRecebidoAreia(fAr);
+    setRecebidoSaunaTotal(fSauna);
   },[agendamentos, edicoes, dia, logado]);
 
   // Alarme fim de jogo
@@ -341,12 +332,12 @@ export default function App() {
 
         <div style={{background:"rgba(255,255,255,0.07)",borderRadius:12,overflow:"hidden"}}>
           {[
-            {label:"💳 Recebido em máquina",     val:`R$ ${recebidoMaquina.toFixed(2)}`,     cor:"white"},
-            {label:"💵 Recebido em dinheiro",    val:`R$ ${recebidoDinheiro.toFixed(2)}`,    cor:"white"},
-            {label:"⚽ Recebido Society",         val:`R$ ${recebidoSociety.toFixed(2)}`,     cor:"rgba(255,255,255,0.7)"},
-            {label:"🏐 Recebido Areia",           val:`R$ ${recebidoAreia.toFixed(2)}`,       cor:"rgba(255,255,255,0.7)"},
-            {label:"🧖 Recebido Sauna",           val:`R$ ${recebidoSaunaTotal.toFixed(2)}`,  cor:"rgba(255,255,255,0.7)"},
-            {label:"🔥 Saunas previstas hoje",    val:`${saunaHoje.length} reserva${saunaHoje.length!==1?"s":""}`, cor:saunaHoje.length>0?"#fde68a":"rgba(255,255,255,0.4)"},
+            {label:"💳 Recebido em máquina",      val:`R$ ${recebidoMaquina.toFixed(2)}`,    cor:"white"},
+            {label:"💵 Recebido em dinheiro",     val:`R$ ${recebidoDinheiro.toFixed(2)}`,   cor:"white"},
+            {label:"⚽ Falta receber Society",     val:`R$ ${recebidoSociety.toFixed(2)}`,    cor:"rgba(255,255,255,0.7)"},
+            {label:"🏐 Falta receber Areia",       val:`R$ ${recebidoAreia.toFixed(2)}`,      cor:"rgba(255,255,255,0.7)"},
+            {label:"🧖 Falta receber Sauna",       val:`R$ ${recebidoSaunaTotal.toFixed(2)}`, cor:"rgba(255,255,255,0.7)"},
+            {label:"🔥 Saunas previstas hoje",     val:`${saunaHoje.length} reserva${saunaHoje.length!==1?"s":""}`, cor:saunaHoje.length>0?"#fde68a":"rgba(255,255,255,0.4)"},
           ].map(({label,val,cor},i)=>(
             <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",borderBottom:"1px solid rgba(255,255,255,0.07)"}}>
               <span style={{fontSize:13,color:"rgba(255,255,255,0.75)"}}>{label}</span>
@@ -493,6 +484,47 @@ export default function App() {
                     📝 {agE.obs||a.obs}
                   </div>
                 )}
+
+                {/* Adicionar tempo */}
+                <div style={{marginBottom:10}}>
+                  <div style={{fontSize:12,fontWeight:700,color:"#6b7280",marginBottom:6}}>➕ Adicionar tempo</div>
+                  <div style={{display:"flex",gap:8}}>
+                    {[["+ 30 min", 30],["+ 1 hora", 60]].map(([label, mins])=>(
+                      <button key={mins} onClick={async()=>{
+                        // Calcular novo fim
+                        const [fh,fm] = a.fim.split(":").map(Number);
+                        const novoFimMin = fh*60+fm+mins;
+                        const novoFim = Math.floor(novoFimMin/60).toString().padStart(2,"0")+":"+(novoFimMin%60).toString().padStart(2,"0");
+                        // Verificar conflito
+                        const conflito = agendamentos.some(x=>
+                          x.id!==a.id &&
+                          x.qid===a.qid &&
+                          x.data===a.data &&
+                          x.st==="confirmado" &&
+                          x.ini>=a.fim &&
+                          x.ini<novoFim
+                        );
+                        if(conflito){
+                          alert("⚠️ Horário seguinte já está ocupado!");
+                          return;
+                        }
+                        // Novo valor
+                        const [ih,im] = a.ini.split(":").map(Number);
+                        const duracaoTotal = (novoFimMin)-(ih*60+im);
+                        const horasTotal = duracaoTotal/60;
+                        const precoHora = agE.qid==="q1" ? (a.ini>="16:00"?130:120) : 60;
+                        const novoVal = precoHora * horasTotal;
+                        setEdicoes(p=>({...p,[a.id]:{...p[a.id],fim:novoFim,val:novoVal}}));
+                        try {
+                          await updateDoc(doc(db,"agendamentos",a.id),{fim:novoFim,val:novoVal});
+                        } catch(e){}
+                      }}
+                        style={{flex:1,padding:"8px",background:"#f0f9ff",border:"1.5px solid #1e40af",borderRadius:8,fontSize:13,fontWeight:700,color:"#1e40af",cursor:"pointer"}}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
                 {/* Breakdown financeiro detalhado */}
                 {(()=>{
