@@ -14,7 +14,7 @@ const firebaseConfig = {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 const VE = "#1a5248";
-const SENHA = "melodia@shay";
+const SENHA = "melodia123";
 const SAUNA_UNIT = 15;
 
 function hoje() {
