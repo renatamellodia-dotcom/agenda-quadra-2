@@ -59,7 +59,7 @@ function pagoPeloSite(ag) {
 
 function valorSauna(ag) {
   const qtd = parseInt(ag?.saunaQtd)||0;
-  if(!ag?.sauna || qtd<=0) return 0;
+  if(qtd <= 0) return 0;
   return qtd * SAUNA_UNIT;
 }
 
@@ -74,8 +74,8 @@ function valorExcedente(ag, pessPresentes) {
   const [fh,fm] = ag.fim.split(":").map(Number);
   const minutos = (fh*60+fm)-(ih*60+im);
   const horas = Math.floor(minutos/60);
-  const precoExc = horas>0 ? excedentes*10*horas : excedentes*10;
-  return precoExc;
+  if(horas < 1) return 0; // menos de 1h não cobra excedente
+  return excedentes * 10 * horas;
 }
 
 function totalCobrar(ag) {
