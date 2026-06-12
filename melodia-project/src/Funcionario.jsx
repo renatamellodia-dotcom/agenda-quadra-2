@@ -180,8 +180,9 @@ export default function App() {
       const agE = {...a,...(edicoes[a.id]||{})};
       const val = parseFloat(agE.val)||0;
       const saunaVal = (parseInt(agE.saunaQtd)||0)*SAUNA_UNIT;
-      if(agE.pag==="mp_total_cartao") maq += val+saunaVal;
-      else if(agE.pag==="mp_total_dinheiro") din += val+saunaVal;
+      const excValMD = valorExcedente(agE, getPP(agE));
+      if(agE.pag==="mp_total_cartao") maq += val+saunaVal+excValMD;
+      else if(agE.pag==="mp_total_dinheiro") din += val+saunaVal+excValMD;
     });
     setRecebidoMaquina(maq);
     setRecebidoDinheiro(din);
@@ -227,9 +228,14 @@ export default function App() {
   async function confirmarPag(id, tipo) {
     setModalPag(null);
     try {
-      await updateDoc(doc(db,"agendamentos",id),{pag:tipo});
-      setEdicoes(p=>({...p,[id]:{...p[id],pag:tipo}}));
-      setAgendamentos(prev=>prev.map(a=>a.id===id?{...a,pag:tipo}:a));
+      // Marca pagamento e "trava" os valores de sauna/excedente cobrados agora
+      const agE = getAg(id);
+      const pp = getPP(agE);
+      const saunaQtdAtual = parseInt(agE.saunaQtd)||0;
+      const update = {pag:tipo, extrasCobrados:true};
+      await updateDoc(doc(db,"agendamentos",id),update);
+      setEdicoes(p=>({...p,[id]:{...p[id],...update}}));
+      setAgendamentos(prev=>prev.map(a=>a.id===id?{...a,...update}:a));
     } catch(e) {
       alert("Erro ao registrar pagamento: "+e.message);
     }
@@ -288,7 +294,8 @@ export default function App() {
     const pp = getPP(agE);
     const saunaVal = (parseInt(agE.saunaQtd)||0)*SAUNA_UNIT;
     const excVal = valorExcedente(agE, pp);
-    return s + saldoQuadra(agE) + saunaVal + excVal;
+    const extrasJaCobrados = agE.extrasCobrados === true;
+    return s + saldoQuadra(agE) + (extrasJaCobrados ? 0 : (saunaVal + excVal));
   },0);
 
   function mudarDia(dir) {
@@ -436,7 +443,8 @@ export default function App() {
           const saunaVal = saunaQtd * SAUNA_UNIT;
           const excVal = valorExcedente(agE, pp);
           const excQtd = Math.max(0, pp - 12);
-          const cobrar = saldoQuadra(agE) + saunaVal + excVal;
+          const extrasJaCobrados = agE.extrasCobrados === true;
+          const cobrar = saldoQuadra(agE) + (extrasJaCobrados ? 0 : (saunaVal + excVal));
           const agoraMin = hora.getHours()*60+hora.getMinutes();
           const iniMin = toMin(a.ini);
           const fimMin = toMin(agE.fim||a.fim);
@@ -642,6 +650,7 @@ export default function App() {
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 16px"}}>
           <div style={{background:"white",borderRadius:20,width:"100%",maxWidth:420,padding:"28px 20px 24px",boxShadow:"0 8px 40px rgba(0,0,0,0.25)"}}>
             <div style={{fontWeight:800,fontSize:20,marginBottom:16,color:"#1a1f2e",textAlign:"center"}}>Como o cliente pagou?</div>
+            <div style={{fontSize:11,color:"#9ca3af",marginBottom:8,textAlign:"center"}}>ID: {modalPag}</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
               <button style={{padding:"20px 8px",background:"#eff6ff",border:"2px solid #1e40af",borderRadius:12,cursor:"pointer",textAlign:"center"}}
                 onClick={()=>confirmarPag(modalPag,"mp_total_cartao")}>
