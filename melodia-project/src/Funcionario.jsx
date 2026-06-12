@@ -474,9 +474,12 @@ export default function App() {
         </div>
 
         {/* BOTÃO FECHAMENTO DO DIA */}
-        <button onClick={()=>setModalFechamento(true)}
-          style={{width:"100%",padding:"10px",background:"rgba(255,255,255,0.1)",border:"1.5px solid rgba(255,255,255,0.25)",borderRadius:10,color:"white",fontWeight:700,fontSize:13,cursor:"pointer",marginBottom:10}}>
-          📋 Fechamento do dia
+        <button onClick={()=>{
+            if(totalFalta>0.01){ alert("🔒 Existem R$ "+totalFalta.toFixed(2)+" pendentes de cobrança.\n\nQuite todas as reservas antes de fechar o caixa."); return; }
+            setModalFechamento(true);
+          }}
+          style={{width:"100%",padding:"10px",background:totalFalta>0?"rgba(255,255,255,0.05)":"rgba(255,255,255,0.1)",border:"1.5px solid rgba(255,255,255,0.25)",borderRadius:10,color:totalFalta>0?"rgba(255,255,255,0.5)":"white",fontWeight:700,fontSize:13,cursor:"pointer",marginBottom:10}}>
+          {totalFalta>0 ? "🔒 Fechamento do dia (pendências)" : "📋 Fechamento do dia"}
         </button>
 
         {/* PRÓXIMA SAUNA */}
@@ -524,11 +527,14 @@ export default function App() {
           const iniMin = toMin(a.ini);
           const fimMin = toMin(agE.fim||a.fim);
           const emAndamento = agoraMin>=iniMin&&agoraMin<fimMin;
+          const encerrada = agoraMin>=fimMin;
           const qNome = agE.qid==="q2" ? "🏐 Quadra de Areia" : "⚽ Campo Society";
           const qCor = agE.qid==="q2" ? "#E8861A" : VE;
+          // Cor de status temporal (borda superior)
+          const corStatus = emAndamento ? "#16a34a" : encerrada ? "#9ca3af" : "#f59e0b";
 
           return (
-            <div key={a.id} style={{marginBottom:10,background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 3px 12px rgba(0,0,0,.08)",borderLeft:`4px solid ${agE.qid==="q2"?"#E8861A":VE}`}}>
+            <div key={a.id} style={{marginBottom:10,background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 3px 12px rgba(0,0,0,.08)",borderLeft:`4px solid ${agE.qid==="q2"?"#E8861A":VE}`,borderTop:`3px solid ${corStatus}`}}>
               <div style={{padding:"14px 16px"}}>
 
                 {/* Cabeçalho do card */}
@@ -690,7 +696,7 @@ export default function App() {
                     </div>
                     <button onClick={()=>setModalPag(a.id)}
                       style={{width:"100%",padding:"14px",background:"#16a34a",color:"white",border:"none",fontSize:18,fontWeight:800,cursor:"pointer"}}>
-                      💰 COBRAR R$ {cobrar.toFixed(2)}
+                      ✅ Receber R$ {cobrar.toFixed(2)}
                     </button>
                   </div>
                 ) : isPagoOnline(agE.pag) ? (
@@ -759,8 +765,9 @@ export default function App() {
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:310,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 16px"}}>
           <div style={{background:"white",borderRadius:20,width:"100%",maxWidth:420,padding:"24px 20px"}}>
             <div style={{fontWeight:800,fontSize:20,marginBottom:4,color:"#1a1f2e",textAlign:"center"}}>💳💵 Pagamento Dividido</div>
-            <div style={{fontSize:13,color:"#6b7280",textAlign:"center",marginBottom:16}}>
-              Total: R$ {(()=>{const agE=getAg(modalPag);const pp=getPP(agE);return faltaReceber(agE,pp).toFixed(2);})()}
+            <div style={{textAlign:"center",marginBottom:16,background:"#fff7ed",border:"1.5px solid #fed7aa",borderRadius:12,padding:"12px"}}>
+              <div style={{fontSize:11,color:"#92400e",fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:2}}>Total a receber</div>
+              <div style={{fontSize:28,fontWeight:900,color:"#ea580c"}}>R$ {(()=>{const agE=getAg(modalPag);const pp=getPP(agE);return faltaReceber(agE,pp).toFixed(2);})()}</div>
             </div>
             <div style={{marginBottom:12}}>
               <label style={{display:"block",fontSize:12,fontWeight:700,color:"#1e40af",marginBottom:6}}>💳 Valor na Máquina (R$)</label>
