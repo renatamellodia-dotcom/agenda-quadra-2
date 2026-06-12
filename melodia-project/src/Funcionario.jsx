@@ -233,10 +233,17 @@ export default function App() {
       const saunaQtdAtual = parseInt(agE.saunaQtd)||0;
       const saunaValAtual = saunaQtdAtual * SAUNA_UNIT;
       const excValAtual = valorExcedente(agE, pp);
+      const saldoAntes = saldoQuadra(agE);
       const valOriginal = parseFloat(agE.val)||0;
-      // Soma tudo no valor total para ficar 100% quitado
+      // Novo valor total = valor atual + tudo que ainda não tinha sido incorporado
       const novoVal = valOriginal + saunaValAtual + excValAtual;
-      const update = {pag:tipo, val:novoVal};
+      // Zera saunaQtd e ajusta pess para não recalcular excedente de novo
+      const update = {
+        pag: tipo,
+        val: novoVal,
+        saunaQtd: 0,
+        pess: pp, // agendadas passam a ser as presentes, zerando excedente futuro
+      };
       await updateDoc(doc(db,"agendamentos",id),update);
       setEdicoes(p=>({...p,[id]:{...p[id],...update}}));
       setAgendamentos(prev=>prev.map(a=>a.id===id?{...a,...update}:a));
