@@ -225,12 +225,14 @@ export default function App() {
   }
 
   async function confirmarPag(id, tipo) {
-    // Atualiza local imediatamente
-    setEdicoes(p=>({...p,[id]:{...p[id],pag:tipo}}));
-    // Atualiza lista de agendamentos local também (sem esperar Firebase)
-    setAgendamentos(prev=>prev.map(a=>a.id===id?{...a,pag:tipo}:a));
     setModalPag(null);
-    try { await updateDoc(doc(db,"agendamentos",id),{pag:tipo}); } catch(e){}
+    try {
+      await updateDoc(doc(db,"agendamentos",id),{pag:tipo});
+      setEdicoes(p=>({...p,[id]:{...p[id],pag:tipo}}));
+      setAgendamentos(prev=>prev.map(a=>a.id===id?{...a,pag:tipo}:a));
+    } catch(e) {
+      alert("Erro ao registrar pagamento: "+e.message);
+    }
   }
   async function desfazerPag(id) {
     if(!window.confirm("Desfazer recebimento?")) return;
