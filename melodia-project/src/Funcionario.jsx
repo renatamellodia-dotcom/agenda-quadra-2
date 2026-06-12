@@ -46,11 +46,23 @@ function pagoOnline(ag) {
   return 0;
 }
 
-// Total já recebido (online + balcão), de forma acumulativa
-// Compatibilidade: se 'valPago' não existir ainda (reservas antigas),
+// Quanto já foi recebido em MÁQUINA (cartão) no balcão
+function pagoMaquina(ag) {
+  return parseFloat(ag?.pagoMaquina)||0;
+}
+
+// Quanto já foi recebido em DINHEIRO no balcão
+function pagoDinheiro(ag) {
+  return parseFloat(ag?.pagoDinheiro)||0;
+}
+
+// Total já recebido (online + máquina + dinheiro)
+// Compatibilidade: se os campos novos não existirem (reservas antigas),
 // infere a partir do campo 'pag' antigo.
 function totalJaPago(ag) {
-  if(ag?.valPago !== undefined) return parseFloat(ag.valPago)||0;
+  if(ag?.pagoMaquina !== undefined || ag?.pagoDinheiro !== undefined) {
+    return pagoOnline(ag) + pagoMaquina(ag) + pagoDinheiro(ag);
+  }
   const val = parseFloat(ag?.val)||0;
   const pag = ag?.pag||"";
   if(["mp_pix","mp_cartao","mp_total","mp_total_pix","mp_total_cartao","mp_total_dinheiro"].includes(pag)) return val;
@@ -198,17 +210,15 @@ export default function App() {
     return ()=>clearInterval(t);
   },[]);
 
-  // Recalcular máquina e dinheiro
-  // Recebido no balcão = total já pago - o que veio do site
+  // Recalcular máquina e dinheiro — soma direta dos acumuladores
   useEffect(()=>{
     if(!logado) return;
     const agsDia = agendamentos.filter(a=>a.data===dia&&a.st==="confirmado");
     let maq=0, din=0;
     agsDia.forEach(a=>{
       const agE = {...a,...(edicoes[a.id]||{})};
-      const recebidoBalcao = Math.max(0, totalJaPago(agE) - pagoOnline(agE));
-      if(agE.pag==="mp_total_cartao") maq += recebidoBalcao;
-      else if(agE.pag==="mp_total_dinheiro") din += recebidoBalcao;
+      maq += pagoMaquina(agE);
+      din += pagoDinheiro(agE);
     });
     setRecebidoMaquina(maq);
     setRecebidoDinheiro(din);
@@ -257,10 +267,10 @@ export default function App() {
       const agE = getAg(id);
       const pp = getPP(agE);
       const falta = faltaReceber(agE, pp);
-      const update = {
-        pag: tipo,
-        valPago: totalJaPago(agE) + falta, // zera o que falta receber
-      };
+      const update = { pag: tipo };
+      // Soma o valor pendente no acumulador correto (máquina ou dinheiro)
+      if(tipo === "mp_total_cartao") update.pagoMaquina = pagoMaquina(agE) + falta;
+      else if(tipo === "mp_total_dinheiro") update.pagoDinheiro = pagoDinheiro(agE) + falta;
       // Preserva o registro do pagamento original (1ª vez que cobra no balcão)
       if(agE.pagOriginal === undefined) {
         update.pagOriginal = agE.pag || "pendente";
@@ -275,7 +285,7 @@ export default function App() {
   async function desfazerPag(id) {
     if(!window.confirm("Desfazer recebimento?")) return;
     const agE = getAg(id);
-    const update = {pag: agE.pagOriginal||"pendente", valPago: pagoOnline(agE)};
+    const update = {pag: agE.pagOriginal||"pendente", pagoMaquina:0, pagoDinheiro:0};
     setEdicoes(p=>({...p,[id]:{...p[id],...update}}));
     setAgendamentos(prev=>prev.map(a=>a.id===id?{...a,...update}:a));
     try { await updateDoc(doc(db,"agendamentos",id),update); } catch(e){}
