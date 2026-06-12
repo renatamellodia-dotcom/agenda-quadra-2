@@ -320,10 +320,17 @@ export default function App() {
       if(conflito) { alert("⚠️ Horário seguinte já está ocupado!"); return; }
     }
     // Recalcular valor da quadra para a nova duração
-    const duracaoMin = novoFimMin - toMin(iniAtual);
-    const horas = duracaoMin/60;
-    const precoHora = qid==="q1" ? (iniAtual>="16:00"?130:120) : 60;
-    const novoVal = parseFloat((precoHora*horas).toFixed(2));
+    const duracaoAntigaMin = toMin(fimAtual) - toMin(iniAtual);
+    const duracaoNovaMin = novoFimMin - toMin(iniAtual);
+    let novoVal;
+    if(qid==="q1") {
+      // Society: preço fixo por hora (diurno/noturno)
+      const precoHora = iniAtual>="16:00" ? 130 : 120;
+      novoVal = parseFloat((precoHora*(duracaoNovaMin/60)).toFixed(2));
+    } else {
+      // Areia: R$60/hora fixo até 12 pessoas (excedente é tratado separadamente)
+      novoVal = parseFloat((60*(duracaoNovaMin/60)).toFixed(2));
+    }
     const diferenca = novoVal - valAtual; // quanto o tempo mudou o valor da quadra
 
     const saldoAntes = saldoQuadra(agE); // a quadra ainda tinha saldo pendente?
