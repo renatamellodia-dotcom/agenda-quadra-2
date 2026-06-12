@@ -242,7 +242,8 @@ export default function App() {
         pag: tipo,
         val: novoVal,
         saunaQtd: 0,
-        pess: pp, // agendadas passam a ser as presentes, zerando excedente futuro
+        pess: pp,           // agendadas passam a ser as presentes
+        pessPresentes: pp,  // reseta presentes também, zerando excedente futuro
       };
       await updateDoc(doc(db,"agendamentos",id),update);
       setEdicoes(p=>({...p,[id]:{...p[id],...update}}));
@@ -453,7 +454,8 @@ export default function App() {
           const saunaVal = saunaQtd * SAUNA_UNIT;
           const excVal = valorExcedente(agE, pp);
           const excQtd = Math.max(0, pp - 12);
-          const cobrar = saldoQuadra(agE) + saunaVal + excVal;
+          const cobrarRaw = saldoQuadra(agE) + saunaVal + excVal;
+          const cobrar = cobrarRaw < 0.01 ? 0 : cobrarRaw;
           const agoraMin = hora.getHours()*60+hora.getMinutes();
           const iniMin = toMin(a.ini);
           const fimMin = toMin(agE.fim||a.fim);
