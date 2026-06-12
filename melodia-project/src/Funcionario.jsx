@@ -111,7 +111,7 @@ function isPagoOnline(pag) {
   return ["mp_pix","mp_cartao","mp_total","mp_50"].includes(pag||"");
 }
 function isPagoPresencial(pag) {
-  return ["mp_total_pix","mp_total_cartao","mp_total_dinheiro"].includes(pag||"");
+  return ["mp_total_pix","mp_total_cartao","mp_total_dinheiro","mp_total_misto"].includes(pag||"");
 }
 function tocarSom(tipo) {
   try {
@@ -190,6 +190,10 @@ export default function App() {
   const [edicoes, setEdicoes] = useState({});
   const [alarme, setAlarme] = useState(null);
   const [aviso5min, setAviso5min] = useState(null);
+  const [modalFechamento, setModalFechamento] = useState(false);
+  const [modalMisto, setModalMisto] = useState(false);
+  const [mistoMaq, setMistoMaq] = useState("");
+  const [mistoDin, setMistoDin] = useState("");
   const [recebidoMaquina, setRecebidoMaquina] = useState(0);
   const [recebidoDinheiro, setRecebidoDinheiro] = useState(0);
   const [filtro, setFiltro] = useState("todos");
@@ -272,6 +276,26 @@ export default function App() {
       if(tipo === "mp_total_cartao") update.pagoMaquina = pagoMaquina(agE) + falta;
       else if(tipo === "mp_total_dinheiro") update.pagoDinheiro = pagoDinheiro(agE) + falta;
       // Preserva o registro do pagamento original (1ª vez que cobra no balcão)
+      if(agE.pagOriginal === undefined) {
+        update.pagOriginal = agE.pag || "pendente";
+      }
+      await updateDoc(doc(db,"agendamentos",id),update);
+      setEdicoes(p=>({...p,[id]:{...p[id],...update}}));
+      setAgendamentos(prev=>prev.map(a=>a.id===id?{...a,...update}:a));
+    } catch(e) {
+      alert("Erro ao registrar pagamento: "+e.message);
+    }
+  }
+
+  async function confirmarPagMisto(id, valMaq, valDin) {
+    setModalPag(null);
+    try {
+      const agE = getAg(id);
+      const update = {
+        pagoMaquina: pagoMaquina(agE) + valMaq,
+        pagoDinheiro: pagoDinheiro(agE) + valDin,
+        pag: valMaq>0 && valDin>0 ? "mp_total_misto" : valMaq>0 ? "mp_total_cartao" : "mp_total_dinheiro",
+      };
       if(agE.pagOriginal === undefined) {
         update.pagOriginal = agE.pag || "pendente";
       }
@@ -448,6 +472,12 @@ export default function App() {
             </div>
           ))}
         </div>
+
+        {/* BOTÃO FECHAMENTO DO DIA */}
+        <button onClick={()=>setModalFechamento(true)}
+          style={{width:"100%",padding:"10px",background:"rgba(255,255,255,0.1)",border:"1.5px solid rgba(255,255,255,0.25)",borderRadius:10,color:"white",fontWeight:700,fontSize:13,cursor:"pointer",marginBottom:10}}>
+          📋 Fechamento do dia
+        </button>
 
         {/* PRÓXIMA SAUNA */}
         {(()=>{
@@ -695,8 +725,7 @@ export default function App() {
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 16px"}}>
           <div style={{background:"white",borderRadius:20,width:"100%",maxWidth:420,padding:"28px 20px 24px",boxShadow:"0 8px 40px rgba(0,0,0,0.25)"}}>
             <div style={{fontWeight:800,fontSize:20,marginBottom:16,color:"#1a1f2e",textAlign:"center"}}>Como o cliente pagou?</div>
-            <div style={{fontSize:11,color:"#9ca3af",marginBottom:8,textAlign:"center"}}>ID: {modalPag}</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
               <button style={{padding:"20px 8px",background:"#eff6ff",border:"2px solid #1e40af",borderRadius:12,cursor:"pointer",textAlign:"center"}}
                 onClick={()=>confirmarPag(modalPag,"mp_total_cartao")}>
                 <div style={{fontSize:32}}>💳</div>
@@ -708,9 +737,107 @@ export default function App() {
                 <div style={{fontSize:15,fontWeight:800,color:"#16a34a",marginTop:8}}>Dinheiro</div>
               </button>
             </div>
+            <button onClick={()=>{
+                const agE=getAg(modalPag); const pp=getPP(agE);
+                const falta=faltaReceber(agE,pp);
+                setMistoMaq(falta.toFixed(2)); setMistoDin("0");
+                setModalMisto(true);
+              }}
+              style={{width:"100%",padding:"12px",background:"#f9fafb",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer",color:"#374151",marginBottom:12}}>
+              💳💵 Pagamento dividido (parte cartão, parte dinheiro)
+            </button>
             <button onClick={()=>setModalPag(null)}
               style={{width:"100%",padding:"13px",background:"none",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14,fontWeight:600,cursor:"pointer",color:"#6b7280"}}>
               Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PAGAMENTO MISTO */}
+      {modalMisto && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:310,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 16px"}}>
+          <div style={{background:"white",borderRadius:20,width:"100%",maxWidth:420,padding:"24px 20px"}}>
+            <div style={{fontWeight:800,fontSize:20,marginBottom:4,color:"#1a1f2e",textAlign:"center"}}>💳💵 Pagamento Dividido</div>
+            <div style={{fontSize:13,color:"#6b7280",textAlign:"center",marginBottom:16}}>
+              Total: R$ {(()=>{const agE=getAg(modalPag);const pp=getPP(agE);return faltaReceber(agE,pp).toFixed(2);})()}
+            </div>
+            <div style={{marginBottom:12}}>
+              <label style={{display:"block",fontSize:12,fontWeight:700,color:"#1e40af",marginBottom:6}}>💳 Valor na Máquina (R$)</label>
+              <input type="number" inputMode="decimal" value={mistoMaq} onChange={e=>setMistoMaq(e.target.value)}
+                style={{width:"100%",padding:"12px",border:"2px solid #bfdbfe",borderRadius:10,fontSize:18,fontWeight:700,color:"#1e40af",textAlign:"center"}}/>
+            </div>
+            <div style={{marginBottom:16}}>
+              <label style={{display:"block",fontSize:12,fontWeight:700,color:"#16a34a",marginBottom:6}}>💵 Valor em Dinheiro (R$)</label>
+              <input type="number" inputMode="decimal" value={mistoDin} onChange={e=>setMistoDin(e.target.value)}
+                style={{width:"100%",padding:"12px",border:"2px solid #bbf7d0",borderRadius:10,fontSize:18,fontWeight:700,color:"#16a34a",textAlign:"center"}}/>
+            </div>
+            {(()=>{
+              const agE=getAg(modalPag); const pp=getPP(agE);
+              const total = faltaReceber(agE,pp);
+              const soma = (parseFloat(mistoMaq)||0)+(parseFloat(mistoDin)||0);
+              const dif = Math.abs(soma-total);
+              if(dif>0.01) return <div style={{fontSize:12,color:"#dc2626",textAlign:"center",marginBottom:12,fontWeight:700}}>⚠️ Soma (R$ {soma.toFixed(2)}) diferente do total (R$ {total.toFixed(2)})</div>;
+              return <div style={{fontSize:12,color:"#16a34a",textAlign:"center",marginBottom:12,fontWeight:700}}>✅ Valores conferem</div>;
+            })()}
+            <button onClick={()=>{
+                const valMaq=parseFloat(mistoMaq)||0;
+                const valDin=parseFloat(mistoDin)||0;
+                confirmarPagMisto(modalPag, valMaq, valDin);
+                setModalMisto(false);
+              }}
+              style={{width:"100%",padding:"14px",background:"#16a34a",color:"white",border:"none",borderRadius:10,fontSize:15,fontWeight:800,cursor:"pointer",marginBottom:10}}>
+              ✅ Confirmar
+            </button>
+            <button onClick={()=>setModalMisto(false)}
+              style={{width:"100%",padding:"12px",background:"none",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14,fontWeight:600,cursor:"pointer",color:"#6b7280"}}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL FECHAMENTO DO DIA */}
+      {modalFechamento && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 16px"}}>
+          <div style={{background:"white",borderRadius:20,width:"100%",maxWidth:420,padding:"24px 20px",maxHeight:"85vh",overflowY:"auto"}}>
+            <div style={{fontWeight:800,fontSize:20,marginBottom:4,color:"#1a1f2e",textAlign:"center"}}>📋 Fechamento do Dia</div>
+            <div style={{fontSize:13,color:"#6b7280",textAlign:"center",marginBottom:16,textTransform:"capitalize"}}>{nomeDia(dia)}</div>
+
+            <div style={{background:"#f9fafb",borderRadius:12,overflow:"hidden",marginBottom:16}}>
+              <div style={{display:"flex",justifyContent:"space-between",padding:"10px 14px",borderBottom:"1px solid #e5e7eb"}}>
+                <span style={{fontSize:14,color:"#374151"}}>💳 Recebido em Máquina</span>
+                <span style={{fontWeight:800,fontSize:15,color:"#1e40af"}}>R$ {recebidoMaquina.toFixed(2)}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",padding:"10px 14px",borderBottom:"1px solid #e5e7eb"}}>
+                <span style={{fontSize:14,color:"#374151"}}>💵 Recebido em Dinheiro</span>
+                <span style={{fontWeight:800,fontSize:15,color:"#16a34a"}}>R$ {recebidoDinheiro.toFixed(2)}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",padding:"10px 14px",borderBottom:"1px solid #e5e7eb",background:"#f3f4f6"}}>
+                <span style={{fontSize:14,fontWeight:700,color:"#374151"}}>Total no balcão</span>
+                <span style={{fontWeight:900,fontSize:16,color:"#1a1f2e"}}>R$ {(recebidoMaquina+recebidoDinheiro).toFixed(2)}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",padding:"10px 14px",background:totalFalta>0?"#fff7ed":"#f0fdf4"}}>
+                <span style={{fontSize:14,fontWeight:700,color:totalFalta>0?"#ea580c":"#16a34a"}}>{totalFalta>0?"⚠️ Ainda falta receber":"✅ Tudo recebido"}</span>
+                <span style={{fontWeight:900,fontSize:16,color:totalFalta>0?"#ea580c":"#16a34a"}}>R$ {totalFalta.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div style={{fontSize:13,color:"#6b7280",marginBottom:16,textAlign:"center"}}>
+              {agsDia.length} reserva{agsDia.length!==1?"s":""} confirmada{agsDia.length!==1?"s":""} hoje
+            </div>
+
+            <div style={{fontSize:13,color:"#374151",background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px 14px",marginBottom:16,textAlign:"center"}}>
+              Confira se o valor de Máquina + Dinheiro acima bate com o seu caixa físico antes de confirmar.
+            </div>
+
+            <button onClick={()=>{setModalFechamento(false); alert("✅ Fechamento confirmado! Bom descanso 😊");}}
+              style={{width:"100%",padding:"14px",background:"#16a34a",color:"white",border:"none",borderRadius:10,fontSize:15,fontWeight:800,cursor:"pointer",marginBottom:10}}>
+              ✅ Confirmar fechamento
+            </button>
+            <button onClick={()=>setModalFechamento(false)}
+              style={{width:"100%",padding:"12px",background:"none",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14,fontWeight:600,cursor:"pointer",color:"#6b7280"}}>
+              Fechar
             </button>
           </div>
         </div>
