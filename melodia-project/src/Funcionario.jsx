@@ -511,6 +511,7 @@ export default function App() {
           const extrasPend = extrasPendentes(agE, pp); // sauna+excedente que ainda falta cobrar
           const cobrarRaw = saldoQuadra(agE) + extrasPend;
           const cobrar = cobrarRaw < 0.01 ? 0 : cobrarRaw;
+          const _debug = `pag=${agE.pag||"(vazio)"} val=${agE.val} tempoExtra=${agE.tempoExtra||0} saldoQuadra=${saldoQuadra(agE)} extrasAtuais=${extrasAtuais(agE,pp)} extrasPagos=${extrasJaPagos(agE)} extrasPend=${extrasPend}`;
           const agoraMin = hora.getHours()*60+hora.getMinutes();
           const iniMin = toMin(a.ini);
           const fimMin = toMin(agE.fim||a.fim);
@@ -521,6 +522,9 @@ export default function App() {
           return (
             <div key={a.id} style={{marginBottom:10,background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 3px 12px rgba(0,0,0,.08)",borderLeft:`4px solid ${agE.qid==="q2"?"#E8861A":VE}`}}>
               <div style={{padding:"14px 16px"}}>
+
+                {/* DEBUG TEMPORÁRIO */}
+                <div style={{fontSize:9,color:"#dc2626",background:"#fef2f2",padding:"4px 8px",borderRadius:6,marginBottom:6,fontFamily:"monospace",wordBreak:"break-all"}}>{_debug}</div>
 
                 {/* Cabeçalho do card */}
                 <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
