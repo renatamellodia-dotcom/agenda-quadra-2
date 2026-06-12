@@ -228,11 +228,15 @@ export default function App() {
   async function confirmarPag(id, tipo) {
     setModalPag(null);
     try {
-      // Marca pagamento e "trava" os valores de sauna/excedente cobrados agora
       const agE = getAg(id);
       const pp = getPP(agE);
       const saunaQtdAtual = parseInt(agE.saunaQtd)||0;
-      const update = {pag:tipo, extrasCobrados:true};
+      const saunaValAtual = saunaQtdAtual * SAUNA_UNIT;
+      const excValAtual = valorExcedente(agE, pp);
+      const valOriginal = parseFloat(agE.val)||0;
+      // Soma tudo no valor total para ficar 100% quitado
+      const novoVal = valOriginal + saunaValAtual + excValAtual;
+      const update = {pag:tipo, val:novoVal};
       await updateDoc(doc(db,"agendamentos",id),update);
       setEdicoes(p=>({...p,[id]:{...p[id],...update}}));
       setAgendamentos(prev=>prev.map(a=>a.id===id?{...a,...update}:a));
@@ -294,8 +298,7 @@ export default function App() {
     const pp = getPP(agE);
     const saunaVal = (parseInt(agE.saunaQtd)||0)*SAUNA_UNIT;
     const excVal = valorExcedente(agE, pp);
-    const extrasJaCobrados = agE.extrasCobrados === true;
-    return s + saldoQuadra(agE) + (extrasJaCobrados ? 0 : (saunaVal + excVal));
+    return s + saldoQuadra(agE) + saunaVal + excVal;
   },0);
 
   function mudarDia(dir) {
@@ -443,8 +446,7 @@ export default function App() {
           const saunaVal = saunaQtd * SAUNA_UNIT;
           const excVal = valorExcedente(agE, pp);
           const excQtd = Math.max(0, pp - 12);
-          const extrasJaCobrados = agE.extrasCobrados === true;
-          const cobrar = saldoQuadra(agE) + (extrasJaCobrados ? 0 : (saunaVal + excVal));
+          const cobrar = saldoQuadra(agE) + saunaVal + excVal;
           const agoraMin = hora.getHours()*60+hora.getMinutes();
           const iniMin = toMin(a.ini);
           const fimMin = toMin(agE.fim||a.fim);
