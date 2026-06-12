@@ -48,12 +48,22 @@ function saldoQuadra(ag) {
   if(!ag) return 0;
   const val = parseFloat(ag.val)||0;
   const pag = ag.pag||"";
-  // Pago total no balcão ou online = sem saldo
-  if(isPagoPresencial(pag)) return 0;
-  if(["mp_pix","mp_cartao","mp_total"].includes(pag)) return 0;
-  // Pago 50% online = falta metade
-  if(["mp_50","pix_50","cartao_50","pago_50"].includes(pag)) return val*0.5;
-  // Pendente = valor total
+  // tempoExtra: diferença gerada por +30min/-30min/+1h/-1h após o pagamento original.
+  // Já está incluso em 'val' (val é sempre recalculado para refletir a duração atual),
+  // então tempoExtraPendente é a parte do tempoExtra que ainda não foi recebida.
+  const tempoExtra = parseFloat(ag.tempoExtra)||0;
+  const tempoExtraPagoOriginal = parseFloat(ag.tempoExtraPago)||0;
+  const tempoExtraPendente = Math.max(0, tempoExtra - tempoExtraPagoOriginal);
+
+  // Pago total no balcão ou online = sem saldo da quadra original, mas tempo extra pode estar pendente
+  if(isPagoPresencial(pag)) return tempoExtraPendente;
+  if(["mp_pix","mp_cartao","mp_total"].includes(pag)) return tempoExtraPendente;
+  // Pago 50% online = falta metade do valor BASE (val - tempoExtra) + o tempoExtra inteiro pendente
+  if(["mp_50","pix_50","cartao_50","pago_50"].includes(pag)) {
+    const valBase = val - tempoExtra;
+    return (valBase*0.5) + tempoExtraPendente;
+  }
+  // Pendente = valor total (já inclui tempoExtra, pois val foi recalculado)
   return val;
 }
 
@@ -74,12 +84,13 @@ function valorExcedente(ag, pessPresentes) {
   return excedentes * AREIA_PRECO_EXCEDENTE * horas;
 }
 
-// Total de extras (sauna + excedente) gerados pela funcionária no momento atual
+// Total de extras (sauna + excedente + tempo extra) gerados pela funcionária no momento atual
 function extrasAtuais(ag, pessPresentes) {
   const saunaQtd = parseInt(ag?.saunaQtd)||0;
   const saunaVal = saunaQtd * SAUNA_UNIT;
   const excVal = valorExcedente(ag, pessPresentes);
-  return saunaVal + excVal;
+  const tempoExtra = Math.max(0, parseFloat(ag?.tempoExtra)||0);
+  return saunaVal + excVal + tempoExtra;
 }
 
 // Extras que já foram cobrados/baixados anteriormente
@@ -255,11 +266,13 @@ export default function App() {
       const saldoAntes = saldoQuadra(agE);       // quanto da quadra ainda estava pendente
       const extrasAgora = extrasAtuais(agE, pp); // sauna+excedente totais no momento
       const valBalcaoAnterior = parseFloat(agE.valBalcao)||0;
+      const tempoExtraAtual = parseFloat(agE.tempoExtra)||0;
       const update = {
         pag: tipo,
         pagAnterior: agE.pag||"pendente", // guarda o status anterior para poder desfazer
         extrasPagos: extrasAgora,
         valBalcao: valBalcaoAnterior + saldoAntes,
+        tempoExtraPago: tempoExtraAtual, // marca o tempo extra atual como pago
       };
       await updateDoc(doc(db,"agendamentos",id),update);
       setEdicoes(p=>({...p,[id]:{...p[id],...update}}));
@@ -271,7 +284,7 @@ export default function App() {
   async function desfazerPag(id) {
     if(!window.confirm("Desfazer recebimento?")) return;
     const agE = getAg(id);
-    const update = {pag: agE.pagAnterior||"pendente", extrasPagos:0, valBalcao:0};
+    const update = {pag: agE.pagAnterior||"pendente", extrasPagos:0, valBalcao:0, tempoExtraPago:0};
     setEdicoes(p=>({...p,[id]:{...p[id],...update}}));
     setAgendamentos(prev=>prev.map(a=>a.id===id?{...a,...update}:a));
     try { await updateDoc(doc(db,"agendamentos",id),update); } catch(e){}
@@ -291,6 +304,7 @@ export default function App() {
     const fimAtual = agE.fim || agendamentos.find(x=>x.id===id)?.fim || "";
     const iniAtual = agE.ini || agendamentos.find(x=>x.id===id)?.ini || "";
     const qid = agE.qid || agendamentos.find(x=>x.id===id)?.qid || "";
+    const valAtual = parseFloat(agE.val)||0;
     const novoFimMin = toMin(fimAtual) + mins;
     if(novoFimMin < toMin(iniAtual)+30) {
       alert("Não é possível reduzir abaixo de 30 minutos.");
@@ -305,13 +319,30 @@ export default function App() {
       );
       if(conflito) { alert("⚠️ Horário seguinte já está ocupado!"); return; }
     }
-    // Recalcular valor da quadra
+    // Recalcular valor da quadra para a nova duração
     const duracaoMin = novoFimMin - toMin(iniAtual);
     const horas = duracaoMin/60;
     const precoHora = qid==="q1" ? (iniAtual>="16:00"?130:120) : 60;
     const novoVal = parseFloat((precoHora*horas).toFixed(2));
-    setEdicoes(p=>({...p,[id]:{...p[id],fim:novoFim,val:novoVal}}));
-    try { await updateDoc(doc(db,"agendamentos",id),{fim:novoFim,val:novoVal}); } catch(e){}
+    const diferenca = novoVal - valAtual; // quanto o tempo mudou o valor da quadra
+
+    const saldoAntes = saldoQuadra(agE); // a quadra ainda tinha saldo pendente?
+    const tempoExtraAnterior = Math.max(0, parseFloat(agE.tempoExtra)||0);
+    const update = {fim:novoFim};
+
+    if(saldoAntes > 0.01) {
+      // Quadra ainda não foi totalmente paga: simplesmente atualiza o valor base.
+      // O saldo pendente (saldoQuadra) já refletirá a nova duração automaticamente.
+      update.val = novoVal;
+    } else {
+      // Quadra já estava 100% paga (online ou balcão).
+      // Não alteramos 'val' (mantém o histórico do que foi pago).
+      // O tempo adicional/removido entra como 'tempoExtra' pendente.
+      update.tempoExtra = Math.max(0, tempoExtraAnterior + diferenca);
+    }
+
+    setEdicoes(p=>({...p,[id]:{...p[id],...update}}));
+    try { await updateDoc(doc(db,"agendamentos",id),update); } catch(e){}
   }
 
   const agsDia = agendamentos
