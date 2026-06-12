@@ -460,12 +460,12 @@ export default function App() {
       <div style={{background:VE,padding:"0 16px 14px"}}>
 
         {/* DESTAQUE PRINCIPAL */}
-        <div style={{background:totalFalta>0?"rgba(253,230,138,0.15)":"rgba(134,239,172,0.15)",border:`2px solid ${totalFalta>0?"#fde68a":"#86efac"}`,borderRadius:14,padding:"16px",marginBottom:10,textAlign:"center"}}>
-          <div style={{fontSize:11,fontWeight:700,color:totalFalta>0?"#fde68a":"#86efac",textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>
-            {totalFalta>0?"💰 FALTA RECEBER NO BALCÃO":"✅ TUDO RECEBIDO"}
+        <div style={{background:agsDia.length===0?"rgba(255,255,255,0.06)":totalFalta>0?"rgba(253,230,138,0.15)":"rgba(134,239,172,0.15)",border:`2px solid ${agsDia.length===0?"rgba(255,255,255,0.15)":totalFalta>0?"#fde68a":"#86efac"}`,borderRadius:14,padding:"16px",marginBottom:10,textAlign:"center"}}>
+          <div style={{fontSize:11,fontWeight:700,color:agsDia.length===0?"rgba(255,255,255,0.5)":totalFalta>0?"#fde68a":"#86efac",textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>
+            {agsDia.length===0?"📅 SEM RESERVAS HOJE":totalFalta>0?"💰 FALTA RECEBER NO BALCÃO":"✅ NADA A RECEBER"}
           </div>
-          <div style={{fontWeight:900,fontSize:36,color:totalFalta>0?"#fde68a":"#86efac"}}>
-            {totalFalta>0?`R$ ${totalFalta.toFixed(2)}`:"R$ 0,00"}
+          <div style={{fontWeight:900,fontSize:agsDia.length===0?20:36,color:agsDia.length===0?"rgba(255,255,255,0.5)":totalFalta>0?"#fde68a":"#86efac"}}>
+            {agsDia.length===0?"Nenhuma reserva confirmada":totalFalta>0?`R$ ${totalFalta.toFixed(2)}`:"R$ 0,00"}
           </div>
         </div>
 
