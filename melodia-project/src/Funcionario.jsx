@@ -74,6 +74,27 @@ function valorExcedente(ag, pessPresentes) {
   return excedentes * AREIA_PRECO_EXCEDENTE * horas;
 }
 
+// Total de extras (sauna + excedente) gerados pela funcionária no momento atual
+function extrasAtuais(ag, pessPresentes) {
+  const saunaQtd = parseInt(ag?.saunaQtd)||0;
+  const saunaVal = saunaQtd * SAUNA_UNIT;
+  const excVal = valorExcedente(ag, pessPresentes);
+  return saunaVal + excVal;
+}
+
+// Extras que já foram cobrados/baixados anteriormente
+function extrasJaPagos(ag) {
+  return parseFloat(ag?.extrasPagos)||0;
+}
+
+// Quanto falta cobrar de extras (sauna+excedente) agora
+function extrasPendentes(ag, pessPresentes) {
+  const atual = extrasAtuais(ag, pessPresentes);
+  const pago = extrasJaPagos(ag);
+  const pend = atual - pago;
+  return pend < 0.01 ? 0 : pend;
+}
+
 function tocarSom(tipo) {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -172,17 +193,18 @@ export default function App() {
   },[]);
 
   // Recalcular máquina e dinheiro
+  // Valor recebido no balcão = valor da quadra (se pago presencialmente) + extras pagos
   useEffect(()=>{
     if(!logado) return;
     const agsDia = agendamentos.filter(a=>a.data===dia&&a.st==="confirmado");
     let maq=0, din=0;
     agsDia.forEach(a=>{
       const agE = {...a,...(edicoes[a.id]||{})};
-      const val = parseFloat(agE.val)||0;
-      const saunaVal = (parseInt(agE.saunaQtd)||0)*SAUNA_UNIT;
-      const excValMD = valorExcedente(agE, getPP(agE));
-      if(agE.pag==="mp_total_cartao") maq += val+saunaVal+excValMD;
-      else if(agE.pag==="mp_total_dinheiro") din += val+saunaVal+excValMD;
+      const valBalcao = parseFloat(agE.valBalcao)||0;
+      const extrasPagos = extrasJaPagos(agE);
+      const recebidoBalcao = valBalcao + extrasPagos;
+      if(agE.pag==="mp_total_cartao") maq += recebidoBalcao;
+      else if(agE.pag==="mp_total_dinheiro") din += recebidoBalcao;
     });
     setRecebidoMaquina(maq);
     setRecebidoDinheiro(din);
@@ -230,20 +252,14 @@ export default function App() {
     try {
       const agE = getAg(id);
       const pp = getPP(agE);
-      const saunaQtdAtual = parseInt(agE.saunaQtd)||0;
-      const saunaValAtual = saunaQtdAtual * SAUNA_UNIT;
-      const excValAtual = valorExcedente(agE, pp);
-      const saldoAntes = saldoQuadra(agE);
-      const valOriginal = parseFloat(agE.val)||0;
-      // Novo valor total = valor atual + tudo que ainda não tinha sido incorporado
-      const novoVal = valOriginal + saunaValAtual + excValAtual;
-      // Zera saunaQtd e ajusta pess para não recalcular excedente de novo
+      const saldoAntes = saldoQuadra(agE);       // quanto da quadra ainda estava pendente
+      const extrasAgora = extrasAtuais(agE, pp); // sauna+excedente totais no momento
+      const valBalcaoAnterior = parseFloat(agE.valBalcao)||0;
       const update = {
         pag: tipo,
-        val: novoVal,
-        saunaQtd: 0,
-        pess: pp,           // agendadas passam a ser as presentes
-        pessPresentes: pp,  // reseta presentes também, zerando excedente futuro
+        pagAnterior: agE.pag||"pendente", // guarda o status anterior para poder desfazer
+        extrasPagos: extrasAgora,
+        valBalcao: valBalcaoAnterior + saldoAntes,
       };
       await updateDoc(doc(db,"agendamentos",id),update);
       setEdicoes(p=>({...p,[id]:{...p[id],...update}}));
@@ -254,9 +270,11 @@ export default function App() {
   }
   async function desfazerPag(id) {
     if(!window.confirm("Desfazer recebimento?")) return;
-    setEdicoes(p=>({...p,[id]:{...p[id],pag:"pendente"}}));
-    setAgendamentos(prev=>prev.map(a=>a.id===id?{...a,pag:"pendente"}:a));
-    try { await updateDoc(doc(db,"agendamentos",id),{pag:"pendente"}); } catch(e){}
+    const agE = getAg(id);
+    const update = {pag: agE.pagAnterior||"pendente", extrasPagos:0, valBalcao:0};
+    setEdicoes(p=>({...p,[id]:{...p[id],...update}}));
+    setAgendamentos(prev=>prev.map(a=>a.id===id?{...a,...update}:a));
+    try { await updateDoc(doc(db,"agendamentos",id),update); } catch(e){}
   }
   async function salvarPP(id, qtd) {
     const val = Math.max(0, qtd);
@@ -304,9 +322,7 @@ export default function App() {
   const totalFalta = agsDia.reduce((s,a)=>{
     const agE = getAg(a.id);
     const pp = getPP(agE);
-    const saunaVal = (parseInt(agE.saunaQtd)||0)*SAUNA_UNIT;
-    const excVal = valorExcedente(agE, pp);
-    return s + saldoQuadra(agE) + saunaVal + excVal;
+    return s + saldoQuadra(agE) + extrasPendentes(agE, pp);
   },0);
 
   function mudarDia(dir) {
@@ -452,9 +468,10 @@ export default function App() {
           const agendadas = parseInt(agE.pess)||0;
           const saunaQtd = parseInt(agE.saunaQtd)||0;
           const saunaVal = saunaQtd * SAUNA_UNIT;
-          const excVal = valorExcedente(agE, pp);
+          const excVal = valorExcedente(agE, pp); // valor do excedente (para exibição)
           const excQtd = Math.max(0, pp - 12);
-          const cobrarRaw = saldoQuadra(agE) + saunaVal + excVal;
+          const extrasPend = extrasPendentes(agE, pp); // sauna+excedente que ainda falta cobrar
+          const cobrarRaw = saldoQuadra(agE) + extrasPend;
           const cobrar = cobrarRaw < 0.01 ? 0 : cobrarRaw;
           const agoraMin = hora.getHours()*60+hora.getMinutes();
           const iniMin = toMin(a.ini);
