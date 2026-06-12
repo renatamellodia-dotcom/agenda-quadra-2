@@ -190,6 +190,7 @@ export default function App() {
   const [edicoes, setEdicoes] = useState({});
   const [alarme, setAlarme] = useState(null);
   const [aviso5min, setAviso5min] = useState(null);
+  const [toast, setToast] = useState("");
   const [modalFechamento, setModalFechamento] = useState(false);
   const [modalMisto, setModalMisto] = useState(false);
   const [mistoMaq, setMistoMaq] = useState("");
@@ -282,6 +283,8 @@ export default function App() {
       await updateDoc(doc(db,"agendamentos",id),update);
       setEdicoes(p=>({...p,[id]:{...p[id],...update}}));
       setAgendamentos(prev=>prev.map(a=>a.id===id?{...a,...update}:a));
+      setToast("✅ R$ "+falta.toFixed(2)+" recebido!");
+      setTimeout(()=>setToast(""), 3000);
     } catch(e) {
       alert("Erro ao registrar pagamento: "+e.message);
     }
@@ -302,6 +305,9 @@ export default function App() {
       await updateDoc(doc(db,"agendamentos",id),update);
       setEdicoes(p=>({...p,[id]:{...p[id],...update}}));
       setAgendamentos(prev=>prev.map(a=>a.id===id?{...a,...update}:a));
+      const total = valMaq+valDin;
+      setToast("✅ R$ "+total.toFixed(2)+" recebido!");
+      setTimeout(()=>setToast(""), 3000);
     } catch(e) {
       alert("Erro ao registrar pagamento: "+e.message);
     }
@@ -342,6 +348,9 @@ export default function App() {
       );
       if(conflito) { alert("⚠️ Horário seguinte já está ocupado!"); return; }
     }
+    // Confirmação antes de aplicar a mudança
+    const label = mins>0 ? "+"+(mins===60?"1h":"30min") : (mins===-60?"-1h":"-30min");
+    if(!window.confirm("Alterar para "+label+"?\\n\\nNovo horário: "+iniAtual+" às "+novoFim)) return;
     // Recalcula o valor da quadra para a nova duração (do zero, sempre)
     const duracaoNovaMin = novoFimMin - toMin(iniAtual);
     let novoVal;
@@ -847,6 +856,13 @@ export default function App() {
               Fechar
             </button>
           </div>
+        </div>
+      )}
+
+      {/* TOAST DE CONFIRMAÇÃO */}
+      {toast && (
+        <div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",background:"#16a34a",color:"white",padding:"14px 24px",borderRadius:14,fontWeight:800,fontSize:15,zIndex:500,boxShadow:"0 4px 20px rgba(0,0,0,0.25)",whiteSpace:"nowrap"}}>
+          {toast}
         </div>
       )}
 
