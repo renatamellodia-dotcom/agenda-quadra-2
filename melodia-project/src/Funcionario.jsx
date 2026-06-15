@@ -39,13 +39,12 @@ function toMin(hr) { const[h,m]=hr.split(":").map(Number); return h*60+m; }
 // Compatibilidade: se 'pagOriginal' não existir, usa 'pag' atual.
 function pagoOnline(ag) {
   if(!ag) return 0;
-  // Se existe valPagoOnline, usa ele (valor fixo no momento do pagamento)
-  if(ag.valPagoOnline !== undefined) return parseFloat(ag.valPagoOnline)||0;
-  // Fallback para reservas antigas: usa val atual (pode estar errado se houve adicionarTempo)
-  const val = parseFloat(ag.val)||0;
+  // valOriginal = valor da quadra NO MOMENTO do pagamento (não muda com adicionarTempo)
+  // valPagoOnline = valor efetivamente pago online (gravado pelo webhook)
+  const valRef = parseFloat(ag.valPagoOnline ?? ag.valOriginal ?? ag.val) || 0;
   const pag = ag.pagOriginal || ag.pag || "";
-  if(["mp_pix","mp_cartao","mp_total"].includes(pag)) return val;
-  if(pag==="mp_50") return val*0.5;
+  if(["mp_pix","mp_cartao","mp_total"].includes(pag)) return valRef;
+  if(pag==="mp_50") return valRef * 0.5;
   return 0;
 }
 
