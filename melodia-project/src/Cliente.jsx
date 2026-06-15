@@ -566,14 +566,14 @@ export default function App() {
             <span style={{color:"rgba(255,255,255,0.8)",fontSize:14}}>🕒 Segunda a sexta</span>
             <span style={{color:"white",fontWeight:700,fontSize:14}}>16h às 23h</span>
           </div>
-          <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:3}}>🧖‍♂️ Sauna: 18h às 22h</div>
+          <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:3}}>🌿 Sauna: 18h às 22h</div>
         </div>
         <div style={{padding:"8px 0"}}>
           <div style={{display:"flex",justifyContent:"space-between"}}>
             <span style={{color:"rgba(255,255,255,0.8)",fontSize:14}}>🕒 Sábado e domingo</span>
             <span style={{color:"white",fontWeight:700,fontSize:14}}>9h às 18h</span>
           </div>
-          <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:3}}>🧖‍♂️ Sauna: 10h às 17h</div>
+          <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:3}}>🌿 Sauna: 10h às 17h</div>
         </div>
       </div>
 
@@ -582,7 +582,7 @@ export default function App() {
         {[
           ["🏟️","Campo Society",""],
           ["🏖️","Quadra de Areia","Futevôlei, vôlei e beach tennis"],
-          ["🧖‍♂️","Sauna","R$ 15,00 por pessoa"],
+          ["🧖‍♂️","Sauna","R$ 15,00 por pessoa · cobrado na chegada"],
           ["🍖","Churrasqueira","Mediante reserva antecipada via WhatsApp"],
           ["🚗","Estacionamento gratuito",""],
           ["📶","Wi-Fi gratuito","Senha: jogadorcaro"],
@@ -630,6 +630,15 @@ export default function App() {
             style={{display:"inline-flex",alignItems:"center",gap:8,background:LA,color:"white",padding:"9px 16px",borderRadius:10,fontSize:13,fontWeight:700,textDecoration:"none"}}>
             🍖 Reservar Churrasqueira
           </a>
+        </div>
+        <div style={{background:"rgba(255,255,255,0.08)",borderRadius:10,padding:"10px 14px"}}>
+          <div style={{fontWeight:700,color:"white",fontSize:14,marginBottom:2}}>Churrasqueira Exclusiva da Areia</div>
+          <div style={{color:"rgba(255,255,255,0.7)",fontSize:13,lineHeight:1.5,marginBottom:6}}>
+            Inclusa na locação da Quadra de Areia com <strong style={{color:"white"}}>mínimo de 5 horas</strong>.
+          </div>
+          <div style={{background:"rgba(232,134,26,0.3)",borderRadius:8,padding:"6px 10px",fontSize:12,fontWeight:700,color:"white",display:"inline-flex",alignItems:"center",gap:6}}>
+            ⏱️ Mínimo 5 horas de locação
+          </div>
         </div>
       </div>
 
@@ -708,17 +717,15 @@ export default function App() {
       <div style={{background:"white",padding:"12px 0",borderBottom:"1px solid #e0e3e8",overflowX:"auto",display:"flex",gap:8,paddingLeft:16,paddingRight:16}}>
         {dias.map((d,i)=>{
           const sel = toDS(d)===toDS(dia);
+          const bloqueado = isDiaBloqueado(toDS(d), quadra?.id);
           return (
-            {(()=>{
-            const bloqueado = isDiaBloqueado(toDS(d), quadra?.id);
-            return (
           <div key={i} onClick={()=>!bloqueado&&setDia(d)} style={{flex:"none",textAlign:"center",padding:"8px 14px",borderRadius:10,background:bloqueado?"#fee2e2":sel?V:"#f4f5f7",cursor:bloqueado?"not-allowed":"pointer",minWidth:64,opacity:bloqueado?0.6:1}}>
               <div style={{fontSize:11,fontWeight:600,color:sel?"rgba(255,255,255,0.7)":"#6b7280",textTransform:"uppercase"}}>{d.toLocaleDateString("pt-BR",{weekday:"short"})}</div>
               <div style={{fontSize:18,fontWeight:800,color:sel?"white":VE,marginTop:2}}>{d.getDate()}</div>
               <div style={{fontSize:11,color:bloqueado?"#dc2626":sel?"rgba(255,255,255,0.7)":"#6b7280"}}>{bloqueado?"🚫":fd(toDS(d))}</div>
             </div>
-            );
-          })()}
+          );
+        })}
       </div>
 
       <div style={{display:"flex",gap:16,padding:"12px 16px",fontSize:12,color:"#6b7280"}}>
