@@ -427,6 +427,7 @@ export default function App() {
       pess: parseInt(pessoas)||null,
       sauna: sauna||false,
       val: parseFloat(valor),
+      valOriginal: parseFloat(valor),
       pag: "pendente",
       st: "aguardando_pagamento",
       email: email,
