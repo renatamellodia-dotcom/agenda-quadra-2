@@ -897,7 +897,7 @@ export default function App() {
 
             <div style={{background:"#f0fdf4",border:"1.5px solid #bbf7d0",borderRadius:10,padding:"10px 14px",marginBottom:12,textAlign:"center"}}>
               <div style={{fontSize:12,color:"#6b7280",marginBottom:2}}>Data</div>
-              <div style={{fontWeight:800,fontSize:16,color:"#065f46"}}>{fd(nrData)} — {nrFds?"Fim de semana (9h–18h)":"Dia útil (16h–23h)"}</div>
+              <div style={{fontWeight:800,fontSize:16,color:"#065f46"}}>{nrData?new Date(nrData+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'}):""} — {nrFds?"Fim de semana (9h–18h)":"Dia útil (16h–23h)"}</div>
             </div>
 
             <div style={{marginBottom:10}}>
