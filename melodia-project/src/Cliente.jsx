@@ -132,7 +132,9 @@ export default function App() {
   const [metodoPag, setMetodoPag] = useState("pix");
   const [pagamentoConfirmado, setPagamentoConfirmado] = useState(false);
   const [slotsSel, setSlotsSel] = useState([]);
-  const [slotsSalvos, setSlotsSalvos] = useState([]); // slots confirmados para cálculo
+  const [slotsSalvos, setSlotsSalvos] = useState([]);
+  const [blackouts, setBlackouts] = useState([]);
+  const [fotos, setFotos] = useState([]); // slots confirmados para cálculo
 
   const dias = gerarDias();
 
@@ -144,6 +146,24 @@ export default function App() {
       });
       return ()=>unsub();
     } catch(e){ console.log("Firebase offline",e); }
+  },[]);
+
+  useEffect(()=>{
+    try {
+      const unsub = onSnapshot(collection(db,"blackouts"), snap=>{
+        setBlackouts(snap.docs.map(d=>({id:d.id,...d.data()})));
+      });
+      return ()=>unsub();
+    } catch(e){ console.log("Firebase blackouts offline",e); }
+  },[]);
+
+  useEffect(()=>{
+    try {
+      const unsub = onSnapshot(collection(db,"galeria"), snap=>{
+        setFotos(snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.ordem||0)-(b.ordem||0)));
+      });
+      return ()=>unsub();
+    } catch(e){ console.log("Firebase galeria offline",e); }
   },[]);
 
   // Limpa agendamentos aguardando_pagamento com mais de 5 minutos
@@ -216,6 +236,10 @@ export default function App() {
   },[etapa]);
 
   function toMin(hr){ const[h,m]=hr.split(":").map(Number); return h*60+m; }
+
+  function isDiaBloqueado(ds, qid) {
+    return blackouts.some(b=>b.data===ds&&(b.qid==="todas"||b.qid===qid));
+  }
 
   // Verifica se um slot está dentro do horário de funcionamento
   function dentroDoHorario(hr, hf) {
@@ -542,14 +566,14 @@ export default function App() {
             <span style={{color:"rgba(255,255,255,0.8)",fontSize:14}}>🕒 Segunda a sexta</span>
             <span style={{color:"white",fontWeight:700,fontSize:14}}>16h às 23h</span>
           </div>
-          <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:3}}>🧖‍♂️ Sauna: 18h às 22h</div>
+          <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:3}}>🌿 Sauna: 18h às 22h</div>
         </div>
         <div style={{padding:"8px 0"}}>
           <div style={{display:"flex",justifyContent:"space-between"}}>
             <span style={{color:"rgba(255,255,255,0.8)",fontSize:14}}>🕒 Sábado e domingo</span>
             <span style={{color:"white",fontWeight:700,fontSize:14}}>9h às 18h</span>
           </div>
-          <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:3}}>🧖‍♂️ Sauna: 10h às 17h</div>
+          <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:3}}>🌿 Sauna: 10h às 17h</div>
         </div>
       </div>
 
@@ -558,7 +582,7 @@ export default function App() {
         {[
           ["🏟️","Campo Society",""],
           ["🏖️","Quadra de Areia","Futevôlei, vôlei e beach tennis"],
-          ["🧖‍♂️","Sauna","R$ 15,00 por pessoa"],
+          ["🧖‍♂️","Sauna","R$ 15,00 por pessoa · cobrado na chegada"],
           ["🍖","Churrasqueira","Mediante reserva antecipada via WhatsApp"],
           ["🚗","Estacionamento gratuito",""],
           ["📶","Wi-Fi gratuito","Senha: jogadorcaro"],
@@ -607,12 +631,43 @@ export default function App() {
             🍖 Reservar Churrasqueira
           </a>
         </div>
+        <div style={{background:"rgba(255,255,255,0.08)",borderRadius:10,padding:"10px 14px"}}>
+          <div style={{fontWeight:700,color:"white",fontSize:14,marginBottom:2}}>Churrasqueira Exclusiva da Areia</div>
+          <div style={{color:"rgba(255,255,255,0.7)",fontSize:13,lineHeight:1.5,marginBottom:6}}>
+            Inclusa na locação da Quadra de Areia com <strong style={{color:"white"}}>mínimo de 5 horas</strong>.
+          </div>
+          <div style={{background:"rgba(232,134,26,0.3)",borderRadius:8,padding:"6px 10px",fontSize:12,fontWeight:700,color:"white",display:"inline-flex",alignItems:"center",gap:6}}>
+            ⏱️ Mínimo 5 horas de locação
+          </div>
+        </div>
       </div>
 
       <div style={{display:"flex",alignItems:"center",gap:12,padding:"0 16px 16px"}}>
         <div style={{flex:1,height:1,background:"rgba(255,255,255,0.1)"}}/>
         <div style={{color:"rgba(255,255,255,0.4)",fontSize:11,fontWeight:700,letterSpacing:1}}>FAÇA SUA RESERVA</div>
         <div style={{flex:1,height:1,background:"rgba(255,255,255,0.1)"}}/>
+      </div>
+
+      {/* GALERIA DE FOTOS */}
+      {fotos.length > 0 && (
+        <div style={{margin:"0 0 16px"}}>
+          <div style={{overflowX:"auto",display:"flex",gap:10,padding:"0 16px",scrollbarWidth:"none"}}>
+            {fotos.map(f=>(
+              <img key={f.id} src={f.url} alt={f.legenda||"Complexo Melodia"}
+                style={{width:220,height:150,objectFit:"cover",borderRadius:12,flexShrink:0}}
+                onError={e=>{e.target.style.display="none"}}/>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* INSTAGRAM */}
+      <div style={{margin:"0 16px 16px",textAlign:"center"}}>
+        <a href="https://instagram.com/complexoesportivomelodia" target="_blank" rel="noreferrer"
+          style={{display:"inline-flex",alignItems:"center",gap:8,background:"rgba(255,255,255,0.12)",borderRadius:30,padding:"10px 20px",textDecoration:"none"}}>
+          <span style={{fontSize:20}}>📸</span>
+          <span style={{color:"white",fontWeight:700,fontSize:14}}>@complexoesportivomelodia</span>
+        </a>
       </div>
 
       <div id="secaoReserva" style={{padding:"0 16px 16px"}}>
@@ -663,13 +718,16 @@ export default function App() {
         {dias.map((d,i)=>{
           const sel = toDS(d)===toDS(dia);
           return (
-            <div key={i} onClick={()=>setDia(d)} style={{flex:"none",textAlign:"center",padding:"8px 14px",borderRadius:10,background:sel?V:"#f4f5f7",cursor:"pointer",minWidth:64}}>
+            {(()=>{
+            const bloqueado = isDiaBloqueado(toDS(d), quadra?.id);
+            return (
+          <div key={i} onClick={()=>!bloqueado&&setDia(d)} style={{flex:"none",textAlign:"center",padding:"8px 14px",borderRadius:10,background:bloqueado?"#fee2e2":sel?V:"#f4f5f7",cursor:bloqueado?"not-allowed":"pointer",minWidth:64,opacity:bloqueado?0.6:1}}>
               <div style={{fontSize:11,fontWeight:600,color:sel?"rgba(255,255,255,0.7)":"#6b7280",textTransform:"uppercase"}}>{d.toLocaleDateString("pt-BR",{weekday:"short"})}</div>
               <div style={{fontSize:18,fontWeight:800,color:sel?"white":VE,marginTop:2}}>{d.getDate()}</div>
-              <div style={{fontSize:11,color:sel?"rgba(255,255,255,0.7)":"#6b7280"}}>{fd(toDS(d))}</div>
+              <div style={{fontSize:11,color:bloqueado?"#dc2626":sel?"rgba(255,255,255,0.7)":"#6b7280"}}>{bloqueado?"🚫":fd(toDS(d))}</div>
             </div>
-          );
-        })}
+            );
+          })()}
       </div>
 
       <div style={{display:"flex",gap:16,padding:"12px 16px",fontSize:12,color:"#6b7280"}}>
@@ -841,7 +899,7 @@ export default function App() {
             <div>
               <div style={{fontWeight:700,fontSize:14,color:"#1a1f2e"}}>🧖 Banho de Sauna</div>
               <div style={{fontSize:12,color:"#6b7280",marginTop:2}}>Seg–Sex 18h–22h · Sáb–Dom 10h–17h</div>
-              <div style={{fontSize:12,color:"#16a34a",fontWeight:700,marginTop:3}}>+ R$ 15,00</div>
+              <div style={{fontSize:12,color:"#16a34a",fontWeight:700,marginTop:3}}>+ R$ 15,00 cobrado na chegada</div>
             </div>
             <div style={{width:44,height:24,borderRadius:12,background:sauna?"#2E7D6B":"#e0e3e8",position:"relative",transition:"background .2s",flexShrink:0}}>
               <div style={{position:"absolute",width:18,height:18,borderRadius:"50%",background:"white",top:3,left:sauna?23:3,transition:"left .2s"}}/>
