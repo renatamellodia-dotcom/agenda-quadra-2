@@ -362,7 +362,11 @@ export default function App() {
     } else {
       novoVal = parseFloat((60*(duracaoNovaMin/60)).toFixed(2)); // Areia: R$60/h até 12 pessoas
     }
+    // Guarda valOriginal na primeira vez que o tempo é alterado
     const update = {fim:novoFim, val:novoVal};
+    if(agE.valOriginal === undefined) {
+      update.valOriginal = parseFloat(agE.val)||0;
+    }
     setEdicoes(p=>({...p,[id]:{...p[id],...update}}));
     setAgendamentos(prev=>prev.map(a=>a.id===id?{...a,...update}:a));
     try { await updateDoc(doc(db,"agendamentos",id),update); } catch(e){}
