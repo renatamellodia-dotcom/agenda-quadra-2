@@ -876,117 +876,111 @@ export default function App() {
 
       {/* MODAL NOVA RESERVA NO BALCÃO */}
       {modalNovaReserva && (()=>{
-        // Horários de funcionamento: seg-sex 16h-23h, sab-dom 9h-18h
         const dataObj = nrData ? new Date(nrData+'T12:00:00') : new Date();
-        const diaSemana = dataObj.getDay(); // 0=dom, 6=sab
-        const fimSemana = diaSemana===0||diaSemana===6;
-        const hIni = fimSemana ? 9 : 16;
-        const hFim = fimSemana ? 18 : 23;
-        // Gerar slots de 30 em 30 min dentro do horário de funcionamento
-        const slots30 = [];
-        for(let h=hIni;h<=hFim;h++) for(let m=0;m<60;m+=30) {
-          if(h===hFim && m>0) break; // não passa do limite
-          slots30.push(toHr(h*60+m));
+        const dow = dataObj.getDay();
+        const fds = dow===0||dow===6;
+        const hA = fds?9:16, hB = fds?18:23;
+        const slots = [];
+        for(let h=hA;h<=hB;h++) for(let m=0;m<60;m+=30){
+          if(h===hB&&m>0) break;
+          slots.push(toHr(h*60+m));
         }
-
-        // Calcular valor com excedentes
-        const dur = nrIni&&nrFim&&toMin(nrFim)>toMin(nrIni) ? toMin(nrFim)-toMin(nrIni) : 0;
-        const ph = nrQid==="q1" ? (nrIni>="16:00"?130:120) : 60;
+        const dur = nrIni&&nrFim&&toMin(nrFim)>toMin(nrIni)?toMin(nrFim)-toMin(nrIni):0;
+        const ph = nrQid==="q1"?(nrIni>="16:00"?130:120):60;
         const valBase = parseFloat((ph*(dur/60)).toFixed(2));
         const pess = parseInt(nrPess)||0;
         const horas = Math.floor(dur/60);
-        const excQtd = nrQid==="q2" && pess>12 && horas>=1 ? pess-12 : 0;
-        const excVal = excQtd * 10 * horas;
-        const valTotal = valBase + excVal;
-
+        const excQtd = nrQid==="q2"&&pess>12&&horas>=1?pess-12:0;
+        const excVal = excQtd*10*horas;
+        const valTotal = valBase+excVal;
         return (
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 16px"}}>
-          <div style={{background:"white",borderRadius:20,width:"100%",maxWidth:420,padding:"24px 20px",maxHeight:"90vh",overflowY:"auto"}}>
-            <div style={{fontWeight:800,fontSize:20,marginBottom:16,color:"#1a1f2e",textAlign:"center"}}>➕ Nova reserva no balcão</div>
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 16px"}}>
+            <div style={{background:"white",borderRadius:20,width:"100%",maxWidth:420,padding:"24px 20px",maxHeight:"90vh",overflowY:"auto"}}>
+              <div style={{fontWeight:800,fontSize:20,marginBottom:16,color:"#1a1f2e",textAlign:"center"}}>➕ Nova reserva no balcão</div>
 
-            <div style={{marginBottom:10}}>
-              <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Quadra</label>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                {[{id:"q1",label:"⚽ Society"},{id:"q2",label:"🏐 Areia"}].map(q=>(
-                  <button key={q.id} onClick={()=>setNrQid(q.id)}
-                    style={{padding:"10px",borderRadius:10,border:`2px solid ${nrQid===q.id?VE:"#e0e3e8"}`,background:nrQid===q.id?"#f0fdf4":"white",fontWeight:700,fontSize:13,cursor:"pointer",color:nrQid===q.id?VE:"#374151"}}>
-                    {q.label}
-                  </button>
-                ))}
+              <div style={{background:"#f0fdf4",border:"1.5px solid #bbf7d0",borderRadius:10,padding:"10px 14px",marginBottom:12,textAlign:"center"}}>
+                <div style={{fontSize:12,color:"#6b7280",marginBottom:2}}>Data</div>
+                <div style={{fontWeight:800,fontSize:16,color:"#065f46"}}>{fd(nrData)} — {fds?"Fim de semana (9h–18h)":"Dia útil (16h–23h)"}</div>
               </div>
-            </div>
 
-            <div style={{background:"#f0fdf4",border:"1.5px solid #bbf7d0",borderRadius:10,padding:"10px 14px",marginBottom:10,textAlign:"center"}}>
-              <div style={{fontSize:12,color:"#6b7280",marginBottom:2}}>Data</div>
-              <div style={{fontWeight:800,fontSize:16,color:"#065f46"}}>{fd(nrData)} — {fimSemana?"Fim de semana (9h–18h)":"Dia útil (16h–23h)"}</div>
-            </div>
-
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
-              <div>
-                <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Início</label>
-                <select value={nrIni} onChange={e=>setNrIni(e.target.value)}
-                  style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}>
-                  <option value="">--</option>
-                  {slots30.map(s=><option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Fim</label>
-                <select value={nrFim} onChange={e=>setNrFim(e.target.value)}
-                  style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}>
-                  <option value="">--</option>
-                  {slots30.filter(s=>!nrIni||s>nrIni).map(s=><option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div style={{marginBottom:10}}>
-              <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Nº de pessoas</label>
-              <input type="number" value={nrPess} onChange={e=>setNrPess(e.target.value)} min="1"
-                style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}/>
-            </div>
-
-            <div style={{marginBottom:10}}>
-              <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Nome do cliente</label>
-              <input type="text" value={nrNome} onChange={e=>setNrNome(e.target.value)} placeholder="Nome completo"
-                style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}/>
-            </div>
-
-            <div style={{marginBottom:16}}>
-              <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Telefone</label>
-              <input type="tel" value={nrTel} onChange={e=>setNrTel(e.target.value)} placeholder="(22) 99999-9999"
-                style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}/>
-            </div>
-
-            {dur>0&&(
-              <div style={{background:"#f0fdf4",border:"1.5px solid #bbf7d0",borderRadius:10,padding:"12px 14px",marginBottom:16}}>
-                <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                  <span style={{fontSize:13,color:"#6b7280"}}>Quadra ({dur}min)</span>
-                  <span style={{fontWeight:700,color:"#065f46"}}>R$ {valBase.toFixed(2)}</span>
+              <div style={{marginBottom:10}}>
+                <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Quadra</label>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  {[{id:"q1",label:"⚽ Society"},{id:"q2",label:"🏐 Areia"}].map(q=>(
+                    <button key={q.id} onClick={()=>setNrQid(q.id)}
+                      style={{padding:"10px",borderRadius:10,border:`2px solid ${nrQid===q.id?VE:"#e0e3e8"}`,background:nrQid===q.id?"#f0fdf4":"white",fontWeight:700,fontSize:13,cursor:"pointer",color:nrQid===q.id?VE:"#374151"}}>
+                      {q.label}
+                    </button>
+                  ))}
                 </div>
-                {excQtd>0&&(
+              </div>
+
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+                <div>
+                  <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Início</label>
+                  <select value={nrIni} onChange={e=>setNrIni(e.target.value)}
+                    style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}>
+                    <option value="">--</option>
+                    {slots.map(s=><option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Fim</label>
+                  <select value={nrFim} onChange={e=>setNrFim(e.target.value)}
+                    style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}>
+                    <option value="">--</option>
+                    {slots.filter(s=>!nrIni||s>nrIni).map(s=><option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{marginBottom:10}}>
+                <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Nº de pessoas</label>
+                <input type="number" value={nrPess} onChange={e=>setNrPess(e.target.value)} min="1"
+                  style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}/>
+              </div>
+
+              <div style={{marginBottom:10}}>
+                <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Nome do cliente</label>
+                <input type="text" value={nrNome} onChange={e=>setNrNome(e.target.value)} placeholder="Nome completo"
+                  style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}/>
+              </div>
+
+              <div style={{marginBottom:16}}>
+                <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Telefone</label>
+                <input type="tel" value={nrTel} onChange={e=>setNrTel(e.target.value)} placeholder="(22) 99999-9999"
+                  style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}/>
+              </div>
+
+              {dur>0&&(
+                <div style={{background:"#f0fdf4",border:"1.5px solid #bbf7d0",borderRadius:10,padding:"12px 14px",marginBottom:16}}>
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                    <span style={{fontSize:13,color:"#6b7280"}}>{excQtd} excedente{excQtd>1?"s":""} × R$10 × {horas}h</span>
-                    <span style={{fontWeight:700,color:"#065f46"}}>R$ {excVal.toFixed(2)}</span>
+                    <span style={{fontSize:13,color:"#6b7280"}}>Quadra ({dur}min)</span>
+                    <span style={{fontWeight:700,color:"#065f46"}}>R$ {valBase.toFixed(2)}</span>
                   </div>
-                )}
-                <div style={{display:"flex",justifyContent:"space-between",borderTop:"1px solid #bbf7d0",paddingTop:6,marginTop:4}}>
-                  <span style={{fontSize:14,fontWeight:800,color:"#065f46"}}>Total</span>
-                  <span style={{fontSize:18,fontWeight:900,color:"#065f46"}}>R$ {valTotal.toFixed(2)}</span>
+                  {excQtd>0&&(
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                      <span style={{fontSize:13,color:"#6b7280"}}>{excQtd} excedente{excQtd>1?"s":""} × R$10 × {horas}h</span>
+                      <span style={{fontWeight:700,color:"#065f46"}}>R$ {excVal.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div style={{display:"flex",justifyContent:"space-between",borderTop:"1px solid #bbf7d0",paddingTop:6,marginTop:4}}>
+                    <span style={{fontSize:14,fontWeight:800,color:"#065f46"}}>Total</span>
+                    <span style={{fontSize:18,fontWeight:900,color:"#065f46"}}>R$ {valTotal.toFixed(2)}</span>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            <button onClick={()=>salvarNovaReserva(valTotal)}
-              style={{width:"100%",padding:"14px",background:VE,color:"white",border:"none",borderRadius:10,fontSize:15,fontWeight:800,cursor:"pointer",marginBottom:10}}>
-              ✅ Confirmar reserva
-            </button>
-            <button onClick={()=>setModalNovaReserva(false)}
-              style={{width:"100%",padding:"12px",background:"none",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14,fontWeight:600,cursor:"pointer",color:"#6b7280"}}>
-              Cancelar
-            </button>
+              <button onClick={()=>salvarNovaReserva(valTotal)}
+                style={{width:"100%",padding:"14px",background:VE,color:"white",border:"none",borderRadius:10,fontSize:15,fontWeight:800,cursor:"pointer",marginBottom:10}}>
+                ✅ Confirmar reserva
+              </button>
+              <button onClick={()=>setModalNovaReserva(false)}
+                style={{width:"100%",padding:"12px",background:"none",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14,fontWeight:600,cursor:"pointer",color:"#6b7280"}}>
+                Cancelar
+              </button>
+            </div>
           </div>
-        </div>
         );
       })()}
 
