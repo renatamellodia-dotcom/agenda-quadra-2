@@ -39,12 +39,16 @@ function toMin(hr) { const[h,m]=hr.split(":").map(Number); return h*60+m; }
 // Compatibilidade: se 'pagOriginal' não existir, usa 'pag' atual.
 function pagoOnline(ag) {
   if(!ag) return 0;
-  // valOriginal = valor da quadra NO MOMENTO do pagamento (não muda com adicionarTempo)
-  // valPagoOnline = valor efetivamente pago online (gravado pelo webhook)
-  const valRef = parseFloat(ag.valPagoOnline ?? ag.valOriginal ?? ag.val) || 0;
   const pag = ag.pagOriginal || ag.pag || "";
+  // Para mp_50: valPagoOnline já é o valor pago (metade), usar direto
+  if(pag==="mp_50") {
+    if(ag.valPagoOnline !== undefined) return parseFloat(ag.valPagoOnline)||0;
+    const valRef = parseFloat(ag.valOriginal ?? ag.val)||0;
+    return valRef * 0.5;
+  }
+  // Para pagamento total: valPagoOnline ou valOriginal ou val
+  const valRef = parseFloat(ag.valPagoOnline ?? ag.valOriginal ?? ag.val)||0;
   if(["mp_pix","mp_cartao","mp_total"].includes(pag)) return valRef;
-  if(pag==="mp_50") return valRef * 0.5;
   return 0;
 }
 
@@ -66,10 +70,15 @@ function totalJaPago(ag) {
     return pagoOnline(ag) + pagoMaquina(ag) + pagoDinheiro(ag);
   }
   // Fallback: usa valOriginal (fixo) ou valPagoOnline, nunca val (que pode ter mudado)
-  const valRef = parseFloat(ag?.valPagoOnline ?? ag?.valOriginal ?? ag?.val) || 0;
   const pag = ag?.pag||"";
+  if(pag==="mp_50") {
+    // valPagoOnline já é o valor pago (metade)
+    if(ag?.valPagoOnline !== undefined) return parseFloat(ag.valPagoOnline)||0;
+    const valRef = parseFloat(ag?.valOriginal ?? ag?.val)||0;
+    return valRef * 0.5;
+  }
+  const valRef = parseFloat(ag?.valPagoOnline ?? ag?.valOriginal ?? ag?.val) || 0;
   if(["mp_pix","mp_cartao","mp_total","mp_total_pix","mp_total_cartao","mp_total_dinheiro"].includes(pag)) return valRef;
-  if(pag==="mp_50") return valRef*0.5;
   return 0;
 }
 
