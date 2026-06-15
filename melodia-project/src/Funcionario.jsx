@@ -350,19 +350,16 @@ export default function App() {
     setEdicoes(p=>({...p,[id]:{...p[id],saunaQtd:val}}));
     try { await updateDoc(doc(db,"agendamentos",id),{saunaQtd:val}); } catch(e){}
   }
-  async function salvarNovaReserva() {
+  async function salvarNovaReserva(valTotal) {
     if(!nrNome||!nrData||!nrIni||!nrFim){ alert("Preencha todos os campos!"); return; }
     const ini = nrIni, fim = nrFim;
     if(toMin(fim)<=toMin(ini)){ alert("Horário inválido!"); return; }
-    // Verificar conflito
     const conflito = agendamentos.some(a=>
       a.qid===nrQid && a.data===nrData && a.st==="confirmado" &&
       !(fim<=a.ini || ini>=a.fim)
     );
     if(conflito){ alert("⚠️ Horário já ocupado!"); return; }
-    const duracaoMin = toMin(fim)-toMin(ini);
-    const precoHora = nrQid==="q1" ? (ini>="16:00"?130:120) : 60;
-    const val = parseFloat((precoHora*(duracaoMin/60)).toFixed(2));
+    const val = valTotal || 0;
     try {
       await addDoc(collection(db,"agendamentos"),{
         qid:nrQid, qnm:nrQid==="q1"?"Campo Society":"Quadra de Areia",
@@ -878,7 +875,22 @@ export default function App() {
       )}
 
       {/* MODAL NOVA RESERVA NO BALCÃO */}
-      {modalNovaReserva && (
+      {modalNovaReserva && (()=>{
+        // Gerar slots de 30 em 30 min (06:00 às 23:30)
+        const slots30 = [];
+        for(let h=6;h<24;h++) for(let m=0;m<60;m+=30) slots30.push(toHr(h*60+m));
+
+        // Calcular valor com excedentes
+        const dur = nrIni&&nrFim&&toMin(nrFim)>toMin(nrIni) ? toMin(nrFim)-toMin(nrIni) : 0;
+        const ph = nrQid==="q1" ? (nrIni>="16:00"?130:120) : 60;
+        const valBase = parseFloat((ph*(dur/60)).toFixed(2));
+        const pess = parseInt(nrPess)||0;
+        const horas = Math.floor(dur/60);
+        const excQtd = nrQid==="q2" && pess>12 && horas>=1 ? pess-12 : 0;
+        const excVal = excQtd * 10 * horas;
+        const valTotal = valBase + excVal;
+
+        return (
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 16px"}}>
           <div style={{background:"white",borderRadius:20,width:"100%",maxWidth:420,padding:"24px 20px",maxHeight:"90vh",overflowY:"auto"}}>
             <div style={{fontWeight:800,fontSize:20,marginBottom:16,color:"#1a1f2e",textAlign:"center"}}>➕ Nova reserva no balcão</div>
@@ -904,14 +916,26 @@ export default function App() {
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
               <div>
                 <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Início</label>
-                <input type="time" value={nrIni} onChange={e=>setNrIni(e.target.value)}
-                  style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}/>
+                <select value={nrIni} onChange={e=>setNrIni(e.target.value)}
+                  style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}>
+                  <option value="">--</option>
+                  {slots30.map(s=><option key={s} value={s}>{s}</option>)}
+                </select>
               </div>
               <div>
                 <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Fim</label>
-                <input type="time" value={nrFim} onChange={e=>setNrFim(e.target.value)}
-                  style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}/>
+                <select value={nrFim} onChange={e=>setNrFim(e.target.value)}
+                  style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}>
+                  <option value="">--</option>
+                  {slots30.filter(s=>!nrIni||s>nrIni).map(s=><option key={s} value={s}>{s}</option>)}
+                </select>
               </div>
+            </div>
+
+            <div style={{marginBottom:10}}>
+              <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Nº de pessoas</label>
+              <input type="number" value={nrPess} onChange={e=>setNrPess(e.target.value)} min="1"
+                style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}/>
             </div>
 
             <div style={{marginBottom:10}}>
@@ -920,32 +944,32 @@ export default function App() {
                 style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}/>
             </div>
 
-            <div style={{marginBottom:10}}>
+            <div style={{marginBottom:16}}>
               <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Telefone</label>
               <input type="tel" value={nrTel} onChange={e=>setNrTel(e.target.value)} placeholder="(22) 99999-9999"
                 style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}/>
             </div>
 
-            <div style={{marginBottom:16}}>
-              <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Nº de pessoas</label>
-              <input type="number" value={nrPess} onChange={e=>setNrPess(e.target.value)} min="1"
-                style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}/>
-            </div>
-
-            {nrIni&&nrFim&&toMin(nrFim)>toMin(nrIni)&&(
-              <div style={{background:"#f0fdf4",border:"1.5px solid #bbf7d0",borderRadius:10,padding:"10px 14px",marginBottom:16,textAlign:"center"}}>
-                <div style={{fontSize:12,color:"#6b7280"}}>Valor a cobrar no balcão</div>
-                <div style={{fontWeight:900,fontSize:24,color:VE}}>
-                  R$ {(()=>{
-                    const dur=toMin(nrFim)-toMin(nrIni);
-                    const ph=nrQid==="q1"?(nrIni>="16:00"?130:120):60;
-                    return (ph*(dur/60)).toFixed(2);
-                  })()}
+            {dur>0&&(
+              <div style={{background:"#f0fdf4",border:"1.5px solid #bbf7d0",borderRadius:10,padding:"12px 14px",marginBottom:16}}>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                  <span style={{fontSize:13,color:"#6b7280"}}>Quadra ({dur}min)</span>
+                  <span style={{fontWeight:700,color:"#065f46"}}>R$ {valBase.toFixed(2)}</span>
+                </div>
+                {excQtd>0&&(
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                    <span style={{fontSize:13,color:"#6b7280"}}>{excQtd} excedente{excQtd>1?"s":""} × R$10 × {horas}h</span>
+                    <span style={{fontWeight:700,color:"#065f46"}}>R$ {excVal.toFixed(2)}</span>
+                  </div>
+                )}
+                <div style={{display:"flex",justifyContent:"space-between",borderTop:"1px solid #bbf7d0",paddingTop:6,marginTop:4}}>
+                  <span style={{fontSize:14,fontWeight:800,color:"#065f46"}}>Total</span>
+                  <span style={{fontSize:18,fontWeight:900,color:"#065f46"}}>R$ {valTotal.toFixed(2)}</span>
                 </div>
               </div>
             )}
 
-            <button onClick={salvarNovaReserva}
+            <button onClick={()=>salvarNovaReserva(valTotal)}
               style={{width:"100%",padding:"14px",background:VE,color:"white",border:"none",borderRadius:10,fontSize:15,fontWeight:800,cursor:"pointer",marginBottom:10}}>
               ✅ Confirmar reserva
             </button>
@@ -955,9 +979,10 @@ export default function App() {
             </button>
           </div>
         </div>
-      )}
+        );
+      })()}
 
-      {/* MODAL FECHAMENTO DO DIA */}
+            {/* MODAL FECHAMENTO DO DIA */}
       {modalFechamento && (
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 16px"}}>
           <div style={{background:"white",borderRadius:20,width:"100%",maxWidth:420,padding:"24px 20px",maxHeight:"85vh",overflowY:"auto"}}>
