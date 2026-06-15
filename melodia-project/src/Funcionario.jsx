@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, collection, query, where, onSnapshot, doc, updateDoc } from "firebase/firestore";
+import { getFirestore, collection, query, where, onSnapshot, doc, updateDoc, addDoc } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAX5kKNmUsqs6g0eD_wpbRAalcu1A8ViWI",
@@ -203,6 +203,14 @@ export default function App() {
   const [alarme, setAlarme] = useState(null);
   const [aviso5min, setAviso5min] = useState(null);
   const [toast, setToast] = useState("");
+  const [modalNovaReserva, setModalNovaReserva] = useState(false);
+  const [nrQid, setNrQid] = useState("q1");
+  const [nrData, setNrData] = useState("");
+  const [nrIni, setNrIni] = useState("");
+  const [nrFim, setNrFim] = useState("");
+  const [nrNome, setNrNome] = useState("");
+  const [nrTel, setNrTel] = useState("");
+  const [nrPess, setNrPess] = useState("1");
   const [modalFechamento, setModalFechamento] = useState(false);
   const [modalMisto, setModalMisto] = useState(false);
   const [mistoMaq, setMistoMaq] = useState("");
@@ -342,6 +350,34 @@ export default function App() {
     setEdicoes(p=>({...p,[id]:{...p[id],saunaQtd:val}}));
     try { await updateDoc(doc(db,"agendamentos",id),{saunaQtd:val}); } catch(e){}
   }
+  async function salvarNovaReserva() {
+    if(!nrNome||!nrData||!nrIni||!nrFim){ alert("Preencha todos os campos!"); return; }
+    const ini = nrIni, fim = nrFim;
+    if(toMin(fim)<=toMin(ini)){ alert("Horário inválido!"); return; }
+    // Verificar conflito
+    const conflito = agendamentos.some(a=>
+      a.qid===nrQid && a.data===nrData && a.st==="confirmado" &&
+      !(fim<=a.ini || ini>=a.fim)
+    );
+    if(conflito){ alert("⚠️ Horário já ocupado!"); return; }
+    const duracaoMin = toMin(fim)-toMin(ini);
+    const precoHora = nrQid==="q1" ? (ini>="16:00"?130:120) : 60;
+    const val = parseFloat((precoHora*(duracaoMin/60)).toFixed(2));
+    try {
+      await addDoc(collection(db,"agendamentos"),{
+        qid:nrQid, qnm:nrQid==="q1"?"Campo Society":"Quadra de Areia",
+        data:nrData, ini, fim, val, valOriginal:val,
+        cli:nrNome, tel:nrTel, pess:parseInt(nrPess)||1,
+        pag:"pendente", st:"confirmado",
+        tp:"balcao", criadoEm:Date.now(), obs:""
+      });
+      setModalNovaReserva(false);
+      setNrNome(""); setNrTel(""); setNrIni(""); setNrFim(""); setNrPess("1");
+      setToast("✅ Reserva criada!");
+      setTimeout(()=>setToast(""),3000);
+    } catch(e){ alert("Erro ao criar reserva: "+e.message); }
+  }
+
   async function adicionarTempo(id, mins) {
     const agE = getAg(id);
     const fimAtual = agE.fim || agendamentos.find(x=>x.id===id)?.fim || "";
@@ -497,6 +533,12 @@ export default function App() {
             </div>
           ))}
         </div>
+
+        {/* BOTÃO NOVA RESERVA NO BALCÃO */}
+        <button onClick={()=>{setNrData(toDS(new Date()));setModalNovaReserva(true);}}
+          style={{width:"100%",padding:"10px",background:"rgba(255,255,255,0.15)",border:"1.5px solid rgba(255,255,255,0.35)",borderRadius:10,color:"white",fontWeight:700,fontSize:13,cursor:"pointer",marginBottom:8}}>
+          ➕ Nova reserva no balcão
+        </button>
 
         {/* BOTÃO FECHAMENTO DO DIA */}
         <button onClick={()=>{
@@ -828,6 +870,86 @@ export default function App() {
               ✅ Confirmar
             </button>
             <button onClick={()=>setModalMisto(false)}
+              style={{width:"100%",padding:"12px",background:"none",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14,fontWeight:600,cursor:"pointer",color:"#6b7280"}}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL NOVA RESERVA NO BALCÃO */}
+      {modalNovaReserva && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 16px"}}>
+          <div style={{background:"white",borderRadius:20,width:"100%",maxWidth:420,padding:"24px 20px",maxHeight:"90vh",overflowY:"auto"}}>
+            <div style={{fontWeight:800,fontSize:20,marginBottom:16,color:"#1a1f2e",textAlign:"center"}}>➕ Nova reserva no balcão</div>
+
+            <div style={{marginBottom:10}}>
+              <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Quadra</label>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                {[{id:"q1",label:"⚽ Society"},{id:"q2",label:"🏐 Areia"}].map(q=>(
+                  <button key={q.id} onClick={()=>setNrQid(q.id)}
+                    style={{padding:"10px",borderRadius:10,border:`2px solid ${nrQid===q.id?VE:"#e0e3e8"}`,background:nrQid===q.id?"#f0fdf4":"white",fontWeight:700,fontSize:13,cursor:"pointer",color:nrQid===q.id?VE:"#374151"}}>
+                    {q.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{marginBottom:10}}>
+              <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Data</label>
+              <input type="date" value={nrData} onChange={e=>setNrData(e.target.value)}
+                style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}/>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+              <div>
+                <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Início</label>
+                <input type="time" value={nrIni} onChange={e=>setNrIni(e.target.value)}
+                  style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}/>
+              </div>
+              <div>
+                <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Fim</label>
+                <input type="time" value={nrFim} onChange={e=>setNrFim(e.target.value)}
+                  style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}/>
+              </div>
+            </div>
+
+            <div style={{marginBottom:10}}>
+              <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Nome do cliente</label>
+              <input type="text" value={nrNome} onChange={e=>setNrNome(e.target.value)} placeholder="Nome completo"
+                style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}/>
+            </div>
+
+            <div style={{marginBottom:10}}>
+              <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Telefone</label>
+              <input type="tel" value={nrTel} onChange={e=>setNrTel(e.target.value)} placeholder="(22) 99999-9999"
+                style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}/>
+            </div>
+
+            <div style={{marginBottom:16}}>
+              <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Nº de pessoas</label>
+              <input type="number" value={nrPess} onChange={e=>setNrPess(e.target.value)} min="1"
+                style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}/>
+            </div>
+
+            {nrIni&&nrFim&&toMin(nrFim)>toMin(nrIni)&&(
+              <div style={{background:"#f0fdf4",border:"1.5px solid #bbf7d0",borderRadius:10,padding:"10px 14px",marginBottom:16,textAlign:"center"}}>
+                <div style={{fontSize:12,color:"#6b7280"}}>Valor a cobrar no balcão</div>
+                <div style={{fontWeight:900,fontSize:24,color:VE}}>
+                  R$ {(()=>{
+                    const dur=toMin(nrFim)-toMin(nrIni);
+                    const ph=nrQid==="q1"?(nrIni>="16:00"?130:120):60;
+                    return (ph*(dur/60)).toFixed(2);
+                  })()}
+                </div>
+              </div>
+            )}
+
+            <button onClick={salvarNovaReserva}
+              style={{width:"100%",padding:"14px",background:VE,color:"white",border:"none",borderRadius:10,fontSize:15,fontWeight:800,cursor:"pointer",marginBottom:10}}>
+              ✅ Confirmar reserva
+            </button>
+            <button onClick={()=>setModalNovaReserva(false)}
               style={{width:"100%",padding:"12px",background:"none",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14,fontWeight:600,cursor:"pointer",color:"#6b7280"}}>
               Cancelar
             </button>
