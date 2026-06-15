@@ -446,8 +446,7 @@ export default function App() {
   const nrDow = nrDataObj.getDay();
   const nrFds = nrDow===0||nrDow===6;
   const nrHA = nrFds?9:16, nrHB = nrFds?18:23;
-  const nrSlots = [];
-  for(let h=nrHA;h<=nrHB;h++) for(let m=0;m<60;m+=30){ if(h===nrHB&&m>0) break; nrSlots.push(toHr(h*60+m)); }
+  const nrSlots = Array.from({length:(nrHB-nrHA)*2+1},(_,i)=>toHr((nrHA*60)+(i*30))).filter(s=>toMin(s)<=nrHB*60);
   const nrDur = nrIni&&nrFim&&toMin(nrFim)>toMin(nrIni)?toMin(nrFim)-toMin(nrIni):0;
   const nrPh = nrQid==="q1"?(nrIni>="16:00"?130:120):60;
   const nrValBase = parseFloat((nrPh*(nrDur/60)).toFixed(2));
