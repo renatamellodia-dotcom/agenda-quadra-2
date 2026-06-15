@@ -193,6 +193,9 @@ export default function App(){
   const [ags,setAgs]=useState([]);
   const [bloqueios,setBloqueios]=useState([]);
   const [blackouts,setBlackouts]=useState([]);
+  const [galeria,setGaleria]=useState([]);
+  const [novaFotoUrl,setNovaFotoUrl]=useState("");
+  const [novaFotoLegenda,setNovaFotoLegenda]=useState("");
   const [blackoutData,setBlackoutData]=useState("");
   const [blackoutQid,setBlackoutQid]=useState("todas");
   const [blackoutMotivo,setBlackoutMotivo]=useState("");
@@ -229,6 +232,15 @@ export default function App(){
       });
       return ()=>unsub();
     } catch(e){ console.log("Firebase blackouts offline",e); }
+  },[]);
+
+  useEffect(()=>{
+    try {
+      const unsub = onSnapshot(collection(db,"galeria"), snap=>{
+        setGaleria(snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.ordem||0)-(b.ordem||0)));
+      });
+      return ()=>unsub();
+    } catch(e){ console.log("Firebase galeria offline",e); }
   },[]);
 
   const [fTipo,setFTipo]=useState("avulso");
@@ -527,7 +539,7 @@ export default function App(){
   const cts=Object.entries(ctMap).map(([n,d])=>({n,...d}));
   const ctsFilt=busca?cts.filter(c=>c.n.toLowerCase().includes(busca.toLowerCase())):cts;
 
-  const TABS=[{id:"agenda",lbl:"📅 Agenda"},{id:"painel",lbl:"📊 Painel"},{id:"agend",lbl:"📋 Agend."},{id:"fin",lbl:"💰 Fin."},{id:"cont",lbl:"👥 Contatos"},{id:"complexo",lbl:"🏟️ Complexo"},{id:"cfg",lbl:"⚙️ Config"}];
+  const TABS=[{id:"agenda",lbl:"📅 Agenda"},{id:"painel",lbl:"📊 Painel"},{id:"agend",lbl:"📋 Agend."},{id:"fin",lbl:"💰 Fin."},{id:"cont",lbl:"👥 Contatos"},{id:"complexo",lbl:"🏟️ Complexo"},{id:"galeria",lbl:"📸 Galeria"},{id:"cfg",lbl:"⚙️ Config"}];
   const TIPOS=["avulso","mensalista","escola","evento"];
   const TLBL=["● Avulso","↺ Mensalista","👥 Escola","🎉 Evento"];
 
@@ -902,6 +914,34 @@ export default function App(){
             </Card>
           )}
         </div>
+      </div>}
+
+      {/* ── GALERIA ── */}
+      {pg==="galeria"&&<div style={{padding:16,paddingBottom:80}}>
+        <Card>
+          <CardH title="📸 Galeria de Fotos"/>
+          <div style={{padding:16}}>
+            <div style={{marginBottom:10}}><label style={lbl}>URL da foto</label><input style={inp} value={novaFotoUrl} onChange={e=>setNovaFotoUrl(e.target.value)} placeholder="https://..."/></div>
+            <div style={{marginBottom:10}}><label style={lbl}>Legenda (opcional)</label><input style={inp} value={novaFotoLegenda} onChange={e=>setNovaFotoLegenda(e.target.value)} placeholder="Ex: Quadra de Areia"/></div>
+            <button onClick={async()=>{
+              if(!novaFotoUrl.trim()){alert("Cole a URL da foto!");return;}
+              await addDoc(collection(db,"galeria"),{url:novaFotoUrl.trim(),legenda:novaFotoLegenda.trim(),ordem:galeria.length+1,em:new Date().toISOString()});
+              setNovaFotoUrl(""); setNovaFotoLegenda(""); showToast("📸 Foto adicionada!");
+            }} style={{width:"100%",padding:"12px",background:V,color:"white",border:"none",borderRadius:10,fontWeight:700,fontSize:14,cursor:"pointer",marginBottom:16}}>
+              ➕ Adicionar foto
+            </button>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              {galeria.map(f=>(
+                <div key={f.id} style={{position:"relative"}}>
+                  <img src={f.url} alt={f.legenda} style={{width:"100%",height:110,objectFit:"cover",borderRadius:10}}/>
+                  {f.legenda&&<div style={{fontSize:11,color:"#6b7280",marginTop:4,textAlign:"center"}}>{f.legenda}</div>}
+                  <button onClick={async()=>{if(window.confirm("Remover foto?"))await deleteDoc(doc(db,"galeria",f.id));}} style={{position:"absolute",top:4,right:4,background:"rgba(0,0,0,0.6)",color:"white",border:"none",borderRadius:6,padding:"2px 7px",cursor:"pointer",fontSize:16}}>✕</button>
+                </div>
+              ))}
+            </div>
+            {galeria.length===0&&<div style={{textAlign:"center",color:"#9ca3af",padding:20}}>Nenhuma foto cadastrada ainda.</div>}
+          </div>
+        </Card>
       </div>}
 
       {/* ── CONFIG ── */}
