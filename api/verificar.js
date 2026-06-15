@@ -63,7 +63,8 @@ export default async function handler(req, res) {
     }
 
     // 3. Dados da reserva
-    const valorTotal = fields.val ? (fields.val.doubleValue || fields.val.integerValue || 0) : 0;
+    const valField = fields.val;
+    const valorTotal = valField ? (Number(valField.doubleValue) || Number(valField.integerValue) || 0) : 0;
     const isParcial = valorTotal > 0 && valorPago < valorTotal * 0.75;
     const temSauna = fields.sauna && fields.sauna.booleanValue === true;
     const nomeCliente = fields.cli ? fields.cli.stringValue : "Cliente";
