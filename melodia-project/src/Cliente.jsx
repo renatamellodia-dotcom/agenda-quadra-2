@@ -134,7 +134,8 @@ export default function App() {
   const [slotsSel, setSlotsSel] = useState([]);
   const [slotsSalvos, setSlotsSalvos] = useState([]);
   const [blackouts, setBlackouts] = useState([]);
-  const [fotos, setFotos] = useState([]); // slots confirmados para cálculo
+  const [fotos, setFotos] = useState([]);
+  const [fotoAmpliada, setFotoAmpliada] = useState(null); // slots confirmados para cálculo
 
   const dias = gerarDias();
 
@@ -566,14 +567,14 @@ export default function App() {
             <span style={{color:"rgba(255,255,255,0.8)",fontSize:14}}>🕒 Segunda a sexta</span>
             <span style={{color:"white",fontWeight:700,fontSize:14}}>16h às 23h</span>
           </div>
-          <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:3}}>🧖‍♂️ Sauna: 18h às 22h</div>
+          <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:3}}>🌿 Sauna: 18h às 22h</div>
         </div>
         <div style={{padding:"8px 0"}}>
           <div style={{display:"flex",justifyContent:"space-between"}}>
             <span style={{color:"rgba(255,255,255,0.8)",fontSize:14}}>🕒 Sábado e domingo</span>
             <span style={{color:"white",fontWeight:700,fontSize:14}}>9h às 18h</span>
           </div>
-          <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:3}}>🧖‍♂️ Sauna: 10h às 17h</div>
+          <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:3}}>🌿 Sauna: 10h às 17h</div>
         </div>
       </div>
 
@@ -582,7 +583,7 @@ export default function App() {
         {[
           ["🏟️","Campo Society",""],
           ["🏖️","Quadra de Areia","Futevôlei, vôlei e beach tennis"],
-          ["🧖‍♂️","Sauna","R$ 15,00 por pessoa"],
+          ["🧖‍♂️","Sauna","R$ 15,00 por pessoa · cobrado na chegada"],
           ["🍖","Churrasqueira","Mediante reserva antecipada via WhatsApp"],
           ["🚗","Estacionamento gratuito",""],
           ["📶","Wi-Fi gratuito","Senha: jogadorcaro"],
@@ -631,6 +632,15 @@ export default function App() {
             🍖 Reservar Churrasqueira
           </a>
         </div>
+        <div style={{background:"rgba(255,255,255,0.08)",borderRadius:10,padding:"10px 14px"}}>
+          <div style={{fontWeight:700,color:"white",fontSize:14,marginBottom:2}}>Churrasqueira Exclusiva da Areia</div>
+          <div style={{color:"rgba(255,255,255,0.7)",fontSize:13,lineHeight:1.5,marginBottom:6}}>
+            Inclusa na locação da Quadra de Areia com <strong style={{color:"white"}}>mínimo de 5 horas</strong>.
+          </div>
+          <div style={{background:"rgba(232,134,26,0.3)",borderRadius:8,padding:"6px 10px",fontSize:12,fontWeight:700,color:"white",display:"inline-flex",alignItems:"center",gap:6}}>
+            ⏱️ Mínimo 5 horas de locação
+          </div>
+        </div>
       </div>
 
       <div style={{display:"flex",alignItems:"center",gap:12,padding:"0 16px 16px"}}>
@@ -645,7 +655,8 @@ export default function App() {
           <div style={{overflowX:"auto",display:"flex",gap:10,padding:"0 16px",scrollbarWidth:"none"}}>
             {fotos.map(f=>(
               <img key={f.id} src={f.url} alt={f.legenda||"Complexo Melodia"}
-                style={{width:220,height:150,objectFit:"cover",borderRadius:12,flexShrink:0}}
+                onClick={()=>setFotoAmpliada(f)}
+                style={{width:220,height:150,objectFit:"cover",borderRadius:12,flexShrink:0,cursor:"pointer"}}
                 onError={e=>{e.target.style.display="none"}}/>
             ))}
           </div>
@@ -660,6 +671,19 @@ export default function App() {
           <span style={{color:"white",fontWeight:700,fontSize:14}}>@complexoesportivomelodia</span>
         </a>
       </div>
+
+      {/* LIGHTBOX FOTO AMPLIADA */}
+      {fotoAmpliada && (
+        <div onClick={()=>setFotoAmpliada(null)}
+          style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:500,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:16}}>
+          <img src={fotoAmpliada.url} alt={fotoAmpliada.legenda||""}
+            style={{maxWidth:"100%",maxHeight:"80vh",borderRadius:12,objectFit:"contain"}}/>
+          {fotoAmpliada.legenda && (
+            <div style={{color:"white",marginTop:12,fontSize:14,fontWeight:600,textAlign:"center"}}>{fotoAmpliada.legenda}</div>
+          )}
+          <div style={{color:"rgba(255,255,255,0.5)",marginTop:8,fontSize:12}}>Toque para fechar</div>
+        </div>
+      )}
 
       <div id="secaoReserva" style={{padding:"0 16px 16px"}}>
         {QUADRAS.map(q=>(
@@ -1119,3 +1143,4 @@ export default function App() {
 
   return null;
 }
+
