@@ -68,8 +68,44 @@ function labelPag(pag,val){
   return map[pag]||pag;
 }
 
-function isPago(pag){ return ["mp_total","mp_pix","mp_cartao","mp_total_pix","mp_total_cartao","mp_total_dinheiro"].includes(pag); }
+function isPago(pag){ return ["mp_total","mp_pix","mp_cartao","mp_total_pix","mp_total_cartao","mp_total_dinheiro","mp_total_misto"].includes(pag); }
 function isParcial(pag){ return pag==="mp_50"; }
+
+// Quanto foi pago online (usa valPagoOnline fixo se disponível)
+function calcPagoOnline(ag) {
+  const pag = ag.pag||"";
+  if(isParcial(pag)) {
+    if(ag.valPagoOnline !== undefined) return parseFloat(ag.valPagoOnline)||0;
+    const valRef = parseFloat(ag.valOriginal ?? ag.val)||0;
+    return valRef * 0.5;
+  }
+  if(["mp_pix","mp_cartao","mp_total"].includes(pag)) {
+    return parseFloat(ag.valPagoOnline ?? ag.valOriginal ?? ag.val)||0;
+  }
+  return 0;
+}
+
+// Total já recebido (online + balcão)
+function calcTotalRecebido(ag) {
+  const maquina = parseFloat(ag.pagoMaquina)||0;
+  const dinheiro = parseFloat(ag.pagoDinheiro)||0;
+  if(ag.pagoMaquina !== undefined || ag.pagoDinheiro !== undefined) {
+    return calcPagoOnline(ag) + maquina + dinheiro;
+  }
+  // Fallback reservas antigas
+  const pag = ag.pag||"";
+  if(isPago(pag)) return parseFloat(ag.val)||0;
+  if(isParcial(pag)) {
+    if(ag.valPagoOnline !== undefined) return parseFloat(ag.valPagoOnline)||0;
+    return (parseFloat(ag.valOriginal ?? ag.val)||0) * 0.5;
+  }
+  return 0;
+}
+
+// Total valor real da reserva (quadra + extras pagos)
+function calcValorTotal(ag) {
+  return parseFloat(ag.val)||0;
+}
 
 const inp={width:"100%",padding:"10px 12px",border:"1.5px solid #e0e3e8",borderRadius:8,fontSize:15,background:"white",color:"#1a1f2e",outline:"none"};
 const lbl={display:"block",fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.5px"};
@@ -516,21 +552,21 @@ export default function App(){
     if(!a.data) return false;
     return a.data>=finPeriodo.de && a.data<=finPeriodo.ate;
   });
-  const finRec=finL.filter(a=>isPago(a.pag)).reduce((s,a)=>s+(a.val||0),0);
-  const finParcial=finL.filter(a=>isParcial(a.pag)).reduce((s,a)=>s+(a.val*0.5),0);
+  const finRec=finL.filter(a=>isPago(a.pag)&&a.st!=="cancelado").reduce((s,a)=>s+calcValorTotal(a),0);
+  const finParcial=finL.filter(a=>isParcial(a.pag)&&a.st!=="cancelado").reduce((s,a)=>s+calcPagoOnline(a),0);
   const finPend=finL.filter(a=>a.pag==="pendente"&&a.st!=="cancelado").reduce((s,a)=>s+(a.val||0),0);
-  const finSite=finL.filter(a=>["mp_pix","mp_cartao","mp_total","mp_50"].includes(a.pag)&&isPago(a.pag)).reduce((s,a)=>s+(a.val||0),0);
-  const finBalcao=finL.filter(a=>["mp_total_pix","mp_total_cartao","mp_total_dinheiro"].includes(a.pag)).reduce((s,a)=>s+(a.val||0),0);
+  const finSite=finL.filter(a=>a.st!=="cancelado").reduce((s,a)=>s+calcPagoOnline(a),0);
+  const finBalcao=finL.filter(a=>a.st!=="cancelado").reduce((s,a)=>s+(parseFloat(a.pagoMaquina)||0)+(parseFloat(a.pagoDinheiro)||0),0);
   // Breakdown por quadra
-  const finSociety=finL.filter(a=>a.qid==="q1"&&(isPago(a.pag)||isParcial(a.pag))&&a.st!=="cancelado").reduce((s,a)=>s+(isParcial(a.pag)?a.val*0.5:a.val||0),0);
-  const finAreia=finL.filter(a=>a.qid==="q2"&&(isPago(a.pag)||isParcial(a.pag))&&a.st!=="cancelado").reduce((s,a)=>s+(isParcial(a.pag)?a.val*0.5:a.val||0),0);
-  const finSauna=finL.filter(a=>(isPago(a.pag)||isParcial(a.pag))&&a.st!=="cancelado"&&(parseInt(a.saunaQtd)||0)>0).reduce((s,a)=>s+((parseInt(a.saunaQtd)||0)*15),0);
+  const finSociety=finL.filter(a=>a.qid==="q1"&&a.st!=="cancelado").reduce((s,a)=>s+calcTotalRecebido(a),0);
+  const finAreia=finL.filter(a=>a.qid==="q2"&&a.st!=="cancelado").reduce((s,a)=>s+calcTotalRecebido(a),0);
+  const finSauna=finL.filter(a=>a.st!=="cancelado"&&(parseInt(a.saunaQtd)||0)>0).reduce((s,a)=>s+((parseInt(a.saunaQtd)||0)*15),0);
   const finPorDia={};
-  finL.filter(a=>isPago(a.pag)||["mp_total_pix","mp_total_cartao","mp_total_dinheiro"].includes(a.pag)).forEach(a=>{
+  finL.filter(a=>a.st!=="cancelado"&&calcTotalRecebido(a)>0).forEach(a=>{
     const d=a.data||"";
     if(!finPorDia[d])finPorDia[d]={site:0,balcao:0};
-    if(["mp_pix","mp_cartao","mp_total","mp_50"].includes(a.pag))finPorDia[d].site+=(a.val||0);
-    else finPorDia[d].balcao+=(a.val||0);
+    finPorDia[d].site+=calcPagoOnline(a);
+    finPorDia[d].balcao+=(parseFloat(a.pagoMaquina)||0)+(parseFloat(a.pagoDinheiro)||0);
   });
   const finDias=Object.entries(finPorDia).sort((a,b)=>b[0].localeCompare(a[0]));
 
