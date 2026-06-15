@@ -74,9 +74,8 @@ export default async function handler(req, res) {
     const agId = docPath.split("/").pop();
 
     // Se já confirmado, não processa de novo
-    if (fields.st?.stringValue === "confirmado") {
-      return res.status(200).json({ ok: true, msg: "already confirmed" });
-    }
+    // Se já está confirmado, ainda atualiza pag e valPagoOnline (podem estar errados)
+    // NÃO retorna aqui — deixa continuar para corrigir o pag
 
     // 3. Dados da reserva
     const valField = fields.val;
