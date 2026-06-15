@@ -39,6 +39,9 @@ function toMin(hr) { const[h,m]=hr.split(":").map(Number); return h*60+m; }
 // Compatibilidade: se 'pagOriginal' não existir, usa 'pag' atual.
 function pagoOnline(ag) {
   if(!ag) return 0;
+  // Se existe valPagoOnline, usa ele (valor fixo no momento do pagamento)
+  if(ag.valPagoOnline !== undefined) return parseFloat(ag.valPagoOnline)||0;
+  // Fallback para reservas antigas: usa val atual (pode estar errado se houve adicionarTempo)
   const val = parseFloat(ag.val)||0;
   const pag = ag.pagOriginal || ag.pag || "";
   if(["mp_pix","mp_cartao","mp_total"].includes(pag)) return val;
@@ -659,6 +662,12 @@ export default function App() {
 
                 {/* ── PERGUNTA 2: Vai usar sauna? ── */}
                 <div style={{background:saunaQtd>0?"#f0fdf4":"#f9fafb",border:`1px solid ${saunaQtd>0?"#bbf7d0":"#e0e3e8"}`,borderRadius:10,padding:"12px",marginBottom:10}}>
+                  {agE.sauna && saunaQtd===0 && (
+                    <div style={{background:"#fef9c3",border:"1.5px solid #fde047",borderRadius:8,padding:"8px 12px",marginBottom:10,display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:16}}>🧖</span>
+                      <span style={{fontSize:12,fontWeight:700,color:"#854d0e"}}>Cliente confirmou sauna — informe a quantidade abaixo!</span>
+                    </div>
+                  )}
                   <div style={{fontSize:12,fontWeight:700,color:"#374151",marginBottom:8}}>🧖 Vai usar sauna?</div>
                   <div style={{display:"flex",gap:8,marginBottom:saunaQtd>0?10:0}}>
                     <button onClick={()=>salvarSaunaQtd(a.id,0)}
