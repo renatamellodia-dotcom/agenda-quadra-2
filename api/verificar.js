@@ -57,8 +57,30 @@ export default async function handler(req, res) {
     const docPath = docFound.name;
     const agId = docPath.split("/").pop();
 
-    // Se já confirmado, não processa de novo
+    // Se já confirmado, retorna mas garante que valPagoOnline está gravado
     if (fields.st && fields.st.stringValue === "confirmado") {
+      // Se valPagoOnline já existe, só retorna
+      if (fields.valPagoOnline) {
+        return res.status(200).json({ aprovado: true, agId });
+      }
+      // Se não existe, grava agora
+      const valField2 = fields.val;
+      const valorTotal2 = valField2 ? (Number(valField2.doubleValue) || Number(valField2.integerValue) || 0) : 0;
+      const isParcial2 = valorTotal2 > 0 && valorPago < valorTotal2 * 0.75;
+      const pagCod2 = isParcial2 ? "mp_50" : (tipoPag === "pix" ? "mp_pix" : "mp_cartao");
+      await fetch(
+        "https://firestore.googleapis.com/v1/" + docPath + "?updateMask.fieldPaths=valPagoOnline&updateMask.fieldPaths=pag&key=" + FIREBASE_KEY,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fields: {
+              valPagoOnline: { doubleValue: valorPago },
+              pag: { stringValue: pagCod2 }
+            }
+          })
+        }
+      );
       return res.status(200).json({ aprovado: true, agId });
     }
 
