@@ -65,10 +65,11 @@ function totalJaPago(ag) {
   if(ag?.pagoMaquina !== undefined || ag?.pagoDinheiro !== undefined) {
     return pagoOnline(ag) + pagoMaquina(ag) + pagoDinheiro(ag);
   }
-  const val = parseFloat(ag?.val)||0;
+  // Fallback: usa valOriginal (fixo) ou valPagoOnline, nunca val (que pode ter mudado)
+  const valRef = parseFloat(ag?.valPagoOnline ?? ag?.valOriginal ?? ag?.val) || 0;
   const pag = ag?.pag||"";
-  if(["mp_pix","mp_cartao","mp_total","mp_total_pix","mp_total_cartao","mp_total_dinheiro"].includes(pag)) return val;
-  if(pag==="mp_50") return val*0.5;
+  if(["mp_pix","mp_cartao","mp_total","mp_total_pix","mp_total_cartao","mp_total_dinheiro"].includes(pag)) return valRef;
+  if(pag==="mp_50") return valRef*0.5;
   return 0;
 }
 
