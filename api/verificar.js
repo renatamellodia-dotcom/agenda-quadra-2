@@ -82,7 +82,7 @@ export default async function handler(req, res) {
 
     // 4. Atualiza Firebase
     await fetch(
-      "https://firestore.googleapis.com/v1/" + docPath + "?updateMask.fieldPaths=st&updateMask.fieldPaths=pag&updateMask.fieldPaths=pagamentoId&updateMask.fieldPaths=_debugTipoPag&updateMask.fieldPaths=_debugValorPago&updateMask.fieldPaths=_debugValorTotal&key=" + FIREBASE_KEY,
+      "https://firestore.googleapis.com/v1/" + docPath + "?updateMask.fieldPaths=st&updateMask.fieldPaths=pag&updateMask.fieldPaths=pagamentoId&updateMask.fieldPaths=_debugTipoPag&updateMask.fieldPaths=_debugValorPago&updateMask.fieldPaths=_debugValorTotal&updateMask.fieldPaths=_debugPagCod&updateMask.fieldPaths=_debugIsParcial&key=" + FIREBASE_KEY,
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -93,7 +93,9 @@ export default async function handler(req, res) {
             pagamentoId: { stringValue: String(id) },
             _debugTipoPag: { stringValue: String(payment.payment_type_id || "") },
             _debugValorPago: { doubleValue: valorPago },
-            _debugValorTotal: { doubleValue: valorTotal }
+            _debugValorTotal: { doubleValue: valorTotal },
+            _debugPagCod: { stringValue: pagCod },
+            _debugIsParcial: { booleanValue: isParcial }
           }
         })
       }
