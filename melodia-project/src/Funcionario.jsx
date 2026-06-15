@@ -205,7 +205,7 @@ export default function App() {
   const [toast, setToast] = useState("");
   const [modalNovaReserva, setModalNovaReserva] = useState(false);
   const [nrQid, setNrQid] = useState("q1");
-  const [nrData, setNrData] = useState("");
+  const [nrData, setNrData] = useState(toDS(new Date()));
   const [nrIni, setNrIni] = useState("");
   const [nrFim, setNrFim] = useState("");
   const [nrNome, setNrNome] = useState("");
@@ -876,9 +876,18 @@ export default function App() {
 
       {/* MODAL NOVA RESERVA NO BALCÃO */}
       {modalNovaReserva && (()=>{
-        // Gerar slots de 30 em 30 min (06:00 às 23:30)
+        // Horários de funcionamento: seg-sex 16h-23h, sab-dom 9h-18h
+        const dataObj = nrData ? new Date(nrData+'T12:00:00') : new Date();
+        const diaSemana = dataObj.getDay(); // 0=dom, 6=sab
+        const fimSemana = diaSemana===0||diaSemana===6;
+        const hIni = fimSemana ? 9 : 16;
+        const hFim = fimSemana ? 18 : 23;
+        // Gerar slots de 30 em 30 min dentro do horário de funcionamento
         const slots30 = [];
-        for(let h=6;h<24;h++) for(let m=0;m<60;m+=30) slots30.push(toHr(h*60+m));
+        for(let h=hIni;h<=hFim;h++) for(let m=0;m<60;m+=30) {
+          if(h===hFim && m>0) break; // não passa do limite
+          slots30.push(toHr(h*60+m));
+        }
 
         // Calcular valor com excedentes
         const dur = nrIni&&nrFim&&toMin(nrFim)>toMin(nrIni) ? toMin(nrFim)-toMin(nrIni) : 0;
@@ -907,10 +916,9 @@ export default function App() {
               </div>
             </div>
 
-            <div style={{marginBottom:10}}>
-              <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Data</label>
-              <input type="date" value={nrData} onChange={e=>setNrData(e.target.value)}
-                style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}/>
+            <div style={{background:"#f0fdf4",border:"1.5px solid #bbf7d0",borderRadius:10,padding:"10px 14px",marginBottom:10,textAlign:"center"}}>
+              <div style={{fontSize:12,color:"#6b7280",marginBottom:2}}>Data</div>
+              <div style={{fontWeight:800,fontSize:16,color:"#065f46"}}>{fd(nrData)} — {fimSemana?"Fim de semana (9h–18h)":"Dia útil (16h–23h)"}</div>
             </div>
 
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
