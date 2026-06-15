@@ -38,7 +38,7 @@ export default async function handler(req, res) {
     }
 
     const extRef = payment.external_reference;
-    const tipoPag = payment.payment_type_id === "pix" ? "pix" : "cartao";
+    const tipoPag = (payment.payment_type_id === "pix" || payment.payment_type_id === "bank_transfer") ? "pix" : "cartao";
     const valorPago = payment.transaction_amount || 0;
 
     // 2. Buscar agendamento no Firebase
@@ -95,7 +95,7 @@ export default async function handler(req, res) {
 
     // 4. Atualizar Firebase
     await fetch(
-      "https://firestore.googleapis.com/v1/" + docPath + "?updateMask.fieldPaths=st&updateMask.fieldPaths=pag&updateMask.fieldPaths=pagamentoId&key=" + FIREBASE_KEY,
+      "https://firestore.googleapis.com/v1/" + docPath + "?updateMask.fieldPaths=st&updateMask.fieldPaths=pag&updateMask.fieldPaths=pagamentoId&updateMask.fieldPaths=_debugTipoPag&updateMask.fieldPaths=_debugValorPago&updateMask.fieldPaths=_debugValorTotal&key=" + FIREBASE_KEY,
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -103,7 +103,10 @@ export default async function handler(req, res) {
           fields: {
             st: { stringValue: "confirmado" },
             pag: { stringValue: pagCod },
-            pagamentoId: { stringValue: String(paymentId) }
+            pagamentoId: { stringValue: String(paymentId) },
+            _debugTipoPag: { stringValue: String(payment.payment_type_id || "") },
+            _debugValorPago: { doubleValue: valorPago },
+            _debugValorTotal: { doubleValue: valorTotal }
           }
         })
       }
