@@ -205,7 +205,7 @@ export default function App() {
   const [toast, setToast] = useState("");
   const [modalNovaReserva, setModalNovaReserva] = useState(false);
   const [nrQid, setNrQid] = useState("q1");
-  const [nrData] = useState(toDS(new Date()));
+  const nrDataHoje = toDS(new Date());
   const [nrIni, setNrIni] = useState("");
   const [nrFim, setNrFim] = useState("");
   const [nrNome, setNrNome] = useState("");
@@ -351,11 +351,11 @@ export default function App() {
     try { await updateDoc(doc(db,"agendamentos",id),{saunaQtd:val}); } catch(e){}
   }
   async function salvarNovaReserva(valTotal) {
-    if(!nrNome||!nrData||!nrIni||!nrFim){ alert("Preencha todos os campos!"); return; }
+    if(!nrNome||!nrDataHoje||!nrIni||!nrFim){ alert("Preencha todos os campos!"); return; }
     const ini = nrIni, fim = nrFim;
     if(toMin(fim)<=toMin(ini)){ alert("Horário inválido!"); return; }
     const conflito = agendamentos.some(a=>
-      a.qid===nrQid && a.data===nrData && a.st==="confirmado" &&
+      a.qid===nrQid && a.data===nrDataHoje && a.st==="confirmado" &&
       !(fim<=a.ini || ini>=a.fim)
     );
     if(conflito){ alert("⚠️ Horário já ocupado!"); return; }
@@ -363,7 +363,7 @@ export default function App() {
     try {
       await addDoc(collection(db,"agendamentos"),{
         qid:nrQid, qnm:nrQid==="q1"?"Campo Society":"Quadra de Areia",
-        data:nrData, ini, fim, val, valOriginal:val,
+        data:nrDataHoje, ini, fim, val, valOriginal:val,
         cli:nrNome, tel:nrTel, pess:parseInt(nrPess)||1,
         pag:"pendente", st:"confirmado",
         tp:"balcao", criadoEm:Date.now(), obs:""
@@ -442,7 +442,7 @@ export default function App() {
   }
 
   // Cálculos para modal de nova reserva no balcão
-  const nrDataObj = nrData ? new Date(nrData+'T12:00:00') : new Date();
+  const nrDataObj = nrDataHoje ? new Date(nrDataHoje+'T12:00:00') : new Date();
   const nrDow = nrDataObj.getDay();
   const nrFds = nrDow===0||nrDow===6;
   const nrHA = nrFds?9:16, nrHB = nrFds?18:23;
@@ -897,7 +897,7 @@ export default function App() {
 
             <div style={{background:"#f0fdf4",border:"1.5px solid #bbf7d0",borderRadius:10,padding:"10px 14px",marginBottom:12,textAlign:"center"}}>
               <div style={{fontSize:12,color:"#6b7280",marginBottom:2}}>Data</div>
-              <div style={{fontWeight:800,fontSize:16,color:"#065f46"}}>{nrData?new Date(nrData+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'}):""} — {nrFds?"Fim de semana (9h–18h)":"Dia útil (16h–23h)"}</div>
+              <div style={{fontWeight:800,fontSize:16,color:"#065f46"}}>{nrDataHoje?new Date(nrDataHoje+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'}):""} — {nrFds?"Fim de semana (9h–18h)":"Dia útil (16h–23h)"}</div>
             </div>
 
             <div style={{marginBottom:10}}>
