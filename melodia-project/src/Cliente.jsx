@@ -666,11 +666,37 @@ export default function App() {
       )}
 
       {/* INSTAGRAM */}
-      <div style={{margin:"0 16px 16px",textAlign:"center"}}>
+      <div style={{margin:"0 16px 12px",textAlign:"center"}}>
         <a href="https://instagram.com/complexoesportivomelodia" target="_blank" rel="noreferrer"
           style={{display:"inline-flex",alignItems:"center",gap:8,background:"rgba(255,255,255,0.12)",borderRadius:30,padding:"10px 20px",textDecoration:"none"}}>
           <span style={{fontSize:20}}>📸</span>
           <span style={{color:"white",fontWeight:700,fontSize:14}}>@complexoesportivomelodia</span>
+        </a>
+      </div>
+
+      {/* BOTÃO EVENTOS */}
+      <div style={{margin:"0 16px 16px"}}>
+        <a href="/evento"
+          style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:"rgba(255,255,255,0.15)",border:"1.5px solid rgba(255,255,255,0.3)",borderRadius:14,padding:"14px 20px",textDecoration:"none"}}>
+          <span style={{fontSize:22}}>🎉</span>
+          <div style={{textAlign:"left"}}>
+            <div style={{color:"white",fontWeight:800,fontSize:15}}>Quero fazer um evento!</div>
+            <div style={{color:"rgba(255,255,255,0.7)",fontSize:12}}>Aniversários, confraternizações e eventos exclusivos</div>
+          </div>
+          <span style={{color:"rgba(255,255,255,0.6)",fontSize:18,marginLeft:"auto"}}>›</span>
+        </a>
+      </div>
+
+      {/* BOTÃO EVENTO */}
+      <div style={{margin:"0 16px 16px"}}>
+        <a href="/evento"
+          style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:"rgba(255,255,255,0.12)",border:"1.5px solid rgba(255,255,255,0.25)",borderRadius:14,padding:"14px 20px",textDecoration:"none"}}>
+          <span style={{fontSize:22}}>🎉</span>
+          <div style={{textAlign:"left"}}>
+            <div style={{color:"white",fontWeight:800,fontSize:14}}>Quero fazer um evento</div>
+            <div style={{color:"rgba(255,255,255,0.6)",fontSize:12}}>Aniversários, confraternizações e mais</div>
+          </div>
+          <span style={{color:"rgba(255,255,255,0.5)",marginLeft:"auto",fontSize:18}}>›</span>
         </a>
       </div>
 
