@@ -273,6 +273,11 @@ export default function App(){
   const [finDe,setFinDe]=useState(toDS(hoje()));
   const [finAte,setFinAte]=useState(toDS(hoje()));
   const [busca,setBusca]=useState("");
+  const [churrasqueiras,setChurrasqueiras]=useState([]);
+  const [modalChur,setModalChur]=useState(false);
+  const [churNome,setCHurNome]=useState("");
+  const [churLocal,setCHurLocal]=useState("ch1");
+  const [churData,setCHurData]=useState(toDS(hoje()));
   const [logs,setLogs]=useState([]);
   const [logsLidos,setLogsLidos]=useState(()=>parseInt(localStorage.getItem("adm_logs_lidos")||"0"));
   const [showNotif,setShowNotif]=useState(false);
@@ -302,6 +307,15 @@ export default function App(){
       });
       return ()=>unsub();
     } catch(e){ console.log("Firebase galeria offline",e); }
+  },[]);
+
+  useEffect(()=>{
+    try {
+      const unsub = onSnapshot(collection(db,"churrasqueiras"), snap=>{
+        setChurrasqueiras(snap.docs.map(d=>({id:d.id,...d.data()})));
+      });
+      return ()=>unsub();
+    } catch(e){}
   },[]);
 
   useEffect(()=>{
@@ -834,6 +848,44 @@ export default function App(){
         </Card>
       </div>}
 
+      {/* ── CHURRASQUEIRAS ── */}
+      {pg==="agenda"&&(()=>{
+        const ds2=toDS(dtA);
+        const chDia=churrasqueiras.filter(c=>c.data===ds2);
+        const CHURS=[{id:"ch1",label:"🔥 Churrasqueira 1"},{id:"ch2",label:"🔥 Churrasqueira 2"},{id:"cha",label:"🔥 Churrasqueira da Areia"}];
+        return(
+          <div style={{padding:"0 16px 16px"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+              <div style={{fontWeight:700,fontSize:13,color:"#374151"}}>🔥 Churrasqueiras</div>
+              <button onClick={()=>{setCHurData(ds2);setModalChur(true);}}
+                style={{background:"#ea580c",color:"white",border:"none",borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                + Reservar
+              </button>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+              {CHURS.map(ch=>{
+                const reservas=chDia.filter(c=>c.local===ch.id);
+                return(
+                  <div key={ch.id} style={{background:reservas.length>0?"#fff7ed":"#f9fafb",border:`1.5px solid ${reservas.length>0?"#fed7aa":"#e0e3e8"}`,borderRadius:10,padding:"10px 8px",textAlign:"center"}}>
+                    <div style={{fontSize:11,fontWeight:700,color:reservas.length>0?"#ea580c":"#6b7280",marginBottom:4}}>{ch.label}</div>
+                    {reservas.length===0
+                      ? <div style={{fontSize:11,color:"#9ca3af"}}>Livre</div>
+                      : reservas.map(r=>(
+                          <div key={r.id} style={{fontSize:11,fontWeight:600,color:"#9a3412",background:"#ffedd5",borderRadius:6,padding:"2px 4px",marginBottom:3,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                            <span>{r.nome}</span>
+                            <button onClick={async()=>{if(window.confirm("Cancelar reserva de "+r.nome+"?"))await deleteDoc(doc(db,"churrasqueiras",r.id));}}
+                              style={{background:"none",border:"none",cursor:"pointer",color:"#dc2626",fontSize:12,padding:0,marginLeft:4}}>✕</button>
+                          </div>
+                        ))
+                    }
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── AGENDAMENTOS ── */}
       {pg==="agend"&&<div style={{padding:16,paddingBottom:80}}>
         <div style={{display:"flex",gap:8,marginBottom:14,overflowX:"auto",paddingBottom:4}}>
@@ -1150,6 +1202,47 @@ export default function App(){
 
       {/* FAB */}
       <button style={{position:"fixed",bottom:24,right:20,width:56,height:56,borderRadius:"50%",background:LA,color:"white",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 20px rgba(232,134,26,.4)",zIndex:90,fontSize:28}} onClick={()=>abrirNovoAg()}>+</button>
+
+      {/* MODAL CHURRASQUEIRA */}
+      {modalChur&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 16px"}}>
+          <div style={{background:"white",borderRadius:20,width:"100%",maxWidth:400,padding:"24px 20px"}}>
+            <div style={{fontWeight:800,fontSize:18,marginBottom:16,color:"#1a1f2e",textAlign:"center"}}>🔥 Reservar Churrasqueira</div>
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Data</label>
+              <input type="date" value={churData} onChange={e=>setCHurData(e.target.value)}
+                style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}/>
+            </div>
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Churrasqueira</label>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                {[{id:"ch1",label:"Chur. 1"},{id:"ch2",label:"Chur. 2"},{id:"cha",label:"Areia"}].map(c=>(
+                  <button key={c.id} onClick={()=>setCHurLocal(c.id)}
+                    style={{padding:"10px 4px",borderRadius:8,border:`2px solid ${churLocal===c.id?"#ea580c":"#e0e3e8"}`,background:churLocal===c.id?"#fff7ed":"white",fontWeight:700,fontSize:12,cursor:"pointer",color:churLocal===c.id?"#ea580c":"#374151"}}>
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{marginBottom:16}}>
+              <label style={{fontSize:12,fontWeight:700,color:"#374151",display:"block",marginBottom:4}}>Nome do cliente</label>
+              <input type="text" value={churNome} onChange={e=>setCHurNome(e.target.value)} placeholder="Nome completo"
+                style={{width:"100%",padding:"10px",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14}}/>
+            </div>
+            <button onClick={async()=>{
+              if(!churNome.trim()){alert("Informe o nome do cliente!");return;}
+              await addDoc(collection(db,"churrasqueiras"),{local:churLocal,data:churData,nome:churNome.trim(),em:new Date().toISOString()});
+              setCHurNome("");setModalChur(false);showToast("🔥 Churrasqueira reservada!");
+            }} style={{width:"100%",padding:"13px",background:"#ea580c",color:"white",border:"none",borderRadius:10,fontSize:15,fontWeight:800,cursor:"pointer",marginBottom:10}}>
+              ✅ Confirmar reserva
+            </button>
+            <button onClick={()=>setModalChur(false)}
+              style={{width:"100%",padding:"12px",background:"none",border:"1.5px solid #e0e3e8",borderRadius:10,fontSize:14,fontWeight:600,cursor:"pointer",color:"#6b7280"}}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── MODAL AGENDAMENTO ── */}
       <Modal open={modalA} onClose={()=>setModalA(false)}>
