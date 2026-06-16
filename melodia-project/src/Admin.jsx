@@ -13,6 +13,10 @@ const firebaseConfig = {
 const fbApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(fbApp);
 
+async function addLog(msg) {
+  try { await addDoc(collection(db,"logs"),{msg, em:new Date(), origem:"admin"}); } catch(e){}
+}
+
 const V="#2E7D6B",VE="#1a5248",LA="#E8861A",VM="#e53e3e",BG="#f4f5f7";
 
 const QP=[
@@ -397,37 +401,27 @@ export default function App(){
 
   function calcValorAdmin(ini,fim,qid,pess){
     if(!ini||!fim)return;
-    const q=qds.find(x=>x.id===qid);
-    if(!q)return;
     const[ih,im]=ini.split(":").map(Number);
     const[fh,fm]=fim.split(":").map(Number);
     const durMin=(fh*60+fm)-(ih*60+im);
     if(durMin<=0)return;
-    const numSlots=durMin/30;
     const horas=durMin/60;
-    if(q.cob==="pessoas"){
-      // Areia: R$60/hora base + extra por pessoa acima de 12 por hora completa
+    if(qid==="q2"){
+      // Areia: usa preços centrais
+      const precoAreia=cfg.precoAreia||60;
+      const limiteAreia=cfg.limiteAreia||12;
+      const precoExcedente=cfg.precoExcedente||10;
       const num=parseInt(pess||fPess)||0;
-      const base=horas*60;
-      if(num<=0){setFVal(base.toFixed(2));return;}
-      const fx=q.fx||[];
-      const faixa=fx.find(x=>num<=x.a);
-      let valorHora;
-      if(faixa) valorHora=faixa.v;
-      else {
-        const ex=q.fxExtra;
-        const horasCompletas=Math.floor(horas);
-        const extra=(num-(ex?.base||12))*(ex?.acrescimo||10)*horasCompletas;
-        const baseHora=(ex?.valorBase||70);
-        setFVal((horas*baseHora+extra).toFixed(2));
-        return;
-      }
-      setFVal((horas*valorHora).toFixed(2));
+      const base=horas*precoAreia;
+      const horasCompletas=Math.floor(horas);
+      const extra=num>limiteAreia?(num-limiteAreia)*precoExcedente*horasCompletas:0;
+      setFVal((base+extra).toFixed(2));
       return;
     }
-    const precoPorHora=q.cob==="horario"&&ini>=(q.horarioNoite||"16:00")?(q.precoNoite||q.preco):q.preco;
-    const total=(precoPorHora/60)*durMin;
-    setFVal(total.toFixed(2));
+    // Society: usa preços centrais
+    const horaNoite=cfg.horaNoite||"16:00";
+    const precoPorHora=ini>=horaNoite?(cfg.precoSocietyNoite||130):(cfg.precoSocietyDia||120);
+    setFVal(((precoPorHora/60)*durMin).toFixed(2));
   }
 
   function abrirNovoAg(qid,ini,fim,ds){
@@ -489,7 +483,10 @@ export default function App(){
         }
       }
       for(const data of datas){
-        await addDoc(collection(db,"agendamentos"),{...base,data});
+        await addDoc(collection(db,"agendamentos"),{
+          ...base, data,
+          ...(fRepetir&&fRepAte&&fTipo==="mensalista"?{repAte:fRepAte}:{})
+        });
       }
       addLog(`📅 ${datas.length>1?datas.length+"x ":""}Agendamento: ${fCli||"Avulso"} — ${q?.nome} ${fd(fData)} ${fIni}${datas.length>1?" (recorrente até "+fd(fRepAte)+")":""}`);
       // WhatsApp opcional — disponível no modal de detalhe
@@ -622,9 +619,12 @@ export default function App(){
   const finPorDia={};
   finL.filter(a=>a.st!=="cancelado"&&calcTotalRecebido(a)>0).forEach(a=>{
     const d=a.data||"";
-    if(!finPorDia[d])finPorDia[d]={site:0,balcao:0};
+    if(!finPorDia[d])finPorDia[d]={site:0,balcao:0,society:0,areia:0,sauna:0};
     finPorDia[d].site+=calcPagoOnline(a);
     finPorDia[d].balcao+=(parseFloat(a.pagoMaquina)||0)+(parseFloat(a.pagoDinheiro)||0);
+    if(a.qid==="q1") finPorDia[d].society+=calcTotalRecebido(a);
+    if(a.qid==="q2") finPorDia[d].areia+=calcTotalRecebido(a);
+    finPorDia[d].sauna+=((parseInt(a.saunaQtd)||0)*15);
   });
   const finDias=Object.entries(finPorDia).sort((a,b)=>b[0].localeCompare(a[0]));
 
@@ -638,6 +638,21 @@ export default function App(){
   });
   const cts=Object.entries(ctMap).map(([n,d])=>({n,...d,count:ctCount[n]||0}));
   const clientesFrequentes=cts.filter(c=>c.count>=10).sort((a,b)=>b.count-a.count);
+
+  // Mensalistas vencendo em até 5 dias
+  const hoje5 = new Date();
+  const em5dias = new Date(hoje5.getTime()+5*24*60*60*1000);
+  const ds5 = toDS(em5dias);
+  const dsHoje = toDS(hoje5);
+  const mensalistasVencendo = ags.filter(a=>
+    a.tp==="mensalista" && a.repAte && a.st!=="cancelado" &&
+    a.repAte>=dsHoje && a.repAte<=ds5
+  ).reduce((acc,a)=>{
+    // Deduplicar por cliente+quadra
+    const key = `${a.cli}|${a.qid}`;
+    if(!acc.find(x=>x.key===key)) acc.push({key, cli:a.cli, qnm:a.qnm, repAte:a.repAte, tel:a.tel});
+    return acc;
+  },[]);
   const ctsFilt=busca?cts.filter(c=>c.n.toLowerCase().includes(busca.toLowerCase())):cts;
 
   const TABS=[{id:"agenda",lbl:"📅 Agenda"},{id:"painel",lbl:"📊 Painel"},{id:"agend",lbl:"📋 Agend."},{id:"fin",lbl:"💰 Fin."},{id:"cont",lbl:"👥 Contatos"},{id:"complexo",lbl:"🏟️ Complexo"},{id:"galeria",lbl:"📸 Galeria"},{id:"cfg",lbl:"⚙️ Config"}];
@@ -712,6 +727,13 @@ export default function App(){
 
   if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");setLogado(true);}}/>;
 
+  // Slots de horário de funcionamento baseados na data selecionada
+  const fDataObj = fData ? new Date(fData+'T12:00:00') : new Date();
+  const fDow = fDataObj.getDay();
+  const fFds = fDow===0||fDow===6;
+  const fHA = fFds?9:16, fHB = fFds?18:23;
+  const adminSlots = Array.from({length:50},(_,i)=>{ const m=i*30; const h=Math.floor(m/60).toString().padStart(2,'0'); const min=(m%60).toString().padStart(2,'0'); return h+':'+min; }).filter(s=>{ const[h,m]=s.split(':').map(Number); const min=h*60+m; return min>=fHA*60&&min<=fHB*60; });
+
   return(
     <div style={{fontFamily:"system-ui,sans-serif",background:BG,minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
 
@@ -722,6 +744,11 @@ export default function App(){
           <button onClick={()=>{setShowNotif(v=>!v);const n=logs.length;setLogsLidos(n);localStorage.setItem("adm_logs_lidos",n);}}
             style={{position:"relative",background:"none",border:"none",cursor:"pointer",fontSize:22,padding:4,lineHeight:1}}>
             🔔
+            {mensalistasVencendo.length>0&&(
+              <span style={{position:"absolute",top:-4,left:-4,background:"#dc2626",color:"white",fontSize:9,fontWeight:900,borderRadius:10,padding:"1px 4px",minWidth:14,textAlign:"center"}}>
+                {mensalistasVencendo.length}
+              </span>
+            )}
             {logs.length>logsLidos&&(
               <span style={{position:"absolute",top:0,right:0,background:"#dc2626",color:"white",fontSize:9,fontWeight:900,borderRadius:10,padding:"1px 4px",minWidth:14,textAlign:"center"}}>
                 {logs.length-logsLidos}
@@ -735,12 +762,19 @@ export default function App(){
       {showNotif&&(
         <div style={{position:"fixed",top:56,right:0,width:320,maxHeight:"70vh",overflowY:"auto",background:"white",boxShadow:"0 4px 20px rgba(0,0,0,0.15)",zIndex:200,borderRadius:"0 0 0 12px"}}>
           <div style={{padding:"12px 16px",borderBottom:"1px solid #e0e3e8",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <span style={{fontWeight:800,fontSize:14}}>🔔 Atividade da Shay</span>
+            <span style={{fontWeight:800,fontSize:14}}>🔔 Histórico de Atividades</span>
             <button onClick={()=>setShowNotif(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:"#6b7280"}}>✕</button>
           </div>
           {logs.length===0&&<div style={{padding:20,textAlign:"center",color:"#9ca3af",fontSize:13}}>Nenhuma atividade ainda</div>}
           {logs.map(l=>(
             <div key={l.id} style={{padding:"10px 16px",borderBottom:"1px solid #f3f4f6"}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+                <span style={{fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:6,
+                  background:l.origem==="admin"?"#eff6ff":"#f0fdf4",
+                  color:l.origem==="admin"?"#1e40af":"#16a34a"}}>
+                  {l.origem==="admin"?"⚙️ Admin":"🧑‍💼 Shay"}
+                </span>
+              </div>
               <div style={{fontSize:13,color:"#1a1f2e"}}>{l.msg||l.acao}</div>
               <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>{l.em ? new Date(l.em.seconds?l.em.seconds*1000:l.em).toLocaleString("pt-BR") : ""}</div>
             </div>
@@ -812,6 +846,25 @@ export default function App(){
 
       {/* ── PAINEL ── */}
       {pg==="painel"&&<div style={{padding:16,paddingBottom:80}}>
+
+        {/* MENSALISTAS VENCENDO */}
+        {mensalistasVencendo.length>0&&(
+          <div style={{background:"#fef2f2",border:"1.5px solid #fca5a5",borderRadius:12,padding:"12px 16px",marginBottom:16}}>
+            <div style={{fontWeight:800,fontSize:14,color:"#dc2626",marginBottom:8}}>🔴 Mensalistas vencendo em 5 dias</div>
+            {mensalistasVencendo.map(m=>(
+              <div key={m.key} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid #fecaca"}}>
+                <div>
+                  <div style={{fontSize:13,fontWeight:700,color:"#1a1f2e"}}>{m.cli}</div>
+                  <div style={{fontSize:11,color:"#6b7280"}}>{m.qnm} — vence {new Date(m.repAte+"T12:00:00").toLocaleDateString("pt-BR")}</div>
+                </div>
+                {m.tel&&<a href={`https://wa.me/55${m.tel.replace(/\D/g,"")}`} target="_blank"
+                  style={{fontSize:11,fontWeight:700,color:"white",background:"#25d366",borderRadius:8,padding:"4px 10px",textDecoration:"none"}}>
+                  WhatsApp
+                </a>}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* CLIENTES FREQUENTES */}
         {clientesFrequentes.length>0&&(
@@ -961,11 +1014,17 @@ export default function App(){
         {finDias.length>0&&<div style={{marginBottom:16}}>
           <div style={{fontWeight:700,fontSize:13,color:"#6b7280",marginBottom:8,textTransform:"uppercase"}}>Por dia</div>
           {finDias.map(([d,v])=>(
-            <div key={d} style={{background:"white",borderRadius:10,padding:"10px 14px",marginBottom:6,boxShadow:"0 1px 6px rgba(0,0,0,.06)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div style={{fontWeight:600,fontSize:13,color:"#1a1f2e"}}>{new Date(d+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"short",day:"numeric",month:"short"})}</div>
-              <div style={{display:"flex",gap:12,fontSize:12}}>
-                {v.site>0&&<span style={{color:"#1e40af",fontWeight:700}}>💻 R${v.site.toFixed(0)}</span>}
-                {v.balcao>0&&<span style={{color:"#065f46",fontWeight:700}}>🏟️ R${v.balcao.toFixed(0)}</span>}
+            <div key={d} style={{background:"white",borderRadius:10,padding:"10px 14px",marginBottom:6,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                <div style={{fontWeight:700,fontSize:13,color:"#1a1f2e"}}>{new Date(d+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"short",day:"numeric",month:"short"})}</div>
+                <div style={{fontWeight:800,fontSize:14,color:"#065f46"}}>R$ {(v.site+v.balcao).toFixed(2)}</div>
+              </div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {v.society>0&&<span style={{fontSize:11,fontWeight:700,color:"#065f46",background:"#f0fdf4",borderRadius:6,padding:"2px 8px"}}>⚽ R${v.society.toFixed(0)}</span>}
+                {v.areia>0&&<span style={{fontSize:11,fontWeight:700,color:"#92400e",background:"#fff7ed",borderRadius:6,padding:"2px 8px"}}>🏐 R${v.areia.toFixed(0)}</span>}
+                {v.sauna>0&&<span style={{fontSize:11,fontWeight:700,color:"#5b21b6",background:"#f5f3ff",borderRadius:6,padding:"2px 8px"}}>🧖 R${v.sauna.toFixed(0)}</span>}
+                {v.site>0&&<span style={{fontSize:11,fontWeight:700,color:"#1e40af",background:"#eff6ff",borderRadius:6,padding:"2px 8px"}}>💻 R${v.site.toFixed(0)}</span>}
+                {v.balcao>0&&<span style={{fontSize:11,fontWeight:700,color:"#374151",background:"#f9fafb",borderRadius:6,padding:"2px 8px"}}>🏟️ R${v.balcao.toFixed(0)}</span>}
               </div>
             </div>
           ))}
@@ -1283,8 +1342,18 @@ export default function App(){
           </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
-          <div><label style={lbl}>Início</label><input type="time" style={inp} value={fIni} onChange={e=>{setFIni(e.target.value);calcValorAdmin(e.target.value,fFim,fQid,fPess);}}/></div>
-          <div><label style={lbl}>Fim</label><input type="time" style={inp} value={fFim} onChange={e=>{setFFim(e.target.value);calcValorAdmin(fIni,e.target.value,fQid,fPess);}}/></div>
+          <div><label style={lbl}>Início</label>
+            <select style={inp} value={fIni} onChange={e=>{setFIni(e.target.value);calcValorAdmin(e.target.value,fFim,fQid,fPess);}}>
+              <option value="">--</option>
+              {adminSlots.map(s=><option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div><label style={lbl}>Fim</label>
+            <select style={inp} value={fFim} onChange={e=>{setFFim(e.target.value);calcValorAdmin(fIni,e.target.value,fQid,fPess);}}>
+              <option value="">--</option>
+              {adminSlots.filter(s=>!fIni||s>fIni).map(s=><option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
         </div>
         <div style={{marginBottom:14}}><label style={lbl}>Cliente</label><input style={inp} value={fCli} placeholder="Nome completo" onChange={e=>setFCli(e.target.value)}/></div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
