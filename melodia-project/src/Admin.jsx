@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp, getDocs } from "firebase/firestore";
+import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp, getDocs, setDoc } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAX5kKNmUsqs6g0eD_wpbRAalcu1A8ViWI",
@@ -24,6 +24,9 @@ const QP=[
 ];
 const CFG0={
   nome:"Complexo Esportivo Melodia",pix:"(22) 99900-8085",wpp:"(22) 99900-8085",
+  // Preços centrais (sincronizados com Firebase)
+  precoSocietyDia:120, precoSocietyNoite:130, horaNoite:"16:00",
+  precoAreia:60, limiteAreia:12, precoExcedente:10, precoSauna:15,
   descricao:"Um campo em grama sintética e uma quadra de areia disponíveis para aluguel todos os dias da semana.\nFuncionamento da Sauna: Segunda a Sexta de 17h às 22h · Sábado 9h às 16h.\nReserva de Churrasqueira: (22) 99900-8085.\nNÃO é permitida a entrada de crianças nas quadras.",
   horarios:"Segunda a Sexta: 16h às 23h (Sauna: 18h às 22h)\nSábado e Domingo: 9h às 18h (Sauna: 10h às 17h)",
   regras:"🏖️ REGRAS EXCLUSIVAS DA QUADRA DE AREIA\n\n1. Área Reservada Exclusiva\nA locação da Quadra de Areia inclui o uso exclusivo da quadra, do deck e da churrasqueira da área reservada. Durante o período contratado, esses espaços ficam destinados exclusivamente aos participantes da locação. Para utilização da churrasqueira exclusiva, o período mínimo de locação é de 5 horas.\n\n2. Participantes da Locação\nSão considerados participantes todas as pessoas que utilizarem a área reservada da Quadra de Areia (quadra, deck e churrasqueira), independentemente de estarem jogando.\n\n⚠️ REGRAS GERAIS DO COMPLEXO\n\n3. Consumo no Local\nNão é permitida a entrada de bebidas. O consumo deverá ser realizado através do bar do complexo.\n\n4. Crianças\nPor questões de segurança, não é permitida a permanência de crianças nas quadras durante os jogos.\n\n5. Eventos e Comemorações\nA locação das quadras destina-se à prática esportiva e confraternização entre os participantes da reserva. Aniversários, confraternizações, eventos corporativos, comemorações e reuniões com convidados externos possuem condições e valores específicos e devem ser contratados separadamente.\n\n6. Confirmação\nAo concluir a reserva, você declara estar ciente e de acordo com as regras acima.",
@@ -270,6 +273,9 @@ export default function App(){
   const [finDe,setFinDe]=useState(toDS(hoje()));
   const [finAte,setFinAte]=useState(toDS(hoje()));
   const [busca,setBusca]=useState("");
+  const [logs,setLogs]=useState([]);
+  const [logsLidos,setLogsLidos]=useState(()=>parseInt(localStorage.getItem("adm_logs_lidos")||"0"));
+  const [showNotif,setShowNotif]=useState(false);
 
   useEffect(()=>{
     try {
@@ -296,6 +302,25 @@ export default function App(){
       });
       return ()=>unsub();
     } catch(e){ console.log("Firebase galeria offline",e); }
+  },[]);
+
+  useEffect(()=>{
+    try {
+      const unsubPrecos = onSnapshot(doc(db,"config","precos"), snap=>{
+        if(snap.exists()) setCfg(c=>({...c,...snap.data()}));
+      });
+      return ()=>unsubPrecos();
+    } catch(e){}
+  },[]);
+
+  useEffect(()=>{
+    try {
+      const q = query(collection(db,"logs"), orderBy("em","desc"));
+      const unsub = onSnapshot(q, snap=>{
+        setLogs(snap.docs.map(d=>({id:d.id,...d.data()})));
+      });
+      return ()=>unsub();
+    } catch(e){ console.log("Firebase logs offline",e); }
   },[]);
 
   const [fTipo,setFTipo]=useState("avulso");
@@ -590,8 +615,15 @@ export default function App(){
   const finDias=Object.entries(finPorDia).sort((a,b)=>b[0].localeCompare(a[0]));
 
   const ctMap={};
-  ags.forEach(a=>{if(a.cli)ctMap[a.cli]={tel:a.tel||"",cpf:a.cpf||""};});
-  const cts=Object.entries(ctMap).map(([n,d])=>({n,...d}));
+  const ctCount={};
+  ags.filter(a=>a.st!=="cancelado").forEach(a=>{
+    if(a.cli){
+      ctMap[a.cli]={tel:a.tel||"",cpf:a.cpf||""};
+      ctCount[a.cli]=(ctCount[a.cli]||0)+1;
+    }
+  });
+  const cts=Object.entries(ctMap).map(([n,d])=>({n,...d,count:ctCount[n]||0}));
+  const clientesFrequentes=cts.filter(c=>c.count>=10).sort((a,b)=>b.count-a.count);
   const ctsFilt=busca?cts.filter(c=>c.n.toLowerCase().includes(busca.toLowerCase())):cts;
 
   const TABS=[{id:"agenda",lbl:"📅 Agenda"},{id:"painel",lbl:"📊 Painel"},{id:"agend",lbl:"📋 Agend."},{id:"fin",lbl:"💰 Fin."},{id:"cont",lbl:"👥 Contatos"},{id:"complexo",lbl:"🏟️ Complexo"},{id:"galeria",lbl:"📸 Galeria"},{id:"cfg",lbl:"⚙️ Config"}];
@@ -671,8 +703,36 @@ export default function App(){
 
       <div style={{background:VE,color:"white",padding:"0 16px",height:56,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 8px rgba(0,0,0,.2)"}}>
         <div style={{fontWeight:800,fontSize:18,display:"flex",alignItems:"center",gap:8}}>⚽ MELODIA <span style={{color:LA}}>QUADRAS</span></div>
-        <span style={{background:LA,color:"white",fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:20,textTransform:"uppercase"}}>Admin</span>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{background:LA,color:"white",fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:20,textTransform:"uppercase"}}>Admin</span>
+          <button onClick={()=>{setShowNotif(v=>!v);const n=logs.length;setLogsLidos(n);localStorage.setItem("adm_logs_lidos",n);}}
+            style={{position:"relative",background:"none",border:"none",cursor:"pointer",fontSize:22,padding:4,lineHeight:1}}>
+            🔔
+            {logs.length>logsLidos&&(
+              <span style={{position:"absolute",top:0,right:0,background:"#dc2626",color:"white",fontSize:9,fontWeight:900,borderRadius:10,padding:"1px 4px",minWidth:14,textAlign:"center"}}>
+                {logs.length-logsLidos}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
+
+      {/* PAINEL DE NOTIFICAÇÕES */}
+      {showNotif&&(
+        <div style={{position:"fixed",top:56,right:0,width:320,maxHeight:"70vh",overflowY:"auto",background:"white",boxShadow:"0 4px 20px rgba(0,0,0,0.15)",zIndex:200,borderRadius:"0 0 0 12px"}}>
+          <div style={{padding:"12px 16px",borderBottom:"1px solid #e0e3e8",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontWeight:800,fontSize:14}}>🔔 Atividade da Shay</span>
+            <button onClick={()=>setShowNotif(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:"#6b7280"}}>✕</button>
+          </div>
+          {logs.length===0&&<div style={{padding:20,textAlign:"center",color:"#9ca3af",fontSize:13}}>Nenhuma atividade ainda</div>}
+          {logs.map(l=>(
+            <div key={l.id} style={{padding:"10px 16px",borderBottom:"1px solid #f3f4f6"}}>
+              <div style={{fontSize:13,color:"#1a1f2e"}}>{l.msg||l.acao}</div>
+              <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>{l.em ? new Date(l.em.seconds?l.em.seconds*1000:l.em).toLocaleString("pt-BR") : ""}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div style={{background:"white",display:"flex",borderBottom:"2px solid #e0e3e8",overflowX:"auto",position:"sticky",top:56,zIndex:99}}>
         {TABS.map(t=><button key={t.id} onClick={()=>setPg(t.id)} style={{flex:"none",padding:"12px 14px",fontSize:13,fontWeight:600,color:pg===t.id?V:"#6b7280",cursor:"pointer",border:"none",background:"none",borderBottom:pg===t.id?`3px solid ${V}`:"3px solid transparent",marginBottom:-2,whiteSpace:"nowrap"}}>{t.lbl}</button>)}
@@ -738,6 +798,20 @@ export default function App(){
 
       {/* ── PAINEL ── */}
       {pg==="painel"&&<div style={{padding:16,paddingBottom:80}}>
+
+        {/* CLIENTES FREQUENTES */}
+        {clientesFrequentes.length>0&&(
+          <div style={{background:"#fef9c3",border:"1.5px solid #fde047",borderRadius:12,padding:"12px 16px",marginBottom:16}}>
+            <div style={{fontWeight:800,fontSize:14,color:"#854d0e",marginBottom:8}}>⭐ Clientes Frequentes (10+ reservas)</div>
+            {clientesFrequentes.map(c=>(
+              <div key={c.n} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #fde68a"}}>
+                <span style={{fontSize:13,fontWeight:600,color:"#1a1f2e"}}>{c.n}</span>
+                <span style={{fontSize:13,fontWeight:800,color:"#854d0e"}}>{c.count}x 🏆</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
           {[["Hoje",sHoje],["Este Mês",sMes],["A Receber","R$"+sRec.toFixed(0)],["Recebido Mês","R$"+sRecm.toFixed(0)]].map(([l,v])=>(
             <div key={l} style={{background:"white",borderRadius:12,padding:16,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}>
@@ -901,13 +975,27 @@ export default function App(){
 
       {/* ── CONTATOS ── */}
       {pg==="cont"&&<div style={{padding:16,paddingBottom:80}}>
+        {clientesFrequentes.length>0&&(
+          <div style={{background:"#fef9c3",border:"1.5px solid #fde047",borderRadius:12,padding:"12px 16px",marginBottom:12}}>
+            <div style={{fontWeight:800,fontSize:13,color:"#854d0e",marginBottom:6}}>⭐ Clientes Frequentes (10+ reservas)</div>
+            {clientesFrequentes.map(c=>(
+              <div key={c.n} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0"}}>
+                <span style={{fontSize:13,fontWeight:600}}>{c.n}</span>
+                <span style={{fontSize:12,fontWeight:800,color:"#854d0e",background:"#fef08a",borderRadius:8,padding:"2px 8px"}}>{c.count}x</span>
+              </div>
+            ))}
+          </div>
+        )}
         <input style={{...inp,marginBottom:12}} placeholder="🔍 Buscar cliente..." value={busca} onChange={e=>setBusca(e.target.value)}/>
         <Card>
           {ctsFilt.length===0&&<div style={{textAlign:"center",color:"#6b7280",padding:32}}>Nenhum contato</div>}
           {ctsFilt.map(c=>(
             <div key={c.n} style={{padding:"12px 14px",borderBottom:"1px solid #e0e3e8",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <div>
-                <div style={{fontWeight:600,fontSize:14}}>{c.n}</div>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{fontWeight:600,fontSize:14}}>{c.n}</span>
+                  {c.count>=10&&<span style={{fontSize:10,fontWeight:800,color:"#854d0e",background:"#fef9c3",borderRadius:6,padding:"1px 6px"}}>⭐ {c.count}x</span>}
+                </div>
                 <div style={{fontSize:12,color:"#6b7280"}}>{c.tel||"Sem telefone"}</div>
                 {c.cpf&&<div style={{fontSize:12,color:"#6b7280"}}>CPF: {c.cpf}</div>}
               </div>
@@ -1015,6 +1103,15 @@ export default function App(){
           <div style={{padding:16}}>
             <div style={{marginBottom:14}}><label style={lbl}>Chave Pix</label><input style={inp} value={cfg.pix||""} onChange={e=>setCfg(c=>({...c,pix:e.target.value}))}/></div>
             <div style={{marginBottom:14}}><label style={lbl}>WhatsApp</label><input style={inp} value={cfg.wpp||""} onChange={e=>setCfg(c=>({...c,wpp:e.target.value}))}/></div>
+            <div style={{fontWeight:700,fontSize:12,textTransform:"uppercase",letterSpacing:1,color:"#6b7280",margin:"16px 0 10px"}}>💰 Preços</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div style={{marginBottom:10}}><label style={lbl}>Society — Dia (R$/h)</label><input style={inp} type="number" value={cfg.precoSocietyDia||120} onChange={e=>setCfg(c=>({...c,precoSocietyDia:parseFloat(e.target.value)||120}))}/></div>
+              <div style={{marginBottom:10}}><label style={lbl}>Society — Noite (R$/h)</label><input style={inp} type="number" value={cfg.precoSocietyNoite||130} onChange={e=>setCfg(c=>({...c,precoSocietyNoite:parseFloat(e.target.value)||130}))}/></div>
+              <div style={{marginBottom:10}}><label style={lbl}>Areia (R$/h)</label><input style={inp} type="number" value={cfg.precoAreia||60} onChange={e=>setCfg(c=>({...c,precoAreia:parseFloat(e.target.value)||60}))}/></div>
+              <div style={{marginBottom:10}}><label style={lbl}>Limite sem excedente</label><input style={inp} type="number" value={cfg.limiteAreia||12} onChange={e=>setCfg(c=>({...c,limiteAreia:parseInt(e.target.value)||12}))}/></div>
+              <div style={{marginBottom:10}}><label style={lbl}>Excedente (R$/pessoa/h)</label><input style={inp} type="number" value={cfg.precoExcedente||10} onChange={e=>setCfg(c=>({...c,precoExcedente:parseFloat(e.target.value)||10}))}/></div>
+              <div style={{marginBottom:10}}><label style={lbl}>Sauna (R$/pessoa)</label><input style={inp} type="number" value={cfg.precoSauna||15} onChange={e=>setCfg(c=>({...c,precoSauna:parseFloat(e.target.value)||15}))}/></div>
+            </div>
           </div>
         </Card>
         <div style={{fontWeight:700,fontSize:12,textTransform:"uppercase",letterSpacing:1,color:"#6b7280",margin:"20px 0 10px"}}>Quadras</div>
@@ -1034,7 +1131,21 @@ export default function App(){
         ))}
         <Btn full onClick={()=>{setEditQ(null);setQNm("");setQTp("Futebol Society");setQPr("");setQCr(V);setQCob("fixo");setModalQ(true);}}>+ Adicionar Quadra</Btn>
         <div style={{height:16}}/>
-        <Btn c="v" full onClick={()=>showToast("✅ Configurações salvas!")}>💾 Salvar</Btn>
+        <Btn c="v" full onClick={async()=>{
+          try {
+            await setDoc(doc(db,"config","precos"),{
+              precoSocietyDia: cfg.precoSocietyDia||120,
+              precoSocietyNoite: cfg.precoSocietyNoite||130,
+              horaNoite: cfg.horaNoite||"16:00",
+              precoAreia: cfg.precoAreia||60,
+              limiteAreia: cfg.limiteAreia||12,
+              precoExcedente: cfg.precoExcedente||10,
+              precoSauna: cfg.precoSauna||15,
+              atualizadoEm: new Date().toISOString()
+            });
+            showToast("✅ Configurações e preços salvos!");
+          } catch(e){ showToast("❌ Erro ao salvar!"); }
+        }}>💾 Salvar</Btn>
       </div>}
 
       {/* FAB */}
