@@ -686,18 +686,6 @@ export default function App() {
         </a>
       </div>
 
-      {/* BOTÃO EVENTO */}
-      <div style={{margin:"0 16px 16px"}}>
-        <a href="/evento"
-          style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,background:"rgba(255,255,255,0.12)",border:"1.5px solid rgba(255,255,255,0.25)",borderRadius:14,padding:"14px 20px",textDecoration:"none"}}>
-          <span style={{fontSize:22}}>🎉</span>
-          <div style={{textAlign:"left"}}>
-            <div style={{color:"white",fontWeight:800,fontSize:14}}>Quero fazer um evento</div>
-            <div style={{color:"rgba(255,255,255,0.6)",fontSize:12}}>Aniversários, confraternizações e mais</div>
-          </div>
-          <span style={{color:"rgba(255,255,255,0.5)",marginLeft:"auto",fontSize:18}}>›</span>
-        </a>
-      </div>
 
       {/* LIGHTBOX FOTO AMPLIADA */}
       {fotoAmpliada && (
