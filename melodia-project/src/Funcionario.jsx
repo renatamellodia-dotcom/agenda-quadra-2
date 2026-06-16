@@ -13,6 +13,10 @@ const firebaseConfig = {
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
+
+async function gravarLog(msg) {
+  try { await addDoc(collection(db,"logs"),{msg, em:new Date(), origem:"funcionaria"}); } catch(e){}
+}
 const VE = "#1a5248";
 const SENHA = "melodia123";
 const SAUNA_UNIT = 15;
@@ -203,6 +207,10 @@ export default function App() {
   const [alarme, setAlarme] = useState(null);
   const [aviso5min, setAviso5min] = useState(null);
   const [toast, setToast] = useState("");
+  const [precos, setPrecos] = useState({
+    precoSocietyDia:120, precoSocietyNoite:130, horaNoite:"16:00",
+    precoAreia:60, limiteAreia:12, precoExcedente:10, precoSauna:15
+  });
   const [modalNovaReserva, setModalNovaReserva] = useState(false);
   const [nrQid, setNrQid] = useState("q1");
   const nrDataHoje = toDS(new Date());
@@ -229,6 +237,15 @@ export default function App() {
       return ()=>unsub();
     } catch(e) {}
   },[logado]);
+
+  useEffect(()=>{
+    try {
+      const unsub = onSnapshot(doc(db,"config","precos"), snap=>{
+        if(snap.exists()) setPrecos(p=>({...p,...snap.data()}));
+      });
+      return ()=>unsub();
+    } catch(e){}
+  },[]);
 
   useEffect(()=>{
     const t = setInterval(()=>setHora(new Date()),1000);
@@ -303,6 +320,8 @@ export default function App() {
       await updateDoc(doc(db,"agendamentos",id),update);
       setEdicoes(p=>({...p,[id]:{...p[id],...update}}));
       setAgendamentos(prev=>prev.map(a=>a.id===id?{...a,...update}:a));
+      const tipoLabel = tipo==="mp_total_cartao"?"Máquina":"Dinheiro";
+      gravarLog(`💰 Recebeu R$${falta.toFixed(2)} (${tipoLabel}) — ${agE.cli||"cliente"} ${agE.data||""} ${agE.ini||""}`);
       setToast("✅ R$ "+falta.toFixed(2)+" recebido!");
       setTimeout(()=>setToast(""), 3000);
     } catch(e) {
@@ -326,6 +345,7 @@ export default function App() {
       setEdicoes(p=>({...p,[id]:{...p[id],...update}}));
       setAgendamentos(prev=>prev.map(a=>a.id===id?{...a,...update}:a));
       const total = valMaq+valDin;
+      gravarLog(`💰 Recebeu R$${total.toFixed(2)} (Misto: R$${valMaq.toFixed(2)} máq + R$${valDin.toFixed(2)} din) — ${agE.cli||"cliente"}`);
       setToast("✅ R$ "+total.toFixed(2)+" recebido!");
       setTimeout(()=>setToast(""), 3000);
     } catch(e) {
@@ -338,7 +358,10 @@ export default function App() {
     const update = {pag: agE.pagOriginal||"pendente", pagoMaquina:0, pagoDinheiro:0};
     setEdicoes(p=>({...p,[id]:{...p[id],...update}}));
     setAgendamentos(prev=>prev.map(a=>a.id===id?{...a,...update}:a));
-    try { await updateDoc(doc(db,"agendamentos",id),update); } catch(e){}
+    try {
+      await updateDoc(doc(db,"agendamentos",id),update);
+      gravarLog(`⏱️ Alterou tempo: ${agE.cli||"cliente"} ${agE.data||""} → ${iniAtual} às ${novoFim} (R$${novoVal.toFixed(2)})`);
+    } catch(e){}
   }
   async function salvarPP(id, qtd) {
     const val = Math.max(0, qtd);
@@ -370,6 +393,7 @@ export default function App() {
       });
       setModalNovaReserva(false);
       setNrNome(""); setNrTel(""); setNrIni(""); setNrFim(""); setNrPess("1");
+      gravarLog(`📋 Nova reserva no balcão: ${nrNome} — ${nrQid==="q1"?"Society":"Areia"} ${nrDataHoje} ${nrIni}–${nrFim} R$${val.toFixed(2)}`);
       setToast("✅ Reserva criada!");
       setTimeout(()=>setToast(""),3000);
     } catch(e){ alert("Erro ao criar reserva: "+e.message); }
@@ -400,10 +424,10 @@ export default function App() {
     const duracaoNovaMin = novoFimMin - toMin(iniAtual);
     let novoVal;
     if(qid==="q1") {
-      const precoHora = iniAtual>="16:00" ? 130 : 120;
+      const precoHora = iniAtual>=HORA_NOITE ? SOC_NOITE : SOC_DIA;
       novoVal = parseFloat((precoHora*(duracaoNovaMin/60)).toFixed(2));
     } else {
-      novoVal = parseFloat((60*(duracaoNovaMin/60)).toFixed(2)); // Areia: R$60/h até 12 pessoas
+      novoVal = parseFloat((AREIA_P*(duracaoNovaMin/60)).toFixed(2)); // Areia: preço central
     }
     // Guarda valOriginal na primeira vez que o tempo é alterado
     const update = {fim:novoFim, val:novoVal};
@@ -412,7 +436,10 @@ export default function App() {
     }
     setEdicoes(p=>({...p,[id]:{...p[id],...update}}));
     setAgendamentos(prev=>prev.map(a=>a.id===id?{...a,...update}:a));
-    try { await updateDoc(doc(db,"agendamentos",id),update); } catch(e){}
+    try {
+      await updateDoc(doc(db,"agendamentos",id),update);
+      gravarLog(`⏱️ Alterou tempo: ${agE.cli||"cliente"} ${agE.data||""} → ${iniAtual} às ${novoFim} (R$${novoVal.toFixed(2)})`);
+    } catch(e){}
   }
 
   const agsDia = agendamentos
@@ -441,6 +468,15 @@ export default function App() {
     return d.toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"});
   }
 
+  // Preços centralizados (lidos do Firebase)
+  const SAUNA_P = precos.precoSauna||15;
+  const AREIA_P = precos.precoAreia||60;
+  const AREIA_LIM = precos.limiteAreia||12;
+  const AREIA_EXC = precos.precoExcedente||10;
+  const SOC_DIA = precos.precoSocietyDia||120;
+  const SOC_NOITE = precos.precoSocietyNoite||130;
+  const HORA_NOITE = precos.horaNoite||"16:00";
+
   // Cálculos para modal de nova reserva no balcão
   const nrDataObj = nrDataHoje ? new Date(nrDataHoje+'T12:00:00') : new Date();
   const nrDow = nrDataObj.getDay();
@@ -448,12 +484,12 @@ export default function App() {
   const nrHA = nrFds?9:16, nrHB = nrFds?18:23;
   const nrSlots = Array.from({length:50},(_,i)=>toHr(i*30)).filter(s=>{const m=toMin(s);return m>=(nrFds?9:16)*60&&m<=(nrFds?18:23)*60;});
   const nrDur = nrIni&&nrFim&&toMin(nrFim)>toMin(nrIni)?toMin(nrFim)-toMin(nrIni):0;
-  const nrPh = nrQid==="q1"?(nrIni>="16:00"?130:120):60;
+  const nrPh = nrQid==="q1"?(nrIni>=HORA_NOITE?SOC_NOITE:SOC_DIA):AREIA_P;
   const nrValBase = parseFloat((nrPh*(nrDur/60)).toFixed(2));
   const nrPessNum = parseInt(nrPess)||0;
   const nrHoras = Math.floor(nrDur/60);
-  const nrExcQtd = nrQid==="q2"&&nrPessNum>12&&nrHoras>=1?nrPessNum-12:0;
-  const nrExcVal = nrExcQtd*10*nrHoras;
+  const nrExcQtd = nrQid==="q2"&&nrPessNum>AREIA_LIM&&nrHoras>=1?nrPessNum-AREIA_LIM:0;
+  const nrExcVal = nrExcQtd*AREIA_EXC*nrHoras;
   const nrValTotal = nrValBase+nrExcVal;
 
   return (
@@ -600,9 +636,9 @@ export default function App() {
           const pp = getPP(agE);
           const agendadas = parseInt(agE.pess)||0;
           const saunaQtd = parseInt(agE.saunaQtd)||0;
-          const saunaVal = saunaQtd * SAUNA_UNIT;
+          const saunaVal = saunaQtd * SAUNA_P;
           const excVal = valorExcedente(agE, pp);
-          const excQtd = Math.max(0, pp - 12);
+          const excQtd = Math.max(0, pp - AREIA_LIM);
           const cobrar = faltaReceber(agE, pp);
           const agoraMin = hora.getHours()*60+hora.getMinutes();
           const iniMin = toMin(a.ini);
