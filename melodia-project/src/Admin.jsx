@@ -201,23 +201,6 @@ function Login({onLogin}){
     if(senha===SENHA_ADMIN){ onLogin(); }
     else{ setErro(true); setSenha(""); }
   }
-  function exportarCSV() {
-    const periodo = finTipo==="mes" ? finMes : finTipo==="semana" ? "7dias" : finTipo==="quinzena" ? "15dias" : finDe+"_"+finAte;
-    const cab = "Data;Horario;Cliente;Quadra;Pessoas;Pagamento;Valor;Pago Online;A Receber;Status";
-    const rows = [...finL].sort(function(a,b){return a.data.localeCompare(b.data);}).map(function(a){
-      return [fd(a.data),a.ini+" as "+a.fim,a.cli||"Avulso",a.qnm||"",a.pess||"",a.pag||"",(a.val||0).toFixed(2),pagoPeloSite(a).toFixed(2),saldoRestante(a).toFixed(2),a.st||""].join(";");
-    });
-    const csv = cab + "\r\n" + rows.join("\r\n");
-    const blob = new Blob([csv],{type:"text/csv;charset=utf-8;"});
-    const url = URL.createObjectURL(blob);
-    const el = document.createElement("a");
-    el.href = url;
-    el.download = "financeiro_"+periodo+".csv";
-    el.click();
-    URL.revokeObjectURL(url);
-    showToast("Exportado!");
-  }
-
   return(
     <div style={{minHeight:"100vh",background:"#f0f4f8",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"system-ui,sans-serif",padding:16}}>
       <div style={{background:"white",borderRadius:20,padding:"36px 28px",width:"100%",maxWidth:360,boxShadow:"0 8px 32px rgba(0,0,0,0.10)"}}>
@@ -726,6 +709,23 @@ export default function App(){
   
 
   if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");setLogado(true);}}/>;
+
+  function exportarCSV() {
+    const periodo = finTipo==="mes" ? finMes : finTipo==="semana" ? "7dias" : finTipo==="quinzena" ? "15dias" : finDe+"_"+finAte;
+    const cab = "Data;Horario;Cliente;Quadra;Pessoas;Pagamento;Valor;Pago Online;A Receber;Status";
+    const rows = [...finL].sort((a,b)=>a.data.localeCompare(b.data)).map(a=>{
+      return [fd(a.data),a.ini+" as "+a.fim,a.cli||"Avulso",a.qnm||"",a.pess||"",a.pag||"",(a.val||0).toFixed(2),calcPagoOnline(a).toFixed(2),saldoRestante(a).toFixed(2),a.st||""].join(";");
+    });
+    const csv = cab + "\r\n" + rows.join("\r\n");
+    const blob = new Blob([csv],{type:"text/csv;charset=utf-8;"});
+    const url = URL.createObjectURL(blob);
+    const el = document.createElement("a");
+    el.href = url;
+    el.download = "financeiro_"+periodo+".csv";
+    el.click();
+    URL.revokeObjectURL(url);
+    showToast("✅ Exportado!");
+  }
 
   // Slots de horário de funcionamento baseados na data selecionada
   const fDataObj = fData ? new Date(fData+'T12:00:00') : new Date();
