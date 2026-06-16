@@ -35,37 +35,53 @@ function hoje(){const d=new Date();d.setHours(0,0,0,0);return d;}
 function toDS(d){return d.toISOString().split("T")[0];}
 function agora(){return new Date().toISOString();}
 
+// Quanto foi pago online (usa valPagoOnline/valOriginal fixos se disponíveis)
+function pagoPeloSite(ag){
+  if(!ag) return 0;
+  const pag=ag.pag||"";
+  if(isParcial(pag)){
+    if(ag.valPagoOnline!==undefined) return parseFloat(ag.valPagoOnline)||0;
+    return (parseFloat(ag.valOriginal??ag.val)||0)*0.5;
+  }
+  if(["mp_pix","mp_cartao","mp_total"].includes(pag)){
+    return parseFloat(ag.valPagoOnline??ag.valOriginal??ag.val)||0;
+  }
+  return 0;
+}
+
+// Quanto falta receber (considera pagoMaquina/pagoDinheiro)
 function saldoRestante(ag){
   if(!ag) return 0;
   const val=parseFloat(ag.val)||0;
-  if(isPago(ag.pag)) return 0;
-  if(isParcial(ag.pag)) return val*0.5;
-  if(ag.pag==="pendente") return val;
-  return 0;
+  const pago=pagoPeloSite(ag)+(parseFloat(ag.pagoMaquina)||0)+(parseFloat(ag.pagoDinheiro)||0);
+  const falta=val-pago;
+  return falta<0.01?0:falta;
 }
 
-function pagoPeloSite(ag){
-  if(!ag) return 0;
-  const val=parseFloat(ag.val)||0;
+// Label de pagamento detalhado
+function labelPag(ag){
   const pag=ag.pag||"";
-  if(["mp_pix","mp_cartao","mp_total"].includes(pag)) return val;
-  if(pag==="mp_50") return val*0.5;
-  return 0;
+  const falta=saldoRestante(ag);
+  const maq=parseFloat(ag.pagoMaquina)||0;
+  const din=parseFloat(ag.pagoDinheiro)||0;
+  if(pag==="pendente") return "⏳ Pendente";
+  if(isParcial(pag)&&falta>0) return `💛 50% pago — falta R$${falta.toFixed(2)}`;
+  if(falta<=0){
+    if(maq>0&&din>0) return "✅ Quitado — Misto";
+    if(maq>0) return "✅ Quitado — Máquina";
+    if(din>0) return "✅ Quitado — Dinheiro";
+    if(["mp_pix","mp_total_pix"].includes(pag)) return "✅ Quitado — Pix";
+    if(["mp_cartao","mp_total_cartao"].includes(pag)) return "✅ Quitado — Cartão";
+    return "✅ Quitado";
+  }
+  return `💰 Falta R$${falta.toFixed(2)}`;
 }
 
-function labelPag(pag,val){
-  const v=parseFloat(val)||0;
-  const map={
-    pendente:"⏳ Pendente",
-    mp_50:`💛 50% pago — falta R$${(v*0.5).toFixed(2)}`,
-    mp_total:"✅ Quitado",
-    mp_pix:"✅ Pago — Pix",
-    mp_cartao:"✅ Pago — Cartão",
-    mp_total_pix:"✅ Pago — Pix",
-    mp_total_cartao:"✅ Pago — Cartão",
-    mp_total_dinheiro:"✅ Pago — Dinheiro",
-  };
-  return map[pag]||pag;
+// Origem da reserva
+function origemTag(ag){
+  if(ag.tp==="balcao") return {label:"🏟️ Balcão", cor:"#92400e", bg:"#fef3c7"};
+  if(ag.tp==="admin"||ag.tp==="manual") return {label:"⚙️ Admin", cor:"#1e40af", bg:"#eff6ff"};
+  return {label:"🌐 Online", cor:"#065f46", bg:"#f0fdf4"};
 }
 
 function isPago(pag){ return ["mp_total","mp_pix","mp_cartao","mp_total_pix","mp_total_cartao","mp_total_dinheiro","mp_total_misto"].includes(pag); }
@@ -136,10 +152,13 @@ function Badge({t,children}){
   return <span style={{display:"inline-flex",alignItems:"center",padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:700,background:bg,color:cl}}>{children}</span>;
 }
 
-function BadgePag({pag,val}){
-  if(isPago(pag)) return <Badge t="quitado">{labelPag(pag,val)}</Badge>;
-  if(isParcial(pag)) return <Badge t="parcial">{labelPag(pag,val)}</Badge>;
-  return <Badge t="receber">{labelPag(pag,val)}</Badge>;
+function BadgePag({ag}){
+  const pag=ag?.pag||"";
+  const label=labelPag(ag);
+  const falta=saldoRestante(ag);
+  if(isPago(pag)&&falta<=0) return <Badge t="quitado">{label}</Badge>;
+  if(isParcial(pag)||falta>0) return <Badge t="parcial">{label}</Badge>;
+  return <Badge t="receber">{label}</Badge>;
 }
 
 function Modal({open,onClose,children}){
@@ -608,21 +627,30 @@ export default function App(){
               <span style={{fontSize:11,color:"#9ca3af"}}>toque p/ desbloquear</span>
             </div>
           );
-          if(ag)return(
-            <div key={hr} style={{display:"flex",alignItems:"center",padding:"10px 12px",borderRadius:8,marginBottom:6,cursor:"pointer",border:"1.5px solid #fed7aa",background:"#fff7ed"}} onClick={()=>setModalD(ag)}>
-              <div style={{fontWeight:700,fontSize:14,minWidth:105,color:"#9a3412"}}>{ag.ini}–{ag.fim}</div>
-              <div style={{flex:1,fontSize:13}}>
-                <div style={{fontWeight:600}}>{ag.cli||"Reservado"}</div>
-                <div style={{fontSize:11,color:"#6b7280"}}>{ag.tp}{ag.pess?` · ${ag.pess} pess.`:""}</div>
+          if(ag)return(()=>{
+            const orig=origemTag(ag);
+            const label=labelPag(ag);
+            const falta=saldoRestante(ag);
+            const saunaQtd=parseInt(ag.saunaQtd)||0;
+            return(
+            <div key={hr} style={{display:"flex",alignItems:"center",padding:"10px 12px",borderRadius:8,marginBottom:6,cursor:"pointer",border:`1.5px solid ${falta>0?"#fca5a5":"#bbf7d0"}`,background:falta>0?"#fff7ed":"#f0fdf4"}} onClick={()=>setModalD(ag)}>
+              <div style={{fontWeight:700,fontSize:14,minWidth:105,color:"#374151"}}>{ag.ini}–{ag.fim}</div>
+              <div style={{flex:1,fontSize:13,minWidth:0}}>
+                <div style={{fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ag.cli||"Reservado"}</div>
+                <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
+                  <span style={{fontSize:10,fontWeight:700,color:orig.cor,background:orig.bg,borderRadius:4,padding:"1px 5px"}}>{orig.label}</span>
+                  {ag.pess&&<span style={{fontSize:10,color:"#6b7280"}}>👥 {ag.pess}</span>}
+                  {saunaQtd>0&&<span style={{fontSize:10,color:"#16a34a"}}>🧖 {saunaQtd}p</span>}
+                </div>
+                <div style={{fontSize:10,color:falta>0?"#dc2626":"#16a34a",marginTop:2,fontWeight:600}}>{label}</div>
               </div>
-              <div style={{textAlign:"right"}}>
-                <div style={{fontWeight:700,fontSize:13,color:VE}}>R${(ag.val||0).toFixed(0)}</div>
-                {pagoPeloSite(ag)>0&&<div style={{fontSize:10,color:"#1e40af"}}>💳 R${pagoPeloSite(ag).toFixed(0)} site</div>}
-                {saldoRestante(ag)>0&&<div style={{fontSize:10,color:"#92400e"}}>💰 R${saldoRestante(ag).toFixed(0)} balcão</div>}
-                {ag.sauna&&<div style={{fontSize:10,color:"#16a34a"}}>🧖 R$15</div>}
+              <div style={{textAlign:"right",minWidth:60}}>
+                <div style={{fontWeight:800,fontSize:14,color:"#1a1f2e"}}>R${(ag.val||0).toFixed(0)}</div>
+                {falta>0&&<div style={{fontSize:10,color:"#dc2626",fontWeight:700}}>−R${falta.toFixed(0)}</div>}
               </div>
             </div>
-          );
+            );
+          })();
           return(
             <div key={hr} style={{display:"flex",alignItems:"center",padding:"10px 12px",borderRadius:8,marginBottom:6,cursor:"pointer",border:"1.5px solid #bbf7d0",background:"#f0fdf4"}} onClick={()=>abrirNovoAg(q.id,hr,hf,ds)}>
               <div style={{fontWeight:700,fontSize:14,minWidth:105,color:VE}}>{hr}</div>
@@ -752,7 +780,7 @@ export default function App(){
                 <Badge t={a.st||"confirmado"}>{a.st||"confirmado"}</Badge>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <BadgePag pag={a.pag} val={a.val}/>
+                <BadgePag ag={{pag:a.pag,val:a.val}}/>
                 <div style={{textAlign:"right"}}>
                   <span style={{fontWeight:700,fontSize:16,color:VE}}>R$ {(a.val||0).toFixed(2)}</span>
                   {isParcial(a.pag)&&<div style={{fontSize:11,color:"#854d0e",marginTop:2}}>falta R$ {(a.val*0.5).toFixed(2)} na chegada</div>}
@@ -859,7 +887,7 @@ export default function App(){
               <div>
                 <div style={{fontWeight:600,fontSize:14}}>{a.cli||"Avulso"}{a.st==="cancelado"?" (cancelado)":""}</div>
                 <div style={{fontSize:12,color:"#6b7280"}}>{a.qnm} · {fd(a.data)} {a.ini}</div>
-                <BadgePag pag={a.pag} val={a.val}/>
+                <BadgePag ag={{pag:a.pag,val:a.val}}/>
               </div>
               <div style={{textAlign:"right"}}>
                 <div style={{fontWeight:700,color:isPago(a.pag)?"#065f46":isParcial(a.pag)?"#854d0e":VM,fontSize:15}}>R$ {(a.val||0).toFixed(2)}</div>
@@ -1158,7 +1186,7 @@ export default function App(){
 
           <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
             <Badge t={modalD.st||"confirmado"}>{modalD.st}</Badge>
-            <BadgePag pag={modalD.pag} val={modalD.val}/>
+            <BadgePag ag={{pag:modalD.pag,val:modalD.val}}/>
             {modalD.churr&&<Badge t="confirmado">🍖 Churrasqueira</Badge>}
           </div>
           {modalD.obs&&<div style={{background:"#f9fafb",padding:12,borderRadius:8,fontSize:13,marginBottom:16}}><strong>Obs:</strong> {modalD.obs}</div>}
