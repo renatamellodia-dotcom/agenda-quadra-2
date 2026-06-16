@@ -846,45 +846,45 @@ export default function App(){
             ))}
           </div>
         </Card>
-      </div>}
 
-      {/* ── CHURRASQUEIRAS ── */}
-      {pg==="agenda"&&(()=>{
-        const ds2=toDS(dtA);
-        const chDia=churrasqueiras.filter(c=>c.data===ds2);
-        const CHURS=[{id:"ch1",label:"🔥 Churrasqueira 1"},{id:"ch2",label:"🔥 Churrasqueira 2"},{id:"cha",label:"🔥 Churrasqueira da Areia"}];
-        return(
-          <div style={{padding:"0 16px 16px"}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-              <div style={{fontWeight:700,fontSize:13,color:"#374151"}}>🔥 Churrasqueiras</div>
-              <button onClick={()=>{setCHurData(ds2);setModalChur(true);}}
-                style={{background:"#ea580c",color:"white",border:"none",borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>
-                + Reservar
-              </button>
+        {/* CHURRASQUEIRAS */}
+        {(()=>{
+          const ds2=toDS(dtA);
+          const chDia=churrasqueiras.filter(c=>c.data===ds2);
+          const CHURS=[{id:"ch1",label:"🔥 Churrasqueira 1"},{id:"ch2",label:"🔥 Churrasqueira 2"},{id:"cha",label:"🔥 Churrasqueira da Areia"}];
+          return(
+            <div style={{marginTop:16}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                <div style={{fontWeight:700,fontSize:13,color:"#374151"}}>🔥 Churrasqueiras</div>
+                <button onClick={()=>{setCHurData(ds2);setModalChur(true);}}
+                  style={{background:"#ea580c",color:"white",border:"none",borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                  + Reservar
+                </button>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                {CHURS.map(ch=>{
+                  const reservas=chDia.filter(c=>c.local===ch.id);
+                  return(
+                    <div key={ch.id} style={{background:reservas.length>0?"#fff7ed":"#f9fafb",border:`1.5px solid ${reservas.length>0?"#fed7aa":"#e0e3e8"}`,borderRadius:10,padding:"10px 8px",textAlign:"center"}}>
+                      <div style={{fontSize:11,fontWeight:700,color:reservas.length>0?"#ea580c":"#6b7280",marginBottom:4}}>{ch.label}</div>
+                      {reservas.length===0
+                        ? <div style={{fontSize:11,color:"#9ca3af"}}>Livre</div>
+                        : reservas.map(r=>(
+                            <div key={r.id} style={{fontSize:11,fontWeight:600,color:"#9a3412",background:"#ffedd5",borderRadius:6,padding:"2px 4px",marginBottom:3,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                              <span>{r.nome}</span>
+                              <button onClick={async()=>{if(window.confirm("Cancelar?"))await deleteDoc(doc(db,"churrasqueiras",r.id));}}
+                                style={{background:"none",border:"none",cursor:"pointer",color:"#dc2626",fontSize:12,padding:0,marginLeft:4}}>✕</button>
+                            </div>
+                          ))
+                      }
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-              {CHURS.map(ch=>{
-                const reservas=chDia.filter(c=>c.local===ch.id);
-                return(
-                  <div key={ch.id} style={{background:reservas.length>0?"#fff7ed":"#f9fafb",border:`1.5px solid ${reservas.length>0?"#fed7aa":"#e0e3e8"}`,borderRadius:10,padding:"10px 8px",textAlign:"center"}}>
-                    <div style={{fontSize:11,fontWeight:700,color:reservas.length>0?"#ea580c":"#6b7280",marginBottom:4}}>{ch.label}</div>
-                    {reservas.length===0
-                      ? <div style={{fontSize:11,color:"#9ca3af"}}>Livre</div>
-                      : reservas.map(r=>(
-                          <div key={r.id} style={{fontSize:11,fontWeight:600,color:"#9a3412",background:"#ffedd5",borderRadius:6,padding:"2px 4px",marginBottom:3,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                            <span>{r.nome}</span>
-                            <button onClick={async()=>{if(window.confirm("Cancelar reserva de "+r.nome+"?"))await deleteDoc(doc(db,"churrasqueiras",r.id));}}
-                              style={{background:"none",border:"none",cursor:"pointer",color:"#dc2626",fontSize:12,padding:0,marginLeft:4}}>✕</button>
-                          </div>
-                        ))
-                    }
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
+      </div>}
 
       {/* ── AGENDAMENTOS ── */}
       {pg==="agend"&&<div style={{padding:16,paddingBottom:80}}>
@@ -906,7 +906,7 @@ export default function App(){
                 <Badge t={a.st||"confirmado"}>{a.st||"confirmado"}</Badge>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <BadgePag ag={{pag:a.pag,val:a.val}}/>
+                <BadgePag ag={a}/>
                 <div style={{textAlign:"right"}}>
                   <span style={{fontWeight:700,fontSize:16,color:VE}}>R$ {(a.val||0).toFixed(2)}</span>
                   {isParcial(a.pag)&&<div style={{fontSize:11,color:"#854d0e",marginTop:2}}>falta R$ {(a.val*0.5).toFixed(2)} na chegada</div>}
@@ -1013,7 +1013,7 @@ export default function App(){
               <div>
                 <div style={{fontWeight:600,fontSize:14}}>{a.cli||"Avulso"}{a.st==="cancelado"?" (cancelado)":""}</div>
                 <div style={{fontSize:12,color:"#6b7280"}}>{a.qnm} · {fd(a.data)} {a.ini}</div>
-                <BadgePag ag={{pag:a.pag,val:a.val}}/>
+                <BadgePag ag={a}/>
               </div>
               <div style={{textAlign:"right"}}>
                 <div style={{fontWeight:700,color:isPago(a.pag)?"#065f46":isParcial(a.pag)?"#854d0e":VM,fontSize:15}}>R$ {(a.val||0).toFixed(2)}</div>
@@ -1390,7 +1390,7 @@ export default function App(){
 
           <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
             <Badge t={modalD.st||"confirmado"}>{modalD.st}</Badge>
-            <BadgePag ag={{pag:modalD.pag,val:modalD.val}}/>
+            <BadgePag ag={modalD}/>
             {modalD.churr&&<Badge t="confirmado">🍖 Churrasqueira</Badge>}
           </div>
           {modalD.obs&&<div style={{background:"#f9fafb",padding:12,borderRadius:8,fontSize:13,marginBottom:16}}><strong>Obs:</strong> {modalD.obs}</div>}
