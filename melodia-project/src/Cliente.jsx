@@ -135,6 +135,10 @@ export default function App() {
   const [slotsSalvos, setSlotsSalvos] = useState([]);
   const [blackouts, setBlackouts] = useState([]);
   const [fotos, setFotos] = useState([]);
+  const [precos, setPrecos] = useState({
+    precoSocietyDia:120, precoSocietyNoite:130, horaNoite:"16:00",
+    precoAreia:60, limiteAreia:12, precoExcedente:10, precoSauna:15
+  });
   const [fotoAmpliada, setFotoAmpliada] = useState(null); // slots confirmados para cálculo
 
   const dias = gerarDias();
@@ -165,6 +169,15 @@ export default function App() {
       });
       return ()=>unsub();
     } catch(e){ console.log("Firebase galeria offline",e); }
+  },[]);
+
+  useEffect(()=>{
+    try {
+      const unsub = onSnapshot(doc(db,"config","precos"), snap=>{
+        if(snap.exists()) setPrecos(p=>({...p,...snap.data()}));
+      });
+      return ()=>unsub();
+    } catch(e){}
   },[]);
 
   // Limpa agendamentos aguardando_pagamento com mais de 5 minutos
@@ -308,29 +321,27 @@ export default function App() {
     if (q.cob === "areia") {
       const num = parseInt(n)||0;
       const slotsRef = slotsSalvos.length > 0 ? slotsSalvos : slotsSel;
-      const baseSlots = calcValorSlots(slotsRef, q);
       const numSlots = slotsRef.length;
+      const precoAreia = precos.precoAreia||60;
+      const baseSlots = (precoAreia/2) * numSlots;
       // Extra por pessoa: só em reservas de 1h ou mais, cobrado por hora COMPLETA
       const horasCompletas = Math.floor(numSlots / 2);
-      const extraPessoas = (numSlots >= 2 && num > q.pessoasBase) ? (num - q.pessoasBase) * q.acrescimoPessoa * horasCompletas : 0;
+      const limiteAreia = precos.limiteAreia||12;
+      const precoExc = precos.precoExcedente||10;
+      const extraPessoas = (numSlots >= 2 && num > limiteAreia) ? (num - limiteAreia) * precoExc * horasCompletas : 0;
       const total = baseSlots + extraPessoas;
-      if (extraPessoas > 0) setHintPess(num+" pessoas → R$"+baseSlots+" + "+(num-q.pessoasBase)+"×R$10×"+horasCompletas+"h = R$"+total);
+      if (extraPessoas > 0) setHintPess(num+" pessoas → R$"+baseSlots+" + "+(num-limiteAreia)+"×R$"+precoExc+"×"+horasCompletas+"h = R$"+total);
       else setHintPess(num+" pessoa"+(num>1?"s":"")+" → R$"+total);
       return total;
     }
     if (!n || n <= 0) return 0;
-    const num = parseInt(n);
-    const faixa = (q.fx||[]).find(x => num <= x.a);
-    if (faixa) { setHintPess(num+" pessoa"+(num>1?"s":"")+" → R$"+faixa.v+"/hora"); return faixa.v; }
-    const extra = num - 12;
-    const total = 70 + (extra * 10);
-    setHintPess(num+" pessoas → R$70 + "+extra+"×R$10 = R$"+total+"/hora");
-    return total;
+    return 0;
   }
 
   function precoSociety(ini, q) {
     if (q.cob !== "horario") return q.preco;
-    const valorHora = ini >= q.horarioNoite ? q.precoNoite : q.preco;
+    const horaNoite = precos.horaNoite||"16:00";
+    const valorHora = ini >= horaNoite ? (precos.precoSocietyNoite||130) : (precos.precoSocietyDia||120);
     return valorHora / 2;
   }
 
