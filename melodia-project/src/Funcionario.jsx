@@ -205,7 +205,7 @@ export default function App() {
   const [toast, setToast] = useState("");
   const [modalNovaReserva, setModalNovaReserva] = useState(false);
   const [nrQid, setNrQid] = useState("q1");
-  const [nrData, setNrData] = useState(toDS(new Date()));
+  const [nrData] = useState(toDS(new Date()));
   const [nrIni, setNrIni] = useState("");
   const [nrFim, setNrFim] = useState("");
   const [nrNome, setNrNome] = useState("");
@@ -547,7 +547,7 @@ export default function App() {
         </div>
 
         {/* BOTÃO NOVA RESERVA NO BALCÃO */}
-        <button onClick={()=>{setNrData(toDS(new Date()));setModalNovaReserva(true);}}
+        <button onClick={()=>setModalNovaReserva(true)}
           style={{width:"100%",padding:"10px",background:"rgba(255,255,255,0.15)",border:"1.5px solid rgba(255,255,255,0.35)",borderRadius:10,color:"white",fontWeight:700,fontSize:13,cursor:"pointer",marginBottom:8}}>
           ➕ Nova reserva no balcão
         </button>
