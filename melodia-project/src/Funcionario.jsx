@@ -547,10 +547,12 @@ export default function App() {
         </div>
 
         {/* BOTÃO NOVA RESERVA NO BALCÃO */}
+        {dia===hoje()&&(
         <button onClick={()=>setModalNovaReserva(true)}
           style={{width:"100%",padding:"10px",background:"rgba(255,255,255,0.15)",border:"1.5px solid rgba(255,255,255,0.35)",borderRadius:10,color:"white",fontWeight:700,fontSize:13,cursor:"pointer",marginBottom:8}}>
           ➕ Nova reserva no balcão
         </button>
+        )}
 
         {/* BOTÃO FECHAMENTO DO DIA */}
         <button onClick={()=>{
