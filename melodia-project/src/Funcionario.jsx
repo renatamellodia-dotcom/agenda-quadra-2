@@ -207,6 +207,7 @@ export default function App() {
   const [alarme, setAlarme] = useState(null);
   const [aviso5min, setAviso5min] = useState(null);
   const [toast, setToast] = useState("");
+  const [churrasqueiras, setChurrasqueiras] = useState([]);
   const [precos, setPrecos] = useState({
     precoSocietyDia:120, precoSocietyNoite:130, horaNoite:"16:00",
     precoAreia:60, limiteAreia:12, precoExcedente:10, precoSauna:15
@@ -237,6 +238,15 @@ export default function App() {
       return ()=>unsub();
     } catch(e) {}
   },[logado]);
+
+  useEffect(()=>{
+    try {
+      const unsub = onSnapshot(collection(db,"churrasqueiras"), snap=>{
+        setChurrasqueiras(snap.docs.map(d=>({id:d.id,...d.data()})));
+      });
+      return ()=>unsub();
+    } catch(e){}
+  },[]);
 
   useEffect(()=>{
     try {
@@ -581,6 +591,30 @@ export default function App() {
             </div>
           ))}
         </div>
+
+        {/* CHURRASQUEIRAS DO DIA */}
+        {(()=>{
+          const CHURS=[{id:"ch1",label:"Chur. 1"},{id:"ch2",label:"Chur. 2"},{id:"cha",label:"Areia"}];
+          const chDia=churrasqueiras.filter(c=>c.data===dia);
+          if(chDia.length===0) return null;
+          return(
+            <div style={{background:"rgba(255,255,255,0.1)",borderRadius:12,padding:"12px 14px",marginBottom:10}}>
+              <div style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.7)",textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>🔥 Churrasqueiras reservadas</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+                {CHURS.map(ch=>{
+                  const res=chDia.filter(c=>c.local===ch.id);
+                  return(
+                    <div key={ch.id} style={{background:res.length>0?"rgba(234,88,12,0.3)":"rgba(255,255,255,0.05)",borderRadius:8,padding:"6px 8px",textAlign:"center"}}>
+                      <div style={{fontSize:10,fontWeight:700,color:res.length>0?"#fed7aa":"rgba(255,255,255,0.4)"}}>{ch.label}</div>
+                      {res.map(r=><div key={r.id} style={{fontSize:10,color:"#ffedd5",marginTop:2}}>{r.nome}</div>)}
+                      {res.length===0&&<div style={{fontSize:10,color:"rgba(255,255,255,0.3)"}}>Livre</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* BOTÃO NOVA RESERVA NO BALCÃO */}
         {dia===hoje()&&(
