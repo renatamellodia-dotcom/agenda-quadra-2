@@ -39,7 +39,6 @@ function validarCPF(c) {
   s=0; for(let i=0;i<10;i++) s+=parseInt(c[i])*(11-i);
   r=(s*10)%11; if(r===10||r===11) r=0; return r===parseInt(c[10]);
 }
-
 function validarEmail(em) { return /^[^@ ]+@[^@ ]+[.][^@ ]+$/.test(em.trim()); }
 function validarTel(t) { return t.replace(/[^0-9]/g,"").length >= 10; }
 function validarNome(nm) { return nm.trim().split(" ").filter(function(p){return p.length>0;}).length >= 2; }
