@@ -262,6 +262,10 @@ export default function App(){
   const [busca,setBusca]=useState("");
   const [churrasqueiras,setChurrasqueiras]=useState([]);
   const [modalChur,setModalChur]=useState(false);
+  const [modalReag,setModalReag]=useState(null); // reserva a reagendar
+  const [reagData,setReagData]=useState("");
+  const [reagIni,setReagIni]=useState("");
+  const [reagFim,setReagFim]=useState("");
   const [churNome,setCHurNome]=useState("");
   const [churLocal,setCHurLocal]=useState("ch1");
   const [churData,setCHurData]=useState(toDS(hoje()));
@@ -344,6 +348,9 @@ export default function App(){
   const [fRepDia,setFRepDia]=useState("semanal"); // semanal | quinzenal | mensal
 
   const [bQid,setBQid]=useState(qds[0]?.id||"");
+  const [bTipo,setBTipo]=useState("periodo"); // periodo | diasemana
+  const [bDataFim,setBDataFim]=useState("");
+  const [bDiasSemana,setBDiasSemana]=useState([]);
   const [bData,setBData]=useState(toDS(hoje()));
   const [bIni,setBIni]=useState("");
   const [bFim,setBFim]=useState("");
@@ -517,14 +524,43 @@ export default function App(){
     } catch(e){ showToast("❌ Erro ao cancelar!"); }
   }
 
-  function salvarBloqueio(){
-    if(!bData||!bIni||!bFim){showToast("⚠️ Preencha todos os campos!");return;}
+  async function salvarBloqueio(){
+    if(!bData){showToast("⚠️ Preencha a data de início!");return;}
+    if(bTipo==="diasemana" && bDiasSemana.length===0){showToast("⚠️ Selecione ao menos um dia da semana!");return;}
     const q=qds.find(x=>x.id===bQid);
-    const b={id:"bl_"+Date.now(),qid:bQid,qnm:q?.nome||"",data:bData,ini:bIni,fim:bFim,motivo:bMotivo,em:agora()};
-    setBloqueios(prev=>[b,...prev]);
-    addLog(`🔒 Horário bloqueado: ${q?.nome} ${fd(bData)} ${bIni}–${bFim}${bMotivo?" ("+bMotivo+")":""}`);
-    setModalB(false);setBMotivo("");setBIni("");setBFim("");
-    showToast("🔒 Horário bloqueado!");
+
+    // Gerar lista de datas a bloquear
+    const datas=[];
+    const dataInicio=new Date(bData+"T12:00:00");
+    const dataFim=bDataFim?new Date(bDataFim+"T12:00:00"):dataInicio;
+
+    let cur=new Date(dataInicio);
+    while(cur<=dataFim){
+      const ds=toDS(cur);
+      if(bTipo==="periodo"){
+        datas.push(ds);
+      } else if(bTipo==="diasemana"){
+        if(bDiasSemana.includes(cur.getDay())) datas.push(ds);
+      }
+      cur=new Date(cur.getTime()+24*60*60*1000);
+    }
+
+    if(datas.length===0){showToast("⚠️ Nenhuma data encontrada!");return;}
+
+    // Criar bloqueios no Firebase
+    try {
+      for(const data of datas){
+        await addDoc(collection(db,"blackouts"),{
+          qid:bQid, data,
+          ini:bIni||null, fim:bFim||null,
+          motivo:bMotivo, em:agora()
+        });
+      }
+      addLog(`🔒 ${datas.length} dia(s) bloqueado(s): ${q?.nome} ${fd(bData)}${bDataFim&&bDataFim!==bData?" até "+fd(bDataFim):""}${bMotivo?" ("+bMotivo+")":""}`);
+      setModalB(false);
+      setBMotivo("");setBIni("");setBFim("");setBDataFim("");setBDiasSemana([]);
+      showToast(`🔒 ${datas.length} dia(s) bloqueado(s)!`);
+    } catch(e){ showToast("❌ Erro ao bloquear!"); }
   }
 
   function desbloqueio(id){
@@ -1374,8 +1410,7 @@ export default function App(){
             </select>
           </div>
         </div>
-        <div style={{marginBottom:14}}><label style={lbl}>Observações</label><textarea style={{...inp,resize:"vertical"}} rows={2} value={fObs} placeholder="Churrasqueira, sauna..." onChange={e=>setFObs(e.target.value)}/></div>
-        <Switch on={fChurr} onChange={setFChurr} label="Churrasqueira"/>
+        <div style={{marginBottom:14}}><label style={lbl}>Observações</label><textarea style={{...inp,resize:"vertical"}} rows={2} value={fObs} placeholder="Observações..." onChange={e=>setFObs(e.target.value)}/></div>
         {fTipo==="mensalista"&&!editAg&&(
           <div style={{background:"#eff6ff",border:"1.5px solid #bfdbfe",borderRadius:12,padding:14,marginTop:12}}>
             <Switch on={fRepetir} onChange={setFRepetir} label="🔁 Repetir automaticamente"/>
@@ -1493,25 +1528,136 @@ Até lá! 👋`)}`} target="_blank"
           )}
           <Btn full onClick={()=>{setModalD(null);abrirEditAg(modalD);}}>✏️ Editar</Btn>
           <div style={{height:8}}/>
+          <Btn full onClick={()=>{setReagData(modalD.data);setReagIni(modalD.ini);setReagFim(modalD.fim);setModalReag(modalD);setModalD(null);}}>🌧️ Reagendar por chuva</Btn>
+          <div style={{height:8}}/>
           <Btn full onClick={()=>setModalD(null)}>Fechar</Btn>
+        </>}
+      </Modal>
+
+      {/* ── MODAL REAGENDAMENTO ── */}
+      <Modal open={!!modalReag} onClose={()=>setModalReag(null)}>
+        {modalReag&&<>
+          <div style={{fontWeight:800,fontSize:20,marginBottom:4}}>🌧️ Reagendar por Chuva</div>
+          <div style={{fontSize:13,color:"#6b7280",marginBottom:16}}>
+            {modalReag.cli} — {modalReag.qnm}<br/>
+            Original: {fd(modalReag.data)} {modalReag.ini}–{modalReag.fim}
+          </div>
+          <div style={{marginBottom:14}}>
+            <label style={lbl}>Nova data</label>
+            <input type="date" style={inp} value={reagData} onChange={e=>setReagData(e.target.value)}/>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+            <div>
+              <label style={lbl}>Início</label>
+              <select style={inp} value={reagIni} onChange={e=>setReagIni(e.target.value)}>
+                <option value="">--</option>
+                {adminSlots.map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={lbl}>Fim</label>
+              <select style={inp} value={reagFim} onChange={e=>setReagFim(e.target.value)}>
+                <option value="">--</option>
+                {adminSlots.filter(s=>!reagIni||s>reagIni).map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+          <Btn c="v" full onClick={async()=>{
+            if(!reagData||!reagIni||!reagFim){showToast("⚠️ Preencha data e horário!");return;}
+            const historico = modalReag.historico||[];
+            const entrada = {
+              msg: "🌧️ Reagendado por chuva",
+              de: `${fd(modalReag.data)} ${modalReag.ini}–${modalReag.fim}`,
+              para: `${fd(reagData)} ${reagIni}–${reagFim}`,
+              em: agora()
+            };
+            await updateDoc(doc(db,"agendamentos",modalReag.id),{
+              data:reagData, ini:reagIni, fim:reagFim,
+              historico:[entrada,...historico].slice(0,20)
+            });
+            addLog(`🌧️ Reagendado por chuva: ${modalReag.cli} — ${modalReag.qnm} de ${fd(modalReag.data)} para ${fd(reagData)}`);
+            setModalReag(null);
+            showToast("✅ Reagendado com sucesso!");
+          }}>✅ Confirmar reagendamento</Btn>
+          <div style={{height:8}}/>
+          <Btn full onClick={()=>setModalReag(null)}>Cancelar</Btn>
         </>}
       </Modal>
 
       {/* ── MODAL BLOQUEIO ── */}
       <Modal open={!!modalB} onClose={()=>setModalB(false)}>
-        <div style={{fontWeight:800,fontSize:22,marginBottom:16}}>🔒 Bloquear Horário</div>
+        <div style={{fontWeight:800,fontSize:20,marginBottom:16}}>🔒 Bloquear Dias/Horários</div>
+
+        {/* Quadra */}
         <div style={{marginBottom:14}}><label style={lbl}>Quadra</label>
           <select style={inp} value={bQid} onChange={e=>setBQid(e.target.value)}>
             {qds.map(q=><option key={q.id} value={q.id}>{q.nome}</option>)}
+            <option value="todas">Todas as quadras</option>
           </select>
         </div>
-        <div style={{marginBottom:14}}><label style={lbl}>Data</label><input type="date" style={inp} value={bData} onChange={e=>setBData(e.target.value)}/></div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
-          <div><label style={lbl}>Início</label><input type="time" style={inp} value={bIni} onChange={e=>setBIni(e.target.value)}/></div>
-          <div><label style={lbl}>Fim</label><input type="time" style={inp} value={bFim} onChange={e=>setBFim(e.target.value)}/></div>
+
+        {/* Tipo de bloqueio */}
+        <div style={{marginBottom:14}}>
+          <label style={lbl}>Tipo de bloqueio</label>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            {[{id:"periodo",label:"📅 Período"},{id:"diasemana",label:"🔁 Dias da semana"}].map(t=>(
+              <button key={t.id} onClick={()=>setBTipo(t.id)}
+                style={{padding:"10px",borderRadius:10,border:`2px solid ${bTipo===t.id?V:"#e0e3e8"}`,background:bTipo===t.id?"#f0fdf4":"white",fontWeight:700,fontSize:13,cursor:"pointer",color:bTipo===t.id?V:"#374151"}}>
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div style={{marginBottom:14}}><label style={lbl}>Motivo (opcional)</label><input style={inp} value={bMotivo} placeholder="Ex: Chuva, manutenção..." onChange={e=>setBMotivo(e.target.value)}/></div>
-        <Btn c="v" full onClick={salvarBloqueio}>🔒 Bloquear Horário</Btn>
+
+        {/* Datas */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+          <div><label style={lbl}>{bTipo==="periodo"?"Data início":"A partir de"}</label>
+            <input type="date" style={inp} value={bData} onChange={e=>setBData(e.target.value)}/>
+          </div>
+          <div><label style={lbl}>Data fim</label>
+            <input type="date" style={inp} value={bDataFim} onChange={e=>setBDataFim(e.target.value)}/>
+          </div>
+        </div>
+
+        {/* Dias da semana */}
+        {bTipo==="diasemana"&&(
+          <div style={{marginBottom:14}}>
+            <label style={lbl}>Dias da semana</label>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].map((d,i)=>(
+                <button key={i} onClick={()=>setBDiasSemana(prev=>prev.includes(i)?prev.filter(x=>x!==i):[...prev,i])}
+                  style={{padding:"8px 12px",borderRadius:8,border:`2px solid ${bDiasSemana.includes(i)?V:"#e0e3e8"}`,background:bDiasSemana.includes(i)?"#f0fdf4":"white",fontWeight:700,fontSize:13,cursor:"pointer",color:bDiasSemana.includes(i)?V:"#374151"}}>
+                  {d}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Horário (opcional) */}
+        <div style={{marginBottom:6}}>
+          <label style={lbl}>Horário (opcional — deixe em branco para bloquear o dia todo)</label>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+          <div><label style={lbl}>Início</label>
+            <select style={inp} value={bIni} onChange={e=>setBIni(e.target.value)}>
+              <option value="">Dia todo</option>
+              {adminSlots.map(s=><option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div><label style={lbl}>Fim</label>
+            <select style={inp} value={bFim} onChange={e=>setBFim(e.target.value)}>
+              <option value="">Dia todo</option>
+              {adminSlots.filter(s=>!bIni||s>bIni).map(s=><option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div style={{marginBottom:16}}><label style={lbl}>Motivo (opcional)</label>
+          <input style={inp} value={bMotivo} placeholder="Ex: Chuva, manutenção, evento..." onChange={e=>setBMotivo(e.target.value)}/>
+        </div>
+
+        <Btn c="v" full onClick={salvarBloqueio}>🔒 Bloquear</Btn>
         <div style={{height:8}}/>
         <Btn full onClick={()=>setModalB(false)}>Cancelar</Btn>
       </Modal>
