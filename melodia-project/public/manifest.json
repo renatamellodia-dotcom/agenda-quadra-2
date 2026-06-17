@@ -2,7 +2,7 @@
   "name": "Complexo Melodia",
   "short_name": "Melodia",
   "description": "Sistema de gestão do Complexo Esportivo Melodia",
-  "start_url": "/funcionario",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#2d6a4f",
   "theme_color": "#2d6a4f",
