@@ -608,12 +608,6 @@ export default function App() {
           </div>
         ))}
       </div>
-
-      <div style={{background:"rgba(239,68,68,0.15)",border:"1px solid rgba(239,68,68,0.3)",margin:"0 16px 14px",borderRadius:12,padding:"12px 16px",display:"flex",gap:10,alignItems:"flex-start"}}>
-        <span style={{fontSize:20,flexShrink:0}}>🚫</span>
-        <div style={{fontSize:13,color:"rgba(255,255,255,0.85)",lineHeight:1.5}}>
-          Para a segurança de todos, <strong style={{color:"white"}}>não é permitida a entrada de crianças nas quadras</strong> durante os jogos.
-        </div>
       </div>
 
       <div style={{margin:"0 16px 14px",background:"rgba(232,134,26,0.15)",border:"1.5px solid rgba(232,134,26,0.4)",borderRadius:14,padding:16}}>
