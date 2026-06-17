@@ -608,7 +608,6 @@ export default function App() {
           </div>
         ))}
       </div>
-      </div>
 
       <div style={{margin:"0 16px 14px",background:"rgba(232,134,26,0.15)",border:"1.5px solid rgba(232,134,26,0.4)",borderRadius:14,padding:16}}>
         <div style={{fontWeight:800,color:"white",fontSize:16,marginBottom:12}}>🍖 Churrasqueiras</div>
