@@ -227,7 +227,9 @@ export default function App() {
   const [recebidoMaquina, setRecebidoMaquina] = useState(0);
   const [recebidoDinheiro, setRecebidoDinheiro] = useState(0);
   const [filtro, setFiltro] = useState("todos");
-
+useEffect(()=>{
+  document.querySelector('link[rel="apple-touch-icon"]')?.setAttribute('href', '/apple-touch-icon-funcionario.png');
+},[]);
   useEffect(()=>{
     if(!logado) return;
     try {
