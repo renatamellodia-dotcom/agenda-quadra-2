@@ -867,10 +867,9 @@ export default function App(){
               </div>
               <div style={{background:recPendente>0?"#fef2f2":"#f9fafb",borderRadius:10,padding:12,textAlign:"center",border:`1.5px solid ${recPendente>0?"#fca5a5":"#e0e3e8"}`}}>
                 <div style={{fontSize:16,marginBottom:2}}>{recPendente>0?"⏳":"✅"}</div>
-                <div style={{fontWeight:800,fontSize:16,color:recPendente>0?"#dc2626":"#6b7280"marginTop:2}}>R${recPendente.toFixed(0)}</div>
+                <div style={{fontWeight:800,fontSize:16,color:recPendente>0?"#dc2626":"#6b7280"}}>R${recPendente.toFixed(0)}</div>
                 <div style={{fontSize:10,color:"#6b7280",fontWeight:600,marginTop:2}}>Pendente</div>
               </div>
-            </div></div>
             </div>
           );
         })()}
