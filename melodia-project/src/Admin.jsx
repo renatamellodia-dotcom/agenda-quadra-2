@@ -770,6 +770,9 @@ export default function App(){
   const fHA = fFds?9:16, fHB = fFds?18:23;
   const adminSlots = Array.from({length:50},(_,i)=>{ const m=i*30; const h=Math.floor(m/60).toString().padStart(2,'0'); const min=(m%60).toString().padStart(2,'0'); return h+':'+min; }).filter(s=>{ const[h,m]=s.split(':').map(Number); const min=h*60+m; return min>=fHA*60&&min<=fHB*60; });
 
+  // Slots completos para bloqueio (9h às 23h independente do dia)
+  const bloqueioSlots = Array.from({length:50},(_,i)=>{ const m=i*30; const h=Math.floor(m/60).toString().padStart(2,'0'); const min=(m%60).toString().padStart(2,'0'); return h+':'+min; }).filter(s=>{ const[h]=s.split(':').map(Number); return h>=9&&h<=23; });
+
   return(
     <div style={{fontFamily:"system-ui,sans-serif",background:BG,minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
 
@@ -1642,13 +1645,13 @@ Até lá! 👋`)}`} target="_blank"
           <div><label style={lbl}>Início</label>
             <select style={inp} value={bIni} onChange={e=>setBIni(e.target.value)}>
               <option value="">Dia todo</option>
-              {adminSlots.map(s=><option key={s} value={s}>{s}</option>)}
+              {bloqueioSlots.map(s=><option key={s} value={s}>{s}</option>)}
             </select>
           </div>
           <div><label style={lbl}>Fim</label>
             <select style={inp} value={bFim} onChange={e=>setBFim(e.target.value)}>
               <option value="">Dia todo</option>
-              {adminSlots.filter(s=>!bIni||s>bIni).map(s=><option key={s} value={s}>{s}</option>)}
+              {bloqueioSlots.filter(s=>!bIni||s>bIni).map(s=><option key={s} value={s}>{s}</option>)}
             </select>
           </div>
         </div>
