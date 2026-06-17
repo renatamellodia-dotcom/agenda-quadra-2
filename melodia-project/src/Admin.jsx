@@ -696,8 +696,17 @@ export default function App(){
           const hhf=Math.floor(totalMinFim/60).toString().padStart(2,"0");
           const mmf=(totalMinFim%60).toString().padStart(2,"0");
           const hf=`${hhf}:${mmf}`;
+          // Filtrar horários passados quando é hoje
+          if(ds===toDS(new Date())){
+            const [hAtual,mAtual]=[new Date().getHours(),new Date().getMinutes()];
+            if(Math.floor(totalMin/60)<hAtual||(Math.floor(totalMin/60)===hAtual&&totalMin%60<=mAtual)) return null;
+          }
           const ag=dq.find(x=>x.ini<=hr&&x.fim>hr);
-          const bl=bq.find(x=>x.ini<=hr&&x.fim>hr);
+          // Bloqueio: sem horário = dia todo, com horário = intervalo específico
+          const bl=bq.find(x=>{
+            if(!x.ini||!x.fim) return true; // dia todo bloqueado
+            return x.ini<=hr&&x.fim>hr;     // bloqueio por horário
+          });
           if(ag&&ag.ini!==hr)return null;
           if(bl&&bl.ini!==hr)return null;
           if(bl)return(
@@ -840,26 +849,28 @@ export default function App(){
         {(()=>{
           const agsDia2=ags.filter(a=>a.data===ds&&a.st==="confirmado");
           if(agsDia2.length===0)return null;
-          const recSite=agsDia2.reduce((s,a)=>s+pagoPeloSite(a),0);
-          const recBalcao=agsDia2.reduce((s,a)=>s+saldoRestante(a),0);
+          const recSite=agsDia2.reduce((s,a)=>s+calcPagoOnline(a),0);
+          const recBalcao=agsDia2.reduce((s,a)=>s+(parseFloat(a.pagoMaquina)||0)+(parseFloat(a.pagoDinheiro)||0),0);
+          const recPendente=agsDia2.reduce((s,a)=>s+saldoRestante(a),0);
           const total=recSite+recBalcao;
           return(
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
               <div style={{background:"#eff6ff",borderRadius:10,padding:12,textAlign:"center",border:"1.5px solid #bfdbfe"}}>
-                <div style={{fontSize:16,marginBottom:2}}>💳</div>
+                <div style={{fontSize:16,marginBottom:2}}>💻</div>
                 <div style={{fontWeight:800,fontSize:16,color:"#1e40af"}}>R${recSite.toFixed(0)}</div>
-                <div style={{fontSize:10,color:"#6b7280",fontWeight:600,marginTop:2}}>Site</div>
-              </div>
-              <div style={{background:"#fef3c7",borderRadius:10,padding:12,textAlign:"center",border:"1.5px solid #fde68a"}}>
-                <div style={{fontSize:16,marginBottom:2}}>💰</div>
-                <div style={{fontWeight:800,fontSize:16,color:"#92400e"}}>R${recBalcao.toFixed(0)}</div>
-                <div style={{fontSize:10,color:"#6b7280",fontWeight:600,marginTop:2}}>Balcão</div>
+                <div style={{fontSize:10,color:"#6b7280",fontWeight:600,marginTop:2}}>Online</div>
               </div>
               <div style={{background:"#f0fdf4",borderRadius:10,padding:12,textAlign:"center",border:"1.5px solid #bbf7d0"}}>
-                <div style={{fontSize:16,marginBottom:2}}>📊</div>
-                <div style={{fontWeight:800,fontSize:16,color:"#065f46"}}>R${total.toFixed(0)}</div>
-                <div style={{fontSize:10,color:"#6b7280",fontWeight:600,marginTop:2}}>Total</div>
+                <div style={{fontSize:16,marginBottom:2}}>🏟️</div>
+                <div style={{fontWeight:800,fontSize:16,color:"#065f46"}}>R${recBalcao.toFixed(0)}</div>
+                <div style={{fontSize:10,color:"#6b7280",fontWeight:600,marginTop:2}}>Balcão</div>
               </div>
+              <div style={{background:recPendente>0?"#fef2f2":"#f9fafb",borderRadius:10,padding:12,textAlign:"center",border:`1.5px solid ${recPendente>0?"#fca5a5":"#e0e3e8"}`}}>
+                <div style={{fontSize:16,marginBottom:2}}>{recPendente>0?"⏳":"✅"}</div>
+                <div style={{fontWeight:800,fontSize:16,color:recPendente>0?"#dc2626":"#6b7280"}}>R${recPendente.toFixed(0)}</div>
+                <div style={{fontSize:10,color:"#6b7280",fontWeight:600,marginTop:2}}>Pendente</div>
+              </div>
+            </div></div>
             </div>
           );
         })()}
