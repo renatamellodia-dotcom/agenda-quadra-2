@@ -229,6 +229,7 @@ export default function App() {
   const [filtro, setFiltro] = useState("todos");
 useEffect(()=>{
   document.querySelector('link[rel="apple-touch-icon"]')?.setAttribute('href', '/apple-touch-icon-funcionario.png');
+  document.querySelector('link[rel="manifest"]')?.setAttribute('href', '/manifest-funcionario.json');
 },[]);
   useEffect(()=>{
     if(!logado) return;
