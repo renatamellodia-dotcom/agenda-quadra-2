@@ -87,7 +87,7 @@ function labelPag(ag){
 // Origem da reserva
 function origemTag(ag){
   if(ag.tp==="balcao") return {label:"🏟️ Balcão", cor:"#92400e", bg:"#fef3c7"};
-  if(ag.tp==="admin"||ag.tp==="manual") return {label:"⚙️ Admin", cor:"#1e40af", bg:"#eff6ff"};
+  if(ag.tp==="admin"||ag.tp==="manual"||ag.origem==="admin") return {label:"⚙️ Admin", cor:"#1e40af", bg:"#eff6ff"};
   return {label:"🌐 Online", cor:"#065f46", bg:"#f0fdf4"};
 }
 
@@ -443,7 +443,7 @@ export default function App(){
   async function salvarAg(){
     if(!fData||!fIni||!fFim){showToast("⚠️ Preencha data e horário!");return;}
     const q=qds.find(x=>x.id===fQid);
-    const base={tp:fTipo,qid:fQid,qnm:q?.nome||"",ini:fIni,fim:fFim,cli:fCli,tel:fTel,cpf:fCpf,val:parseFloat(fVal)||0,pess:parseInt(fPess)||null,st:fSt,pag:fPag,obs:fObs,churr:fChurr,criadoEm:serverTimestamp()};
+    const base={tp:fTipo,origem:"admin",qid:fQid,qnm:q?.nome||"",ini:fIni,fim:fFim,cli:fCli,tel:fTel,cpf:fCpf,val:parseFloat(fVal)||0,pess:parseInt(fPess)||null,st:fSt,pag:fPag,obs:fObs,churr:fChurr,criadoEm:serverTimestamp()};
     try {
       if(editAg){
         const historico = editAg.historico || [];
@@ -570,11 +570,14 @@ export default function App(){
     } catch(e){ showToast("❌ Erro ao bloquear!"); }
   }
 
-  function desbloqueio(id){
+  async function desbloqueio(id){
     const b=bloqueios.find(x=>x.id===id);
-    setBloqueios(prev=>prev.filter(x=>x.id!==id));
-    addLog(`🔓 Horário desbloqueado: ${b?.qnm} ${fd(b?.data)} ${b?.ini}–${b?.fim}`);
-    showToast("🔓 Horário desbloqueado");
+    if(!window.confirm("Desbloquear este horário?")) return;
+    try {
+      await deleteDoc(doc(db,"blackouts",id));
+      addLog("🔓 Horário desbloqueado: "+(b?.qnm||"")+" "+fd(b?.data)+" "+( b?.ini||"dia todo")+"–"+(b?.fim||""));
+      showToast("🔓 Horário desbloqueado!");
+    } catch(e){ showToast("❌ Erro ao desbloquear!"); }
   }
 
   function salvarQ(){
@@ -761,7 +764,11 @@ export default function App(){
 
   
 
-  if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");setLogado(true);}}/>;
+  const bloqueioSlots = Array.from({length:50},(_,i)=>{ const m=i*30; const h=Math.floor(m/60).toString().padStart(2,'0'); const min=(m%60).toString().padStart(2,'0'); return h+':'+min; }).filter(s=>{ const[h]=s.split(':').map(Number); return h>=9&&h<=23; });
+
+const adminSlots = Array.from({length:50},(_,i)=>{ const m=i*30; const h=Math.floor(m/60).toString().padStart(2,'0'); const min=(m%60).toString().padStart(2,'0'); return h+':'+min; }).filter(s=>{ const[h,m]=s.split(':').map(Number); const min=h*60+m; return min>=fHA*60&&min<=fHB*60; });
+
+if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");setLogado(true);}}/>;
 
   function exportarCSV() {
     const periodo = finTipo==="mes" ? finMes : finTipo==="semana" ? "7dias" : finTipo==="quinzena" ? "15dias" : finDe+"_"+finAte;
@@ -785,11 +792,9 @@ export default function App(){
   const fDow = fDataObj.getDay();
   const fFds = fDow===0||fDow===6;
   const fHA = fFds?9:16, fHB = fFds?18:23;
-  const adminSlots = Array.from({length:50},(_,i)=>{ const m=i*30; const h=Math.floor(m/60).toString().padStart(2,'0'); const min=(m%60).toString().padStart(2,'0'); return h+':'+min; }).filter(s=>{ const[h,m]=s.split(':').map(Number); const min=h*60+m; return min>=fHA*60&&min<=fHB*60; });
-
+  
   // Slots completos para bloqueio (9h às 23h independente do dia)
-  const bloqueioSlots = Array.from({length:50},(_,i)=>{ const m=i*30; const h=Math.floor(m/60).toString().padStart(2,'0'); const min=(m%60).toString().padStart(2,'0'); return h+':'+min; }).filter(s=>{ const[h]=s.split(':').map(Number); return h>=9&&h<=23; });
-
+  
   // Componente sub-tabs inline
   function SubTabs({aba, setAba, tabs}){
     return(
