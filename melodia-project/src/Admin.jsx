@@ -732,23 +732,28 @@ export default function App(){
             const falta=saldoRestante(ag);
             const saunaQtd=parseInt(ag.saunaQtd)||0;
             return(
-            <div key={hr} style={{display:"flex",alignItems:"center",padding:"10px 12px",borderRadius:8,marginBottom:6,cursor:"pointer",border:`1.5px solid ${falta>0?"#fca5a5":"#bbf7d0"}`,background:falta>0?"#fff7ed":"#f0fdf4"}} onClick={()=>setModalD(ag)}>
-              <div style={{fontWeight:700,fontSize:14,minWidth:105,color:"#374151"}}>{ag.ini}–{ag.fim}</div>
-              <div style={{flex:1,fontSize:13,minWidth:0}}>
-                <div style={{fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ag.cli||"Reservado"}</div>
-                <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
-                  <span style={{fontSize:10,fontWeight:700,color:orig.cor,background:orig.bg,borderRadius:4,padding:"1px 5px"}}>{orig.label}</span>
-                  {ag.pess&&<span style={{fontSize:10,color:"#6b7280"}}>👥 {ag.pess}</span>}
-                  {saunaQtd>0&&<span style={{fontSize:10,color:"#16a34a"}}>🧖 {saunaQtd}p</span>}
+            <div key={hr} style={{display:"flex",alignItems:"center",padding:"10px 12px",borderRadius:8,marginBottom:6,border:`1.5px solid ${falta>0?"#fca5a5":"#bbf7d0"}`,background:falta>0?"#fff7ed":"#f0fdf4"}}>
+              <div style={{flex:1,display:"flex",alignItems:"center",cursor:"pointer"}} onClick={()=>setModalD(ag)}>
+                <div style={{fontWeight:700,fontSize:14,minWidth:105,color:"#374151"}}>{ag.ini}–{ag.fim}</div>
+                <div style={{flex:1,fontSize:13,minWidth:0}}>
+                  <div style={{fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ag.cli||"Reservado"}</div>
+                  <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
+                    <span style={{fontSize:10,fontWeight:700,color:orig.cor,background:orig.bg,borderRadius:4,padding:"1px 5px"}}>{orig.label}</span>
+                    {ag.pess&&<span style={{fontSize:10,color:"#6b7280"}}>👥 {ag.pess}</span>}
+                    {saunaQtd>0&&<span style={{fontSize:10,color:"#16a34a"}}>🧖 {saunaQtd}p</span>}
+                  </div>
+                  <div style={{fontSize:10,color:falta>0?"#dc2626":"#16a34a",marginTop:2,fontWeight:600}}>{label}</div>
                 </div>
-                <div style={{fontSize:10,color:falta>0?"#dc2626":"#16a34a",marginTop:2,fontWeight:600}}>{label}</div>
+                <div style={{textAlign:"right",minWidth:72}}>
+                  <div style={{fontWeight:800,fontSize:14,color:"#1a1f2e"}}>R${(ag.val||0).toFixed(0)}</div>
+                  {calcPagoOnline(ag)>0&&<div style={{fontSize:10,color:"#1d4ed8",fontWeight:700}}>💻R${calcPagoOnline(ag).toFixed(0)}</div>}
+                  {((parseFloat(ag.pagoMaquina)||0)+(parseFloat(ag.pagoDinheiro)||0))>0&&<div style={{fontSize:10,color:"#065f46",fontWeight:700}}>🏟️R${((parseFloat(ag.pagoMaquina)||0)+(parseFloat(ag.pagoDinheiro)||0)).toFixed(0)}</div>}
+                  {falta>0&&<div style={{fontSize:10,color:"#dc2626",fontWeight:700}}>⏳R${falta.toFixed(0)}</div>}
+                </div>
               </div>
-              <div style={{textAlign:"right",minWidth:72}}>
-                <div style={{fontWeight:800,fontSize:14,color:"#1a1f2e"}}>R${(ag.val||0).toFixed(0)}</div>
-                {calcPagoOnline(ag)>0&&<div style={{fontSize:10,color:"#1d4ed8",fontWeight:700}}>💻R${calcPagoOnline(ag).toFixed(0)}</div>}
-                {((parseFloat(ag.pagoMaquina)||0)+(parseFloat(ag.pagoDinheiro)||0))>0&&<div style={{fontSize:10,color:"#065f46",fontWeight:700}}>🏟️R${((parseFloat(ag.pagoMaquina)||0)+(parseFloat(ag.pagoDinheiro)||0)).toFixed(0)}</div>}
-                {falta>0&&<div style={{fontSize:10,color:"#dc2626",fontWeight:700}}>⏳R${falta.toFixed(0)}</div>}
-              </div>
+              <button onClick={e=>{e.stopPropagation();setReagData(ag.data);setReagIni(ag.ini);setReagFim(ag.fim);setModalReag(ag);}}
+                style={{background:"#e0f2fe",border:"none",borderRadius:6,padding:"6px 8px",fontSize:13,cursor:"pointer",marginLeft:6,flexShrink:0}}
+                title="Reagendar por chuva">🌧️</button>
             </div>
             );
           })();
@@ -764,9 +769,7 @@ export default function App(){
 
   
 
-  const bloqueioSlots = Array.from({length:50},(_,i)=>{ const m=i*30; const h=Math.floor(m/60).toString().padStart(2,'0'); const min=(m%60).toString().padStart(2,'0'); return h+':'+min; }).filter(s=>{ const[h]=s.split(':').map(Number); return h>=9&&h<=23; });
 
-const adminSlots = Array.from({length:50},(_,i)=>{ const m=i*30; const h=Math.floor(m/60).toString().padStart(2,'0'); const min=(m%60).toString().padStart(2,'0'); return h+':'+min; }).filter(s=>{ const[h,m]=s.split(':').map(Number); const min=h*60+m; return min>=fHA*60&&min<=fHB*60; });
 
 if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");setLogado(true);}}/>;
 
@@ -792,9 +795,9 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
   const fDow = fDataObj.getDay();
   const fFds = fDow===0||fDow===6;
   const fHA = fFds?9:16, fHB = fFds?18:23;
-  
-  // Slots completos para bloqueio (9h às 23h independente do dia)
-  
+  const adminSlots = Array.from({length:50},(_,i)=>{ const m=i*30; const h=Math.floor(m/60).toString().padStart(2,'0'); const min=(m%60).toString().padStart(2,'0'); return h+':'+min; }).filter(s=>{ const[h,m]=s.split(':').map(Number); const min=h*60+m; return min>=fHA*60&&min<=fHB*60; });
+  const bloqueioSlots = Array.from({length:50},(_,i)=>{ const m=i*30; const h=Math.floor(m/60).toString().padStart(2,'0'); const min=(m%60).toString().padStart(2,'0'); return h+':'+min; }).filter(s=>{ const[h]=s.split(':').map(Number); return h>=9&&h<=23; });
+
   // Componente sub-tabs inline
   function SubTabs({aba, setAba, tabs}){
     return(
@@ -1031,10 +1034,14 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
         <Card>
           {agFilt.length===0&&<div style={{textAlign:"center",color:"#6b7280",padding:32}}>Nenhum agendamento</div>}
           {agFilt.map(a=>(
-            <div key={a.id} style={{padding:14,borderBottom:"1px solid #e0e3e8",cursor:"pointer",opacity:a.st==="cancelado"?0.6:1}} onClick={()=>abrirEditAg(a)}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+            <div key={a.id} style={{padding:14,borderBottom:"1px solid #e0e3e8",opacity:a.st==="cancelado"?0.6:1}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:6,cursor:"pointer"}} onClick={()=>abrirEditAg(a)}>
                 <div>
-                  <div style={{fontWeight:700,fontSize:15}}>{a.cli||"Avulso"}</div>
+                  <div style={{fontWeight:700,fontSize:15,display:"flex",alignItems:"center",gap:5}}>
+                    {a.chuva&&<span title="Reagendado por chuva">🌧️</span>}
+                    {a.motivoCancelamento==="chuva"&&<span title="Cancelado por chuva — reagendado">🌧️❌</span>}
+                    {a.cli||"Avulso"}
+                  </div>
                   <div style={{fontSize:13,color:"#6b7280"}}>{a.qnm} · {fd(a.data)}</div>
                   <div style={{fontSize:13,color:"#6b7280"}}>{a.ini} às {a.fim}{a.pess?` · ${a.pess} pessoas`:""}</div>
                 </div>
@@ -1042,9 +1049,14 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
               </div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <BadgePag ag={a}/>
-                <div style={{textAlign:"right"}}>
-                  <span style={{fontWeight:700,fontSize:16,color:VE}}>R$ {(a.val||0).toFixed(2)}</span>
-                  {isParcial(a.pag)&&<div style={{fontSize:11,color:"#854d0e",marginTop:2}}>falta R$ {(a.val*0.5).toFixed(2)} na chegada</div>}
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  {a.st==="confirmado"&&<button onClick={e=>{e.stopPropagation();setReagData(a.data);setReagIni(a.ini);setReagFim(a.fim);setModalReag(a);}}
+                    style={{background:"#e0f2fe",border:"none",borderRadius:6,padding:"4px 8px",fontSize:12,fontWeight:700,cursor:"pointer",color:"#0369a1"}}
+                    title="Reagendar por chuva">🌧️ Chuva</button>}
+                  <div style={{textAlign:"right"}}>
+                    <span style={{fontWeight:700,fontSize:16,color:VE}}>R$ {(a.val||0).toFixed(2)}</span>
+                    {isParcial(a.pag)&&<div style={{fontSize:11,color:"#854d0e",marginTop:2}}>falta R$ {(a.val*0.5).toFixed(2)} na chegada</div>}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1660,20 +1672,37 @@ Até lá! 👋`)}`} target="_blank"
           </div>
           <Btn c="v" full onClick={async()=>{
             if(!reagData||!reagIni||!reagFim){showToast("⚠️ Preencha data e horário!");return;}
-            const historico = modalReag.historico||[];
-            const entrada = {
-              msg: "🌧️ Reagendado por chuva",
-              de: `${fd(modalReag.data)} ${modalReag.ini}–${modalReag.fim}`,
-              para: `${fd(reagData)} ${reagIni}–${reagFim}`,
-              em: agora()
-            };
-            await updateDoc(doc(db,"agendamentos",modalReag.id),{
-              data:reagData, ini:reagIni, fim:reagFim,
-              historico:[entrada,...historico].slice(0,20)
-            });
-            addLog(`🌧️ Reagendado por chuva: ${modalReag.cli} — ${modalReag.qnm} de ${fd(modalReag.data)} para ${fd(reagData)}`);
-            setModalReag(null);
-            showToast("✅ Reagendado com sucesso!");
+            try {
+              // 1. Criar nova reserva idêntica com nova data/horário
+              const novaReserva = {
+                qid:modalReag.qid, qnm:modalReag.qnm,
+                data:reagData, ini:reagIni, fim:reagFim,
+                cli:modalReag.cli, tel:modalReag.tel||"", cpf:modalReag.cpf||"",
+                email:modalReag.email||"", obs:modalReag.obs||"",
+                pess:modalReag.pess||null, sauna:modalReag.sauna||false,
+                saunaQtd:modalReag.saunaQtd||0,
+                val:modalReag.val||0, valOriginal:modalReag.valOriginal||modalReag.val||0,
+                pag:modalReag.pag||"pendente",
+                valPagoOnline:modalReag.valPagoOnline||0,
+                pagoMaquina:modalReag.pagoMaquina||0,
+                pagoDinheiro:modalReag.pagoDinheiro||0,
+                st:"confirmado", tp:modalReag.tp||"avulso",
+                origem:"admin", chuva:true,
+                chuvaOrigId:modalReag.id,
+                criadoEm:agora(),
+                historico:[{msg:"🌧️ Criado por reagendamento de chuva",de:fd(modalReag.data)+" "+modalReag.ini+"–"+modalReag.fim,em:agora()}]
+              };
+              await addDoc(collection(db,"agendamentos"),novaReserva);
+              // 2. Cancelar reserva original marcando como chuva
+              await updateDoc(doc(db,"agendamentos",modalReag.id),{
+                st:"cancelado", motivoCancelamento:"chuva",
+                chuvaNovaData:reagData, chuvaNovaIni:reagIni
+              });
+              addLog("🌧️ Reagendado por chuva: "+modalReag.cli+" — "+modalReag.qnm+" de "+fd(modalReag.data)+" para "+fd(reagData));
+              setModalReag(null);
+              setReagData(""); setReagIni(""); setReagFim("");
+              showToast("✅ Reagendado com sucesso!");
+            } catch(e){ showToast("❌ Erro ao reagendar!"); }
           }}>✅ Confirmar reagendamento</Btn>
           <div style={{height:8}}/>
           <Btn full onClick={()=>setModalReag(null)}>Cancelar</Btn>
