@@ -347,7 +347,8 @@ export default function App(){
   const [fRepAte,setFRepAte]=useState("");
   const [fRepDia,setFRepDia]=useState("semanal"); // semanal | quinzenal | mensal
 
-  const [subHoje,setSubHoje]=useState("agenda"); // agenda | painel | fechamento
+  const [subHoje,setSubHoje]=useState("agenda");
+  const [dsFech,setDsFech]=useState(toDS(new Date())); // data separada para o Fechamento // agenda | painel | fechamento
   const [subAgend,setSubAgend]=useState("lista"); // lista | contatos
   const [subCfg,setSubCfg]=useState("cfg"); // cfg | complexo | galeria
   const [bQid,setBQid]=useState(qds[0]?.id||"");
@@ -748,9 +749,8 @@ export default function App(){
             );
           })();
           return(
-            <div key={hr} style={{display:"flex",alignItems:"center",padding:"10px 12px",borderRadius:8,marginBottom:6,cursor:"pointer",border:"1.5px solid #bbf7d0",background:"#f0fdf4"}} onClick={()=>abrirNovoAg(q.id,hr,hf,ds)}>
-              <div style={{fontWeight:700,fontSize:14,minWidth:105,color:VE}}>{hr}</div>
-              <div style={{fontSize:13,color:"#16a34a"}}>Livre — toque para reservar</div>
+            <div key={hr} style={{display:"flex",alignItems:"center",padding:"8px 12px",borderRadius:8,marginBottom:6,cursor:"pointer",border:"1px solid #e8f5e9",background:"#fafffe"}} onClick={()=>abrirNovoAg(q.id,hr,hf,ds)}>
+              <div style={{fontWeight:600,fontSize:13,color:"#9ca3af"}}>{hr}</div>
             </div>
           );
         })}
@@ -886,34 +886,7 @@ export default function App(){
           <Btn sm onClick={()=>setDtA(hoje())}>Hoje</Btn>
         </div>
 
-        {/* 3 cards financeiros do dia */}
-        {(()=>{
-          const agsDia2=ags.filter(a=>a.data===ds&&a.st==="confirmado");
-          if(agsDia2.length===0)return null;
-          const recSite=agsDia2.reduce((s,a)=>s+calcPagoOnline(a),0);
-          const recBalcao=agsDia2.reduce((s,a)=>s+(parseFloat(a.pagoMaquina)||0)+(parseFloat(a.pagoDinheiro)||0),0);
-          const recPendente=agsDia2.reduce((s,a)=>s+saldoRestante(a),0);
-          const total=recSite+recBalcao;
-          return(
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
-              <div style={{background:"#eff6ff",borderRadius:10,padding:12,textAlign:"center",border:"1.5px solid #bfdbfe"}}>
-                <div style={{fontSize:16,marginBottom:2}}>💻</div>
-                <div style={{fontWeight:800,fontSize:16,color:"#1e40af"}}>R${recSite.toFixed(0)}</div>
-                <div style={{fontSize:10,color:"#6b7280",fontWeight:600,marginTop:2}}>Online</div>
-              </div>
-              <div style={{background:"#f0fdf4",borderRadius:10,padding:12,textAlign:"center",border:"1.5px solid #bbf7d0"}}>
-                <div style={{fontSize:16,marginBottom:2}}>🏟️</div>
-                <div style={{fontWeight:800,fontSize:16,color:"#065f46"}}>R${recBalcao.toFixed(0)}</div>
-                <div style={{fontSize:10,color:"#6b7280",fontWeight:600,marginTop:2}}>Balcão</div>
-              </div>
-              <div style={{background:recPendente>0?"#fef2f2":"#f9fafb",borderRadius:10,padding:12,textAlign:"center",border:`1.5px solid ${recPendente>0?"#fca5a5":"#e0e3e8"}`}}>
-                <div style={{fontSize:16,marginBottom:2}}>{recPendente>0?"⏳":"✅"}</div>
-                <div style={{fontWeight:800,fontSize:16,color:recPendente>0?"#dc2626":"#6b7280"}}>R${recPendente.toFixed(0)}</div>
-                <div style={{fontSize:10,color:"#6b7280",fontWeight:600,marginTop:2}}>Pendente</div>
-              </div>
-            </div>
-          );
-        })()}
+        
 
         {/* Aviso de dia bloqueado */}
         {qds.map(q=>{
@@ -1795,7 +1768,7 @@ Até lá! 👋`)}`} target="_blank"
 
         {pg==="hoje"&&subHoje==="fechamento"&&(()=>{
           // ── ABA FECHAMENTO DO DIA ──
-          const agsFech=ags.filter(a=>a.data===ds&&a.st==="confirmado");
+          const agsFech=ags.filter(a=>a.data===dsFech&&a.st==="confirmado");
           const quadraFech=(qid)=>agsFech.filter(a=>a.qid===qid);
           const totalVal=(lista)=>lista.reduce((s,a)=>s+(parseFloat(a.val)||0),0);
           const totalOnline=(lista)=>lista.reduce((s,a)=>s+calcPagoOnline(a),0);
@@ -1865,9 +1838,9 @@ Até lá! 👋`)}`} target="_blank"
             <div style={{padding:16,paddingBottom:80}}>
               {/* Seletor de data */}
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
-                <button onClick={()=>{const d=new Date(ds+"T12:00:00");d.setDate(d.getDate()-1);setDs(toDS(d));}} style={{background:"white",border:"1.5px solid #e0e3e8",borderRadius:8,width:36,height:36,cursor:"pointer",fontSize:18}}>‹</button>
-                <input type="date" value={ds} onChange={e=>setDs(e.target.value)} style={{flex:1,padding:"9px 12px",borderRadius:10,border:"1.5px solid #e0e3e8",fontSize:14,fontWeight:700,color:"#1a1f2e"}}/>
-                <button onClick={()=>{const d=new Date(ds+"T12:00:00");d.setDate(d.getDate()+1);setDs(toDS(d));}} style={{background:"white",border:"1.5px solid #e0e3e8",borderRadius:8,width:36,height:36,cursor:"pointer",fontSize:18}}>›</button>
+                <button onClick={()=>{const d=new Date(dsFech+"T12:00:00");d.setDate(d.getDate()-1);setDsFech(toDS(d));}} style={{background:"white",border:"1.5px solid #e0e3e8",borderRadius:8,width:36,height:36,cursor:"pointer",fontSize:18}}>‹</button>
+                <input type="date" value={dsFech} onChange={e=>setDsFech(e.target.value)} style={{flex:1,padding:"9px 12px",borderRadius:10,border:"1.5px solid #e0e3e8",fontSize:14,fontWeight:700,color:"#1a1f2e"}}/>
+                <button onClick={()=>{const d=new Date(dsFech+"T12:00:00");d.setDate(d.getDate()+1);setDsFech(toDS(d));}} style={{background:"white",border:"1.5px solid #e0e3e8",borderRadius:8,width:36,height:36,cursor:"pointer",fontSize:18}}>›</button>
               </div>
 
               {todos.length===0?(
