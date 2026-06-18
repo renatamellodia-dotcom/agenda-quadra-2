@@ -571,7 +571,7 @@ export default function App(){
   }
 
   async function desbloqueio(id){
-    const b=bloqueios.find(x=>x.id===id);
+    const b=blackouts.find(x=>x.id===id);
     if(!window.confirm("Desbloquear este horário?")) return;
     try {
       await deleteDoc(doc(db,"blackouts",id));
@@ -602,7 +602,7 @@ export default function App(){
 
   const ds=toDS(dtA);
   const ddDia=ags.filter(a=>a.data===ds&&a.st!=="cancelado"&&a.st!=="aguardando_pagamento");
-  const blDia=bloqueios.filter(b=>b.data===ds);
+  const blDia=blackouts.filter(b=>b.data===ds);
 
   let agFilt=[...ags].sort((a,b)=>b.data.localeCompare(a.data));
   if(filtro==="avulso"||filtro==="mensalista")agFilt=agFilt.filter(a=>a.tp===filtro);
@@ -706,11 +706,21 @@ export default function App(){
           const hhf=Math.floor(totalMinFim/60).toString().padStart(2,"0");
           const mmf=(totalMinFim%60).toString().padStart(2,"0");
           const hf=`${hhf}:${mmf}`;
-          // Filtrar slots que JÁ TERMINARAM quando é hoje (mas manter em andamento)
+          // Slots passados: some se livre, fica se ocupado
           if(ds===toDS(new Date())){
             const agoraMin=new Date().getHours()*60+new Date().getMinutes();
-            if(totalMinFim<=agoraMin) return null; // já acabou
+            if(totalMinFim<=agoraMin){
+              // Só mantém se tiver reserva (ag) ou bloqueio (bl)
+              const agPass=dq.find(x=>x.ini<=hr&&x.fim>hr);
+              const blPass=blackouts.filter(b=>b.qid===q.id).find(x=>{
+                if(!x.ini||!x.fim) return true;
+                return x.ini<=hr&&x.fim>hr;
+              });
+              if(!agPass&&!blPass) return null;
+            }
           }
+          const agoraMinSlot=new Date().getHours()*60+new Date().getMinutes();
+          const passou=ds===toDS(new Date())&&totalMinFim<=agoraMinSlot;
           const ag=dq.find(x=>x.ini<=hr&&x.fim>hr);
           // Bloqueio: sem horário = dia todo, com horário = intervalo específico
           const bl=bq.find(x=>{
@@ -732,7 +742,7 @@ export default function App(){
             const falta=saldoRestante(ag);
             const saunaQtd=parseInt(ag.saunaQtd)||0;
             return(
-            <div key={hr} style={{display:"flex",alignItems:"center",padding:"10px 12px",borderRadius:8,marginBottom:6,border:`1.5px solid ${falta>0?"#fca5a5":"#bbf7d0"}`,background:falta>0?"#fff7ed":"#f0fdf4"}}>
+            <div key={hr} style={{display:"flex",alignItems:"center",padding:"10px 12px",borderRadius:8,marginBottom:6,border:`1.5px solid ${passou?"#d1d5db":falta>0?"#fca5a5":"#bbf7d0"}`,background:passou?"#f3f4f6":falta>0?"#fff7ed":"#f0fdf4",opacity:passou?0.7:1}}>
               <div style={{flex:1,display:"flex",alignItems:"center",cursor:"pointer"}} onClick={()=>setModalD(ag)}>
                 <div style={{fontWeight:700,fontSize:14,minWidth:105,color:"#374151"}}>{ag.ini}–{ag.fim}</div>
                 <div style={{flex:1,fontSize:13,minWidth:0}}>
@@ -948,22 +958,9 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
           </div>
         )}
 
-        {/* CLIENTES FREQUENTES */}
-        {clientesFrequentes.length>0&&(
-          <div style={{background:"#fef9c3",border:"1.5px solid #fde047",borderRadius:12,padding:"12px 16px",marginBottom:16}}>
-            <div style={{fontWeight:800,fontSize:14,color:"#854d0e",marginBottom:8}}>⭐ Clientes Frequentes (10+ reservas)</div>
-            {clientesFrequentes.map(c=>(
-              <div key={c.n} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #fde68a"}}>
-                <span style={{fontSize:13,fontWeight:600,color:"#1a1f2e"}}>{c.n}</span>
-                <span style={{fontSize:13,fontWeight:800,color:"#854d0e"}}>{c.count}x 🏆</span>
-              </div>
-            ))}
-          </div>
-        )}
-
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
           {[["Hoje",sHoje,"agenda"],["Este Mês",sMes,null],["A Receber","R$"+sRec.toFixed(0),null],["Recebido Mês","R$"+sRecm.toFixed(0),null]].map(([l,v,aba])=>(
-            <div key={l} onClick={()=>{if(aba){setDs(toDS(new Date()));setPg(aba);}}}
+            <div key={l} onClick={()=>{if(aba){setDs(toDS(new Date()));setPg("hoje");setSubHoje("agenda");}}}
               style={{background:"white",borderRadius:12,padding:16,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center",cursor:aba?"pointer":"default",border:aba?"1.5px solid #bbf7d0":"none"}}>
               <div style={{fontWeight:800,fontSize:28,color:VE}}>{v}</div>
               <div style={{fontSize:12,color:"#6b7280",marginTop:2,fontWeight:600}}>{l}</div>
@@ -1026,6 +1023,16 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
       {/* ── AGENDAMENTOS ── */}
       {pg==="agend"&&subAgend==="lista"&&<div style={{padding:16,paddingBottom:80}}>
         <SubTabs aba={subAgend} setAba={setSubAgend} tabs={[["lista","📋 Reservas"],["contatos","👥 Contatos"]]}/>
+        {clientesFrequentes.length>0&&(
+          <div style={{background:"#fef9c3",border:"1.5px solid #fde047",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",gap:10,overflowX:"auto"}}>
+            {clientesFrequentes.slice(0,5).map(c=>(
+              <div key={c.n} style={{flexShrink:0,textAlign:"center"}}>
+                <div style={{fontWeight:800,fontSize:13,color:"#854d0e"}}>{c.n.split(" ")[0]}</div>
+                <div style={{fontSize:11,color:"#92400e",fontWeight:700}}>{c.count}x ⭐</div>
+              </div>
+            ))}
+          </div>
+        )}
         <div style={{display:"flex",gap:8,marginBottom:14,overflowX:"auto",paddingBottom:4}}>
           {[["todos","Todos"],["conf","Confirmados"],["aguard","Aguardando"],["canc","Cancelados"],["parcial","50% pagos"],["pago","Quitados"],["avulso","Avulso"],["mensalista","Mensalista"]].map(([k,l])=>(
             <div key={k} onClick={()=>setFiltro(k)} style={{flex:"none",padding:"6px 14px",borderRadius:20,border:`1.5px solid ${filtro===k?V:"#e0e3e8"}`,background:filtro===k?V:"white",fontSize:12,fontWeight:600,cursor:"pointer",color:filtro===k?"white":"#6b7280",whiteSpace:"nowrap"}}>{l}</div>
@@ -1067,116 +1074,117 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
       {/* ── FINANCEIRO ── */}
       {pg==="fin"&&<div style={{padding:16,paddingBottom:80}}>
 
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
-          <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}><div style={{fontWeight:800,fontSize:22,color:"#065f46"}}>R${finRec.toFixed(0)}</div><div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Quitado</div></div>
-          <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}><div style={{fontWeight:800,fontSize:22,color:"#854d0e"}}>R${finParcial.toFixed(0)}</div><div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Falta 50%</div></div>
-          <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}><div style={{fontWeight:800,fontSize:22,color:VM}}>R${finPend.toFixed(0)}</div><div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Não pago</div></div>
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
-          <div style={{background:"#eff6ff",borderRadius:12,padding:14,border:"1.5px solid #bfdbfe",textAlign:"center"}}>
-            <div style={{fontSize:14,marginBottom:2}}>💻</div>
-            <div style={{fontWeight:800,fontSize:20,color:"#1e40af"}}>R${finSite.toFixed(0)}</div>
-            <div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Site — mês</div>
-          </div>
-          <div style={{background:"#f0fdf4",borderRadius:12,padding:14,border:"1.5px solid #bbf7d0",textAlign:"center"}}>
-            <div style={{fontSize:14,marginBottom:2}}>🏟️</div>
-            <div style={{fontWeight:800,fontSize:20,color:"#065f46"}}>R${finBalcao.toFixed(0)}</div>
-            <div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>Balcão — mês</div>
-          </div>
-        </div>
-        {/* Breakdown por quadra */}
-        <div style={{background:"white",borderRadius:12,padding:14,boxShadow:"0 2px 12px rgba(0,0,0,.08)",marginBottom:16}}>
-          <div style={{fontWeight:700,fontSize:13,color:"#6b7280",textTransform:"uppercase",letterSpacing:0.5,marginBottom:12}}>Breakdown por quadra</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-            <div style={{background:"#f0fdf4",borderRadius:10,padding:12,textAlign:"center",border:"1.5px solid #bbf7d0"}}>
-              <div style={{fontSize:16,marginBottom:2}}>⚽</div>
-              <div style={{fontWeight:800,fontSize:18,color:"#065f46"}}>R${finSociety.toFixed(0)}</div>
-              <div style={{fontSize:10,color:"#6b7280",fontWeight:600,marginTop:2}}>Society</div>
-            </div>
-            <div style={{background:"#fff7ed",borderRadius:10,padding:12,textAlign:"center",border:"1.5px solid #fed7aa"}}>
-              <div style={{fontSize:16,marginBottom:2}}>🏐</div>
-              <div style={{fontWeight:800,fontSize:18,color:"#c2410c"}}>R${finAreia.toFixed(0)}</div>
-              <div style={{fontSize:10,color:"#6b7280",fontWeight:600,marginTop:2}}>Areia</div>
-            </div>
-            <div style={{background:"#fef9c3",borderRadius:10,padding:12,textAlign:"center",border:"1.5px solid #fde68a"}}>
-              <div style={{fontSize:16,marginBottom:2}}>🧖</div>
-              <div style={{fontWeight:800,fontSize:18,color:"#854d0e"}}>R${finSauna.toFixed(0)}</div>
-              <div style={{fontSize:10,color:"#6b7280",fontWeight:600,marginTop:2}}>Sauna</div>
-            </div>
-          </div>
-        </div>
-        {finDias.length>0&&<div style={{marginBottom:16}}>
-          <div style={{fontWeight:700,fontSize:13,color:"#6b7280",marginBottom:8,textTransform:"uppercase"}}>Por dia</div>
-          {finDias.map(([d,v])=>(
-            <div key={d} style={{background:"white",borderRadius:10,padding:"10px 14px",marginBottom:6,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                <div style={{fontWeight:700,fontSize:13,color:"#1a1f2e"}}>{new Date(d+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"short",day:"numeric",month:"short"})}</div>
-                <div style={{fontWeight:800,fontSize:14,color:"#065f46"}}>R$ {(v.site+v.balcao).toFixed(2)}</div>
-              </div>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                {v.society>0&&<span style={{fontSize:11,fontWeight:700,color:"#065f46",background:"#f0fdf4",borderRadius:6,padding:"2px 8px"}}>⚽ R${v.society.toFixed(0)}</span>}
-                {v.areia>0&&<span style={{fontSize:11,fontWeight:700,color:"#92400e",background:"#fff7ed",borderRadius:6,padding:"2px 8px"}}>🏐 R${v.areia.toFixed(0)}</span>}
-                {v.sauna>0&&<span style={{fontSize:11,fontWeight:700,color:"#5b21b6",background:"#f5f3ff",borderRadius:6,padding:"2px 8px"}}>🧖 R${v.sauna.toFixed(0)}</span>}
-                {v.site>0&&<span style={{fontSize:11,fontWeight:700,color:"#1e40af",background:"#eff6ff",borderRadius:6,padding:"2px 8px"}}>💻 R${v.site.toFixed(0)}</span>}
-                {v.balcao>0&&<span style={{fontSize:11,fontWeight:700,color:"#374151",background:"#f9fafb",borderRadius:6,padding:"2px 8px"}}>🏟️ R${v.balcao.toFixed(0)}</span>}
-              </div>
+        {/* Seletor de período — topo */}
+        <div style={{display:"flex",gap:8,marginBottom:12,overflowX:"auto",paddingBottom:4}}>
+          {[["mes","📅 Mês"],["semana","7 dias"],["quinzena","15 dias"],["custom","Personalizado"]].map(([k,l])=>(
+            <div key={k} onClick={()=>setFinTipo(k)}
+              style={{flex:"none",padding:"6px 16px",borderRadius:20,border:`1.5px solid ${finTipo===k?V:"#e0e3e8"}`,background:finTipo===k?V:"white",fontSize:12,fontWeight:600,cursor:"pointer",color:finTipo===k?"white":"#6b7280"}}>
+              {l}
             </div>
           ))}
-        </div>}
-        {/* Seletor de período */}
-        <div style={{marginBottom:16}}>
-          <label style={lbl}>Período</label>
-          <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
-            {[["mes","📅 Mês"],["semana","7 dias"],["quinzena","15 dias"],["custom","Personalizado"]].map(([k,l])=>(
-              <div key={k} onClick={()=>setFinTipo(k)}
-                style={{padding:"6px 14px",borderRadius:20,border:`1.5px solid ${finTipo===k?V:"#e0e3e8"}`,background:finTipo===k?V:"white",fontSize:12,fontWeight:600,cursor:"pointer",color:finTipo===k?"white":"#6b7280"}}>
-                {l}
-              </div>
-            ))}
-          </div>
-          {finTipo==="mes" && (
-            <input type="month" style={inp} value={finMes} onChange={e=>setFinMes(e.target.value)}/>
-          )}
-          {finTipo==="custom" && (
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-              <div>
-                <label style={lbl}>De</label>
-                <input type="date" style={inp} value={finDe} onChange={e=>setFinDe(e.target.value)}/>
-              </div>
-              <div>
-                <label style={lbl}>Até</label>
-                <input type="date" style={inp} value={finAte} onChange={e=>setFinAte(e.target.value)}/>
-              </div>
-            </div>
-          )}
-          {(finTipo==="semana"||finTipo==="quinzena") && (
-            <div style={{fontSize:12,color:"#6b7280",background:"#f9fafb",padding:"8px 12px",borderRadius:8}}>
-              📅 {finTipo==="semana"?"Últimos 7 dias":"Últimos 15 dias"} — até hoje
-            </div>
-          )}
         </div>
-        <Btn c="v" full onClick={exportarCSV}>⬇️ Exportar CSV do período</Btn>
-        <div style={{height:12}}/>
-        <Btn c="v" full onClick={exportarCSV}>📥 Exportar CSV</Btn>
-        <div style={{height:10}}/>
-        <Card>
-          <CardH title="Pagamentos"/>
-          {[...finL].sort((a,b)=>b.data.localeCompare(a.data)).map(a=>(
-            <div key={a.id} style={{padding:"12px 14px",borderBottom:"1px solid #e0e3e8",display:"flex",alignItems:"center",justifyContent:"space-between",opacity:a.st==="cancelado"?0.5:1}}>
-              <div>
-                <div style={{fontWeight:600,fontSize:14}}>{a.cli||"Avulso"}{a.st==="cancelado"?" (cancelado)":""}</div>
-                <div style={{fontSize:12,color:"#6b7280"}}>{a.qnm} · {fd(a.data)} {a.ini}</div>
-                <BadgePag ag={a}/>
+        {finTipo==="mes"&&<input type="month" style={{...inp,marginBottom:12}} value={finMes} onChange={e=>setFinMes(e.target.value)}/>}
+        {finTipo==="custom"&&(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+            <div><label style={lbl}>De</label><input type="date" style={inp} value={finDe} onChange={e=>setFinDe(e.target.value)}/></div>
+            <div><label style={lbl}>Até</label><input type="date" style={inp} value={finAte} onChange={e=>setFinAte(e.target.value)}/></div>
+          </div>
+        )}
+        {(finTipo==="semana"||finTipo==="quinzena")&&(
+          <div style={{fontSize:12,color:"#6b7280",background:"#f9fafb",padding:"8px 12px",borderRadius:8,marginBottom:12}}>
+            📅 {finTipo==="semana"?"Últimos 7 dias":"Últimos 15 dias"} — até hoje
+          </div>
+        )}
+
+        {/* 1. Resumo do período — 3 cards grandes */}
+        {(()=>{
+          const totalRecebido = finRec + finParcial;
+          const totalAReceber = finPend + finL.filter(a=>isParcial(a.pag)&&a.st!=="cancelado").reduce((s,a)=>s+saldoRestante(a),0);
+          const totalGeral = totalRecebido + totalAReceber;
+          return(
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}}>
+              <div style={{background:"#f0fdf4",borderRadius:14,padding:14,textAlign:"center",border:"1.5px solid #bbf7d0"}}>
+                <div style={{fontWeight:800,fontSize:20,color:"#065f46"}}>R${totalRecebido.toFixed(0)}</div>
+                <div style={{fontSize:10,color:"#6b7280",fontWeight:700,marginTop:3,textTransform:"uppercase"}}>Recebido</div>
               </div>
-              <div style={{textAlign:"right"}}>
-                <div style={{fontWeight:700,color:isPago(a.pag)?"#065f46":isParcial(a.pag)?"#854d0e":VM,fontSize:15}}>R$ {(a.val||0).toFixed(2)}</div>
-                {isParcial(a.pag)&&<div style={{fontSize:11,color:"#854d0e"}}>falta R${((a.val||0)*0.5).toFixed(2)}</div>}
+              <div style={{background:"#fef2f2",borderRadius:14,padding:14,textAlign:"center",border:"1.5px solid #fca5a5"}}>
+                <div style={{fontWeight:800,fontSize:20,color:"#dc2626"}}>R${totalAReceber.toFixed(0)}</div>
+                <div style={{fontSize:10,color:"#6b7280",fontWeight:700,marginTop:3,textTransform:"uppercase"}}>A Receber</div>
+              </div>
+              <div style={{background:"white",borderRadius:14,padding:14,textAlign:"center",boxShadow:"0 2px 8px rgba(0,0,0,.08)"}}>
+                <div style={{fontWeight:800,fontSize:20,color:"#1a1f2e"}}>R${totalGeral.toFixed(0)}</div>
+                <div style={{fontSize:10,color:"#6b7280",fontWeight:700,marginTop:3,textTransform:"uppercase"}}>Total Geral</div>
               </div>
             </div>
-          ))}
-          {finL.length===0&&<div style={{textAlign:"center",color:"#6b7280",padding:32}}>Nenhum registro</div>}
-        </Card>
+          );
+        })()}
+
+        {/* 2. Por Canal */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+          <div style={{background:"#eff6ff",borderRadius:12,padding:14,textAlign:"center",border:"1.5px solid #bfdbfe"}}>
+            <div style={{fontSize:13,marginBottom:2}}>💻</div>
+            <div style={{fontWeight:800,fontSize:18,color:"#1e40af"}}>R${finSite.toFixed(0)}</div>
+            <div style={{fontSize:10,color:"#6b7280",fontWeight:700,marginTop:2,textTransform:"uppercase"}}>Site</div>
+          </div>
+          <div style={{background:"#f0fdf4",borderRadius:12,padding:14,textAlign:"center",border:"1.5px solid #bbf7d0"}}>
+            <div style={{fontSize:13,marginBottom:2}}>🏟️</div>
+            <div style={{fontWeight:800,fontSize:18,color:"#065f46"}}>R${finBalcao.toFixed(0)}</div>
+            <div style={{fontSize:10,color:"#6b7280",fontWeight:700,marginTop:2,textTransform:"uppercase"}}>Balcão</div>
+          </div>
+        </div>
+
+        {/* 3. Por Quadra */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
+          <div style={{background:"#f0fdf4",borderRadius:12,padding:12,textAlign:"center",border:"1.5px solid #bbf7d0"}}>
+            <div style={{fontSize:16,marginBottom:2}}>⚽</div>
+            <div style={{fontWeight:800,fontSize:17,color:"#065f46"}}>R${finSociety.toFixed(0)}</div>
+            <div style={{fontSize:10,color:"#6b7280",fontWeight:700,marginTop:2,textTransform:"uppercase"}}>Society</div>
+          </div>
+          <div style={{background:"#fff7ed",borderRadius:12,padding:12,textAlign:"center",border:"1.5px solid #fed7aa"}}>
+            <div style={{fontSize:16,marginBottom:2}}>🏐</div>
+            <div style={{fontWeight:800,fontSize:17,color:"#c2410c"}}>R${finAreia.toFixed(0)}</div>
+            <div style={{fontSize:10,color:"#6b7280",fontWeight:700,marginTop:2,textTransform:"uppercase"}}>Areia</div>
+          </div>
+          <div style={{background:"#fef9c3",borderRadius:12,padding:12,textAlign:"center",border:"1.5px solid #fde68a"}}>
+            <div style={{fontSize:16,marginBottom:2}}>🧖</div>
+            <div style={{fontWeight:800,fontSize:17,color:"#854d0e"}}>R${finSauna.toFixed(0)}</div>
+            <div style={{fontSize:10,color:"#6b7280",fontWeight:700,marginTop:2,textTransform:"uppercase"}}>Sauna</div>
+          </div>
+        </div>
+
+        {/* 4. Por Dia */}
+        {finDias.length>0&&(
+          <div style={{marginBottom:16}}>
+            <div style={{fontWeight:700,fontSize:11,color:"#9ca3af",textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Por dia</div>
+            {finDias.map(([d,v])=>{
+              const recDia=v.site+v.balcao;
+              const pendDia=finL.filter(a=>a.data===d&&a.pag==="pendente"&&a.st!=="cancelado").reduce((s,a)=>s+(a.val||0),0)
+                           +finL.filter(a=>a.data===d&&isParcial(a.pag)&&a.st!=="cancelado").reduce((s,a)=>s+saldoRestante(a),0);
+              return(
+                <div key={d} style={{background:"white",borderRadius:10,padding:"10px 14px",marginBottom:6,boxShadow:"0 1px 4px rgba(0,0,0,.06)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:13,color:"#1a1f2e"}}>
+                      {new Date(d+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"short",day:"numeric",month:"short"})}
+                    </div>
+                    <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
+                      {v.society>0&&<span style={{fontSize:10,fontWeight:700,color:"#065f46",background:"#f0fdf4",borderRadius:5,padding:"1px 6px"}}>⚽ R${v.society.toFixed(0)}</span>}
+                      {v.areia>0&&<span style={{fontSize:10,fontWeight:700,color:"#92400e",background:"#fff7ed",borderRadius:5,padding:"1px 6px"}}>🏐 R${v.areia.toFixed(0)}</span>}
+                      {v.sauna>0&&<span style={{fontSize:10,fontWeight:700,color:"#854d0e",background:"#fef9c3",borderRadius:5,padding:"1px 6px"}}>🧖 R${v.sauna.toFixed(0)}</span>}
+                    </div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontWeight:800,fontSize:14,color:"#065f46"}}>R${recDia.toFixed(0)}</div>
+                    {pendDia>0&&<div style={{fontSize:10,color:"#dc2626",fontWeight:700,marginTop:2}}>⏳ R${pendDia.toFixed(0)}</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <Btn c="v" full onClick={exportarCSV}>⬇️ Exportar CSV</Btn>
       </div>}
+
 
       {/* ── CONTATOS ── */}
       {pg==="agend"&&subAgend==="contatos"&&<div style={{padding:16,paddingBottom:80}}>
