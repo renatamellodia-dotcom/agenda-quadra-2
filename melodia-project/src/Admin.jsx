@@ -384,7 +384,8 @@ export default function App(){
   }
 
   function isDiaBloqueado(ds, qid){
-    return blackouts.some(b=>b.data===ds&&(b.qid==="todas"||b.qid===qid));
+    // Só bloqueia o DIA no calendário se não tiver horário específico (bloqueio dia todo)
+    return blackouts.some(b=>b.data===ds&&(b.qid==="todas"||b.qid===qid)&&(!b.ini||!b.fim));
   }
 
   
@@ -674,7 +675,7 @@ export default function App(){
   },[]);
   const ctsFilt=busca?cts.filter(c=>c.n.toLowerCase().includes(busca.toLowerCase())):cts;
 
-  const TABS=[{id:"agenda",lbl:"📅 Agenda"},{id:"painel",lbl:"📊 Painel"},{id:"agend",lbl:"📋 Agend."},{id:"fin",lbl:"💰 Fin."},{id:"cont",lbl:"👥 Contatos"},{id:"complexo",lbl:"🏟️ Complexo"},{id:"galeria",lbl:"📸 Galeria"},{id:"cfg",lbl:"⚙️ Config"}];
+  const TABS=[{id:"agenda",lbl:"📅 Agenda"},{id:"painel",lbl:"📊 Painel"},{id:"agend",lbl:"📋 Agend."},{id:"fin",lbl:"💰 Fin."},{id:"cont",lbl:"👥 Contatos"},{id:"complexo",lbl:"🏟️ Complexo"},{id:"galeria",lbl:"📸 Galeria"},{id:"cfg",lbl:"⚙️ Config"},{id:"fech",lbl:"📆 Fechamento"}];
   const TIPOS=["avulso","mensalista","escola","evento"];
   const TLBL=["● Avulso","↺ Mensalista","👥 Escola","🎉 Evento"];
 
@@ -733,9 +734,11 @@ export default function App(){
                 </div>
                 <div style={{fontSize:10,color:falta>0?"#dc2626":"#16a34a",marginTop:2,fontWeight:600}}>{label}</div>
               </div>
-              <div style={{textAlign:"right",minWidth:60}}>
+              <div style={{textAlign:"right",minWidth:72}}>
                 <div style={{fontWeight:800,fontSize:14,color:"#1a1f2e"}}>R${(ag.val||0).toFixed(0)}</div>
-                {falta>0&&<div style={{fontSize:10,color:"#dc2626",fontWeight:700}}>−R${falta.toFixed(0)}</div>}
+                {calcPagoOnline(ag)>0&&<div style={{fontSize:10,color:"#1d4ed8",fontWeight:700}}>💻R${calcPagoOnline(ag).toFixed(0)}</div>}
+                {((parseFloat(ag.pagoMaquina)||0)+(parseFloat(ag.pagoDinheiro)||0))>0&&<div style={{fontSize:10,color:"#065f46",fontWeight:700}}>🏟️R${((parseFloat(ag.pagoMaquina)||0)+(parseFloat(ag.pagoDinheiro)||0)).toFixed(0)}</div>}
+                {falta>0&&<div style={{fontSize:10,color:"#dc2626",fontWeight:700}}>⏳R${falta.toFixed(0)}</div>}
               </div>
             </div>
             );
@@ -876,7 +879,7 @@ export default function App(){
 
         {/* Aviso de dia bloqueado */}
         {qds.map(q=>{
-          const bl=blackouts.find(b=>b.data===ds&&(b.qid==="todas"||b.qid===q.id));
+          const bl=blackouts.find(b=>b.data===ds&&(b.qid==="todas"||b.qid===q.id)&&(!b.ini||!b.fim));
           if(!bl) return <SlotAgenda key={q.id} q={q}/>;
           return (
             <div key={q.id} style={{background:"#fee2e2",border:"1.5px solid #fca5a5",borderRadius:12,padding:16,marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -1710,6 +1713,142 @@ Até lá! 👋`)}`} target="_blank"
         <div style={{height:8}}/>
         <Btn full onClick={()=>setModalQ(false)}>Cancelar</Btn>
       </Modal>
+
+
+        {pg==="fech"&&(()=>{
+          // ── ABA FECHAMENTO DO DIA ──
+          const agsFech=ags.filter(a=>a.data===ds&&a.st==="confirmado");
+          const quadraFech=(qid)=>agsFech.filter(a=>a.qid===qid);
+          const totalVal=(lista)=>lista.reduce((s,a)=>s+(parseFloat(a.val)||0),0);
+          const totalOnline=(lista)=>lista.reduce((s,a)=>s+calcPagoOnline(a),0);
+          const totalBalcao=(lista)=>lista.reduce((s,a)=>s+(parseFloat(a.pagoMaquina)||0)+(parseFloat(a.pagoDinheiro)||0),0);
+          const totalFalta=(lista)=>lista.reduce((s,a)=>s+saldoRestante(a),0);
+          const totalSauna=(lista)=>lista.reduce((s,a)=>s+(parseInt(a.saunaQtd)||0),0)*15;
+          const q1=quadraFech("q1"), q2=quadraFech("q2");
+          const todos=[...q1,...q2];
+          const gTotal=totalVal(todos), gOnline=totalOnline(todos), gBalcao=totalBalcao(todos), gFalta=totalFalta(todos);
+
+          const CardFech=({titulo,lista,cor})=>{
+            if(lista.length===0)return null;
+            const vTotal=totalVal(lista), vOnline=totalOnline(lista), vBalcao=totalBalcao(lista), vFalta=totalFalta(lista);
+            return(
+              <div style={{background:"white",borderRadius:12,padding:16,marginBottom:12,boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
+                <div style={{fontWeight:800,fontSize:14,color:cor,marginBottom:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span>{titulo} — {lista.length} jogo{lista.length>1?"s":""}</span>
+                  <span style={{fontSize:16,color:"#1a1f2e"}}>R${vTotal.toFixed(0)}</span>
+                </div>
+                {lista.map((a,i)=>{
+                  const online=calcPagoOnline(a);
+                  const balcao=(parseFloat(a.pagoMaquina)||0)+(parseFloat(a.pagoDinheiro)||0);
+                  const falta=saldoRestante(a);
+                  return(
+                    <div key={a.id} onClick={()=>setModalD(a)} style={{padding:"10px 0",borderTop:"1px solid #f3f4f6",cursor:"pointer"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <div>
+                          <div style={{fontWeight:700,fontSize:13,color:"#1a1f2e"}}>{a.ini}–{a.fim} · {a.cli||"Avulso"}</div>
+                          <div style={{fontSize:11,color:"#6b7280",marginTop:2}}>
+                            {a.pess?`👥 ${a.pess} pessoas · `:""}
+                            {(parseInt(a.saunaQtd)||0)>0?`🧖 sauna · `:""}
+                            {a.tp==="balcao"?"balcão":"online"}
+                          </div>
+                        </div>
+                        <div style={{textAlign:"right"}}>
+                          <div style={{fontWeight:800,fontSize:14,color:"#1a1f2e"}}>R${(a.val||0).toFixed(0)}</div>
+                          {falta>0&&<div style={{fontSize:10,color:"#dc2626",fontWeight:700}}>falta R${falta.toFixed(0)}</div>}
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:8,marginTop:5,flexWrap:"wrap"}}>
+                        {online>0&&<span style={{fontSize:10,background:"#eff6ff",color:"#1d4ed8",borderRadius:6,padding:"2px 7px",fontWeight:700}}>💻 Online R${online.toFixed(0)}</span>}
+                        {balcao>0&&<span style={{fontSize:10,background:"#f0fdf4",color:"#065f46",borderRadius:6,padding:"2px 7px",fontWeight:700}}>🏟️ Balcão R${balcao.toFixed(0)}</span>}
+                        {falta>0&&<span style={{fontSize:10,background:"#fef2f2",color:"#dc2626",borderRadius:6,padding:"2px 7px",fontWeight:700}}>⏳ Pendente R${falta.toFixed(0)}</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+                <div style={{marginTop:10,paddingTop:10,borderTop:"2px solid #f3f4f6",display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+                  <div style={{textAlign:"center",background:"#eff6ff",borderRadius:8,padding:"8px 4px"}}>
+                    <div style={{fontWeight:800,fontSize:13,color:"#1d4ed8"}}>R${vOnline.toFixed(0)}</div>
+                    <div style={{fontSize:10,color:"#6b7280"}}>Online</div>
+                  </div>
+                  <div style={{textAlign:"center",background:"#f0fdf4",borderRadius:8,padding:"8px 4px"}}>
+                    <div style={{fontWeight:800,fontSize:13,color:"#065f46"}}>R${vBalcao.toFixed(0)}</div>
+                    <div style={{fontSize:10,color:"#6b7280"}}>Balcão</div>
+                  </div>
+                  <div style={{textAlign:"center",background:vFalta>0?"#fef2f2":"#f9fafb",borderRadius:8,padding:"8px 4px"}}>
+                    <div style={{fontWeight:800,fontSize:13,color:vFalta>0?"#dc2626":"#9ca3af"}}>R${vFalta.toFixed(0)}</div>
+                    <div style={{fontSize:10,color:"#6b7280"}}>Pendente</div>
+                  </div>
+                </div>
+              </div>
+            );
+          };
+
+          return(
+            <div style={{padding:16,paddingBottom:80}}>
+              {/* Seletor de data */}
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+                <button onClick={()=>{const d=new Date(ds+"T12:00:00");d.setDate(d.getDate()-1);setDs(toDS(d));}} style={{background:"white",border:"1.5px solid #e0e3e8",borderRadius:8,width:36,height:36,cursor:"pointer",fontSize:18}}>‹</button>
+                <input type="date" value={ds} onChange={e=>setDs(e.target.value)} style={{flex:1,padding:"9px 12px",borderRadius:10,border:"1.5px solid #e0e3e8",fontSize:14,fontWeight:700,color:"#1a1f2e"}}/>
+                <button onClick={()=>{const d=new Date(ds+"T12:00:00");d.setDate(d.getDate()+1);setDs(toDS(d));}} style={{background:"white",border:"1.5px solid #e0e3e8",borderRadius:8,width:36,height:36,cursor:"pointer",fontSize:18}}>›</button>
+              </div>
+
+              {todos.length===0?(
+                <div style={{textAlign:"center",padding:40,color:"#9ca3af"}}>
+                  <div style={{fontSize:40,marginBottom:12}}>📭</div>
+                  <div style={{fontWeight:700,fontSize:16}}>Nenhum jogo neste dia</div>
+                </div>
+              ):(
+                <>
+                  {/* Resumo geral */}
+                  <div style={{background:"linear-gradient(135deg,#1a5248,#2E7D6B)",borderRadius:14,padding:16,marginBottom:16,color:"white"}}>
+                    <div style={{fontWeight:800,fontSize:16,marginBottom:12}}>📆 Fechamento do Dia</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                      <div style={{background:"rgba(255,255,255,0.12)",borderRadius:10,padding:12,textAlign:"center"}}>
+                        <div style={{fontWeight:800,fontSize:22}}>{todos.length}</div>
+                        <div style={{fontSize:11,opacity:.7}}>jogos</div>
+                      </div>
+                      <div style={{background:"rgba(255,255,255,0.12)",borderRadius:10,padding:12,textAlign:"center"}}>
+                        <div style={{fontWeight:800,fontSize:22}}>R${gTotal.toFixed(0)}</div>
+                        <div style={{fontSize:11,opacity:.7}}>total do dia</div>
+                      </div>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                      <div style={{background:"rgba(255,255,255,0.1)",borderRadius:8,padding:10,textAlign:"center"}}>
+                        <div style={{fontWeight:800,fontSize:15}}>R${gOnline.toFixed(0)}</div>
+                        <div style={{fontSize:10,opacity:.7}}>💻 Online</div>
+                      </div>
+                      <div style={{background:"rgba(255,255,255,0.1)",borderRadius:8,padding:10,textAlign:"center"}}>
+                        <div style={{fontWeight:800,fontSize:15}}>R${gBalcao.toFixed(0)}</div>
+                        <div style={{fontSize:10,opacity:.7}}>🏟️ Balcão</div>
+                      </div>
+                      <div style={{background:gFalta>0?"rgba(220,38,38,0.3)":"rgba(255,255,255,0.1)",borderRadius:8,padding:10,textAlign:"center"}}>
+                        <div style={{fontWeight:800,fontSize:15}}>R${gFalta.toFixed(0)}</div>
+                        <div style={{fontSize:10,opacity:.7}}>⏳ Pendente</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Por quadra */}
+                  <CardFech titulo="⚽ Campo Society" lista={q1} cor="#2E7D6B"/>
+                  <CardFech titulo="🏐 Quadra de Areia" lista={q2} cor="#E8861A"/>
+
+                  {/* Sauna */}
+                  {(totalSauna(todos))>0&&(
+                    <div style={{background:"white",borderRadius:12,padding:14,marginBottom:12,boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <span style={{fontWeight:700,fontSize:14}}>🧖 Sauna</span>
+                        <span style={{fontWeight:800,fontSize:16,color:"#2E7D6B"}}>R${totalSauna(todos).toFixed(0)}</span>
+                      </div>
+                      <div style={{fontSize:12,color:"#6b7280",marginTop:4}}>
+                        {todos.filter(a=>(parseInt(a.saunaQtd)||0)>0).map(a=>`${a.cli||"Avulso"} (${a.saunaQtd}p)`).join(" · ")}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })()}
 
       <Toast msg={toast}/>
     </div>
