@@ -1725,7 +1725,7 @@ Até lá! 👋`)}`} target="_blank"
 
         {/* Datas */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
-          <div><label style={lbl}>{bTipo==="periodo"?"Data início":"A partir de"}</label>
+          <div><label style={lbl}>"Data início"</label>
             <input type="date" style={inp} value={bData} onChange={e=>setBData(e.target.value)}/>
           </div>
           <div><label style={lbl}>Data fim</label>
@@ -1808,6 +1808,8 @@ Até lá! 👋`)}`} target="_blank"
         <div style={{height:8}}/>
         <Btn full onClick={()=>setModalQ(false)}>Cancelar</Btn>
       </Modal>
+
+
 
 
         {pg==="hoje"&&subHoje==="fechamento"&&(()=>{
