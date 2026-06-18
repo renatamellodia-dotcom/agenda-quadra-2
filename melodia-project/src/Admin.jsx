@@ -1859,7 +1859,7 @@ Até lá! 👋`)}`} target="_blank"
                       </div>
                     </div>
                   );
-                })}
+                })()}
                 <div style={{marginTop:10,paddingTop:10,borderTop:"2px solid #f3f4f6",display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
                   <div style={{textAlign:"center",background:"#eff6ff",borderRadius:8,padding:"8px 4px"}}>
                     <div style={{fontWeight:800,fontSize:13,color:"#1d4ed8"}}>R${vOnline.toFixed(0)}</div>
