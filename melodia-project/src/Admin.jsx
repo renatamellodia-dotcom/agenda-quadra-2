@@ -690,7 +690,7 @@ export default function App(){
 
   function SlotAgenda({q}){
     const dq=ddDia.filter(a=>a.qid===q.id);
-    const bq=blDia.filter(b=>b.qid===q.id);
+    const bq=blDia.filter(b=>b.qid===q.id||b.qid==="todas");
     return(
       <div style={{marginBottom:16}}>
         <div style={{fontWeight:700,fontSize:13,textTransform:"uppercase",letterSpacing:1,padding:"8px 0 6px",borderBottom:`2px solid ${q.cor}`,marginBottom:8,color:q.cor,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -1023,16 +1023,6 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
       {/* ── AGENDAMENTOS ── */}
       {pg==="agend"&&subAgend==="lista"&&<div style={{padding:16,paddingBottom:80}}>
         <SubTabs aba={subAgend} setAba={setSubAgend} tabs={[["lista","📋 Reservas"],["contatos","👥 Contatos"]]}/>
-        {clientesFrequentes.length>0&&(
-          <div style={{background:"#fef9c3",border:"1.5px solid #fde047",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",gap:10,overflowX:"auto"}}>
-            {clientesFrequentes.slice(0,5).map(c=>(
-              <div key={c.n} style={{flexShrink:0,textAlign:"center"}}>
-                <div style={{fontWeight:800,fontSize:13,color:"#854d0e"}}>{c.n.split(" ")[0]}</div>
-                <div style={{fontSize:11,color:"#92400e",fontWeight:700}}>{c.count}x ⭐</div>
-              </div>
-            ))}
-          </div>
-        )}
         <div style={{display:"flex",gap:8,marginBottom:14,overflowX:"auto",paddingBottom:4}}>
           {[["todos","Todos"],["conf","Confirmados"],["aguard","Aguardando"],["canc","Cancelados"],["parcial","50% pagos"],["pago","Quitados"],["avulso","Avulso"],["mensalista","Mensalista"]].map(([k,l])=>(
             <div key={k} onClick={()=>setFiltro(k)} style={{flex:"none",padding:"6px 14px",borderRadius:20,border:`1.5px solid ${filtro===k?V:"#e0e3e8"}`,background:filtro===k?V:"white",fontSize:12,fontWeight:600,cursor:"pointer",color:filtro===k?"white":"#6b7280",whiteSpace:"nowrap"}}>{l}</div>
