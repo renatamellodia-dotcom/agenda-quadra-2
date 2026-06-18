@@ -272,10 +272,7 @@ export default function App(){
   const [logs,setLogs]=useState([]);
   const [logsLidos,setLogsLidos]=useState(()=>parseInt(localStorage.getItem("adm_logs_lidos")||"0"));
   const [showNotif,setShowNotif]=useState(false);
-useEffect(()=>{
-  document.querySelector('link[rel="apple-touch-icon"]')?.setAttribute('href', '/apple-touch-icon-admin.png');
-  document.querySelector('link[rel="manifest"]')?.setAttribute('href', '/manifest-admin.json');
-},[]);
+
   useEffect(()=>{
     try {
       const unsub = onSnapshot(collection(db,"agendamentos"), snap=>{
@@ -699,10 +696,10 @@ useEffect(()=>{
           const hhf=Math.floor(totalMinFim/60).toString().padStart(2,"0");
           const mmf=(totalMinFim%60).toString().padStart(2,"0");
           const hf=`${hhf}:${mmf}`;
-          // Filtrar horários passados quando é hoje
+          // Filtrar slots que JÁ TERMINARAM quando é hoje (mas manter em andamento)
           if(ds===toDS(new Date())){
-            const [hAtual,mAtual]=[new Date().getHours(),new Date().getMinutes()];
-            if(Math.floor(totalMin/60)<hAtual||(Math.floor(totalMin/60)===hAtual&&totalMin%60<=mAtual)) return null;
+            const agoraMin=new Date().getHours()*60+new Date().getMinutes();
+            if(totalMinFim<=agoraMin) return null; // já acabou
           }
           const ag=dq.find(x=>x.ini<=hr&&x.fim>hr);
           // Bloqueio: sem horário = dia todo, com horário = intervalo específico
@@ -932,10 +929,12 @@ useEffect(()=>{
         )}
 
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
-          {[["Hoje",sHoje],["Este Mês",sMes],["A Receber","R$"+sRec.toFixed(0)],["Recebido Mês","R$"+sRecm.toFixed(0)]].map(([l,v])=>(
-            <div key={l} style={{background:"white",borderRadius:12,padding:16,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center"}}>
+          {[["Hoje",sHoje,"agenda"],["Este Mês",sMes,null],["A Receber","R$"+sRec.toFixed(0),null],["Recebido Mês","R$"+sRecm.toFixed(0),null]].map(([l,v,aba])=>(
+            <div key={l} onClick={()=>{if(aba){setDs(toDS(new Date()));setPg(aba);}}}
+              style={{background:"white",borderRadius:12,padding:16,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center",cursor:aba?"pointer":"default",border:aba?"1.5px solid #bbf7d0":"none"}}>
               <div style={{fontWeight:800,fontSize:28,color:VE}}>{v}</div>
               <div style={{fontSize:12,color:"#6b7280",marginTop:2,fontWeight:600}}>{l}</div>
+              {aba&&<div style={{fontSize:10,color:"#16a34a",marginTop:4,fontWeight:700}}>ver agenda →</div>}
             </div>
           ))}
         </div>
