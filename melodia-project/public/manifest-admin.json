@@ -1,0 +1,11 @@
+{
+  "name": "Admin Melodia",
+  "short_name": "Admin",
+  "start_url": "/admin",
+  "display": "standalone",
+  "background_color": "#1a1a1a",
+  "theme_color": "#d4af37",
+  "icons": [
+    { "src": "/apple-touch-icon-admin.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}
