@@ -272,7 +272,10 @@ export default function App(){
   const [logs,setLogs]=useState([]);
   const [logsLidos,setLogsLidos]=useState(()=>parseInt(localStorage.getItem("adm_logs_lidos")||"0"));
   const [showNotif,setShowNotif]=useState(false);
-
+useEffect(()=>{
+  document.querySelector('link[rel="apple-touch-icon"]')?.setAttribute('href', '/apple-touch-icon-admin.png');
+  document.querySelector('link[rel="manifest"]')?.setAttribute('href', '/manifest-admin.json');
+},[]);
   useEffect(()=>{
     try {
       const unsub = onSnapshot(collection(db,"agendamentos"), snap=>{
