@@ -9,19 +9,5 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
-  ],
-  "redirects": [
-    {
-      "source": "/:path*",
-      "has": [{ "type": "host", "value": "funcionario.complexomelodia.com.br" }],
-      "destination": "https://complexomelodia.com.br/funcionario",
-      "permanent": false
-    },
-    {
-      "source": "/:path*",
-      "has": [{ "type": "host", "value": "admin.complexomelodia.com.br" }],
-      "destination": "https://complexomelodia.com.br/admin",
-      "permanent": false
-    }
   ]
 }
