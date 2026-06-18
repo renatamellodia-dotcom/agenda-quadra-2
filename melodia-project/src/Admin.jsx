@@ -348,6 +348,7 @@ export default function App(){
   const [fRepDia,setFRepDia]=useState("semanal"); // semanal | quinzenal | mensal
 
   const [subHoje,setSubHoje]=useState("agenda");
+  const [qFiltAgenda,setQFiltAgenda]=useState("todas"); // todas | q1 | q2
   const [dsFech,setDsFech]=useState(toDS(new Date())); // data separada para o Fechamento // agenda | painel | fechamento
   const [subAgend,setSubAgend]=useState("lista"); // lista | contatos
   const [subCfg,setSubCfg]=useState("cfg"); // cfg | complexo | galeria
@@ -681,8 +682,8 @@ export default function App(){
   const ctsFilt=busca?cts.filter(c=>c.n.toLowerCase().includes(busca.toLowerCase())):cts;
 
   const TABS=[{id:"hoje",lbl:"🏠 Hoje"},{id:"agend",lbl:"📋 Reservas"},{id:"fin",lbl:"💰 Financeiro"},{id:"cfg",lbl:"⚙️ Config"}];
-  const TIPOS=["avulso","mensalista","escola","evento"];
-  const TLBL=["● Avulso","↺ Mensalista","👥 Escola","🎉 Evento"];
+  const TIPOS=["avulso","mensalista","parceiro","evento"];
+  const TLBL=["● Avulso","↺ Mensalista","🤝 Parceiro","🎉 Evento"];
 
   function SlotAgenda({q}){
     const dq=ddDia.filter(a=>a.qid===q.id);
@@ -877,6 +878,15 @@ export default function App(){
       {pg==="hoje"&&<div style={{padding:16,paddingBottom:80}}>
         <SubTabs aba={subHoje} setAba={setSubHoje} tabs={[["agenda","📅 Agenda"],["painel","📊 Painel"],["fechamento","📆 Fechamento"]]}/>
         {subHoje==="agenda"&&<div>
+        <div style={{display:"flex",gap:6,marginBottom:12}}>
+          {[["todas","Todas"],["q1","⚽ Society"],["q2","🏐 Areia"]].map(([id,lbl])=>(
+            <button key={id} onClick={()=>setQFiltAgenda(id)}
+              style={{flex:1,padding:"8px 4px",borderRadius:8,border:"none",fontWeight:700,fontSize:12,cursor:"pointer",
+                background:qFiltAgenda===id?VE:"#f0f4f8",color:qFiltAgenda===id?"white":"#6b7280",transition:"all .15s"}}>
+              {lbl}
+            </button>
+          ))}
+        </div>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
           <button style={{width:36,height:36,borderRadius:8,border:"1.5px solid #e0e3e8",background:"white",cursor:"pointer",fontSize:18}} onClick={()=>setDtA(d=>{const n=new Date(d);n.setDate(n.getDate()-1);return n;})}>‹</button>
           <div style={{flex:1,textAlign:"center",fontWeight:700,fontSize:15,textTransform:"uppercase"}}>
@@ -889,7 +899,7 @@ export default function App(){
         
 
         {/* Aviso de dia bloqueado */}
-        {qds.map(q=>{
+        {qds.filter(q=>qFiltAgenda==="todas"||q.id===qFiltAgenda).map(q=>{
           const bl=blackouts.find(b=>b.data===ds&&(b.qid==="todas"||b.qid===q.id)&&(!b.ini||!b.fim));
           if(!bl) return <SlotAgenda key={q.id} q={q}/>;
           return (
