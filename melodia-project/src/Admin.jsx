@@ -233,7 +233,7 @@ function Login({onLogin}){
 
 export default function App(){
   const [logado,setLogado]=useState(()=>sessionStorage.getItem("adm_auth")==="1");
-  const [pg,setPg]=useState("agenda");
+  const [pg,setPg]=useState("hoje");
 
   const [ags,setAgs]=useState([]);
   const [bloqueios,setBloqueios]=useState([]);
@@ -347,6 +347,9 @@ export default function App(){
   const [fRepAte,setFRepAte]=useState("");
   const [fRepDia,setFRepDia]=useState("semanal"); // semanal | quinzenal | mensal
 
+  const [subHoje,setSubHoje]=useState("agenda"); // agenda | painel | fechamento
+  const [subAgend,setSubAgend]=useState("lista"); // lista | contatos
+  const [subCfg,setSubCfg]=useState("cfg"); // cfg | complexo | galeria
   const [bQid,setBQid]=useState(qds[0]?.id||"");
   const [bTipo,setBTipo]=useState("periodo"); // periodo | diasemana
   const [bDataFim,setBDataFim]=useState("");
@@ -538,10 +541,11 @@ export default function App(){
     let cur=new Date(dataInicio);
     while(cur<=dataFim){
       const ds=toDS(cur);
-      if(bTipo==="periodo"){
-        datas.push(ds);
-      } else if(bTipo==="diasemana"){
+      // Se dias da semana selecionados, filtrar — independente do tipo
+      if(bDiasSemana.length>0){
         if(bDiasSemana.includes(cur.getDay())) datas.push(ds);
+      } else {
+        datas.push(ds); // sem filtro de dia = bloqueia todo o período
       }
       cur=new Date(cur.getTime()+24*60*60*1000);
     }
@@ -675,7 +679,7 @@ export default function App(){
   },[]);
   const ctsFilt=busca?cts.filter(c=>c.n.toLowerCase().includes(busca.toLowerCase())):cts;
 
-  const TABS=[{id:"agenda",lbl:"📅 Agenda"},{id:"painel",lbl:"📊 Painel"},{id:"agend",lbl:"📋 Agend."},{id:"fin",lbl:"💰 Fin."},{id:"cont",lbl:"👥 Contatos"},{id:"complexo",lbl:"🏟️ Complexo"},{id:"galeria",lbl:"📸 Galeria"},{id:"cfg",lbl:"⚙️ Config"},{id:"fech",lbl:"📆 Fechamento"}];
+  const TABS=[{id:"hoje",lbl:"🏠 Hoje"},{id:"agend",lbl:"📋 Reservas"},{id:"fin",lbl:"💰 Financeiro"},{id:"cfg",lbl:"⚙️ Config"}];
   const TIPOS=["avulso","mensalista","escola","evento"];
   const TLBL=["● Avulso","↺ Mensalista","👥 Escola","🎉 Evento"];
 
@@ -785,6 +789,38 @@ export default function App(){
   // Slots completos para bloqueio (9h às 23h independente do dia)
   const bloqueioSlots = Array.from({length:50},(_,i)=>{ const m=i*30; const h=Math.floor(m/60).toString().padStart(2,'0'); const min=(m%60).toString().padStart(2,'0'); return h+':'+min; }).filter(s=>{ const[h]=s.split(':').map(Number); return h>=9&&h<=23; });
 
+  // Componente sub-tabs inline
+  function SubTabs({aba, setAba, tabs}){
+    return(
+      <div style={{display:"flex",gap:6,marginBottom:16,background:"white",borderRadius:10,padding:4,boxShadow:"0 1px 4px rgba(0,0,0,.06)"}}>
+        {tabs.map(([id,lbl])=>(
+          <button key={id} onClick={()=>setAba(id)}
+            style={{flex:1,padding:"8px 4px",borderRadius:8,border:"none",fontWeight:700,fontSize:12,cursor:"pointer",
+              background:aba===id?VE:"transparent",color:aba===id?"white":"#6b7280",transition:"all .15s"}}>
+            {lbl}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  // Mesclar clientes duplicados por CPF ou telefone
+  async function mesclarClientes(principal, duplicados){
+    if(!window.confirm("Mesclar "+duplicados.length+" reserva(s) para "+principal.cli+"?")) return;
+    try {
+      for(const ag of duplicados){
+        await updateDoc(doc(db,"agendamentos",ag.id),{
+          cli: principal.cli,
+          tel: principal.tel||ag.tel,
+          cpf: principal.cpf||ag.cpf,
+          email: principal.email||ag.email,
+        });
+      }
+      addLog("🔀 Clientes mesclados → "+principal.cli+" ("+duplicados.length+" reservas)");
+      showToast("✅ "+duplicados.length+" reserva(s) atualizadas!");
+    } catch(e){ showToast("❌ Erro ao mesclar!"); }
+  }
+
   return(
     <div style={{fontFamily:"system-ui,sans-serif",background:BG,minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
 
@@ -838,7 +874,9 @@ export default function App(){
       </div>
 
       {/* ── AGENDA ── */}
-      {pg==="agenda"&&<div style={{padding:16,paddingBottom:80}}>
+      {pg==="hoje"&&<div style={{padding:16,paddingBottom:80}}>
+        <SubTabs aba={subHoje} setAba={setSubHoje} tabs={[["agenda","📅 Agenda"],["painel","📊 Painel"],["fechamento","📆 Fechamento"]]}/>
+        {subHoje==="agenda"&&<div>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
           <button style={{width:36,height:36,borderRadius:8,border:"1.5px solid #e0e3e8",background:"white",cursor:"pointer",fontSize:18}} onClick={()=>setDtA(d=>{const n=new Date(d);n.setDate(n.getDate()-1);return n;})}>‹</button>
           <div style={{flex:1,textAlign:"center",fontWeight:700,fontSize:15,textTransform:"uppercase"}}>
@@ -896,8 +934,9 @@ export default function App(){
         })}
       </div>}
 
+      </div>}
       {/* ── PAINEL ── */}
-      {pg==="painel"&&<div style={{padding:16,paddingBottom:80}}>
+      {pg==="hoje"&&subHoje==="painel"&&<div style={{padding:16,paddingBottom:80}}>
 
         {/* MENSALISTAS VENCENDO */}
         {mensalistasVencendo.length>0&&(
@@ -994,7 +1033,8 @@ export default function App(){
       </div>}
 
       {/* ── AGENDAMENTOS ── */}
-      {pg==="agend"&&<div style={{padding:16,paddingBottom:80}}>
+      {pg==="agend"&&subAgend==="lista"&&<div style={{padding:16,paddingBottom:80}}>
+        <SubTabs aba={subAgend} setAba={setSubAgend} tabs={[["lista","📋 Reservas"],["contatos","👥 Contatos"]]}/>
         <div style={{display:"flex",gap:8,marginBottom:14,overflowX:"auto",paddingBottom:4}}>
           {[["todos","Todos"],["conf","Confirmados"],["aguard","Aguardando"],["canc","Cancelados"],["parcial","50% pagos"],["pago","Quitados"],["avulso","Avulso"],["mensalista","Mensalista"]].map(([k,l])=>(
             <div key={k} onClick={()=>setFiltro(k)} style={{flex:"none",padding:"6px 14px",borderRadius:20,border:`1.5px solid ${filtro===k?V:"#e0e3e8"}`,background:filtro===k?V:"white",fontSize:12,fontWeight:600,cursor:"pointer",color:filtro===k?"white":"#6b7280",whiteSpace:"nowrap"}}>{l}</div>
@@ -1139,7 +1179,8 @@ export default function App(){
       </div>}
 
       {/* ── CONTATOS ── */}
-      {pg==="cont"&&<div style={{padding:16,paddingBottom:80}}>
+      {pg==="agend"&&subAgend==="contatos"&&<div style={{padding:16,paddingBottom:80}}>
+        <SubTabs aba={subAgend} setAba={setSubAgend} tabs={[["lista","📋 Reservas"],["contatos","👥 Contatos"]]}/>
         {clientesFrequentes.length>0&&(
           <div style={{background:"#fef9c3",border:"1.5px solid #fde047",borderRadius:12,padding:"12px 16px",marginBottom:12}}>
             <div style={{fontWeight:800,fontSize:13,color:"#854d0e",marginBottom:6}}>⭐ Clientes Frequentes (10+ reservas)</div>
@@ -1168,10 +1209,57 @@ export default function App(){
             </div>
           ))}
         </Card>
+
+        {/* MESCLAR CLIENTES DUPLICADOS */}
+        {(()=>{
+          // Agrupar clientes por telefone (normalizado) para encontrar duplicatas
+          const grupos={};
+          ags.forEach(a=>{
+            if(!a.cli&&!a.tel) return;
+            const tel=(a.tel||"").replace(/\D/g,"");
+            const cpf=(a.cpf||"").replace(/\D/g,"");
+            const chave=cpf||tel;
+            if(!chave) return;
+            if(!grupos[chave]) grupos[chave]={ags:[],tel,cpf,nomes:new Set()};
+            grupos[chave].ags.push(a);
+            if(a.cli) grupos[chave].nomes.add(a.cli.trim().toLowerCase());
+          });
+          const duplicados=Object.values(grupos).filter(g=>g.nomes.size>1);
+          if(duplicados.length===0) return null;
+          return(
+            <div style={{marginTop:16,background:"#fef2f2",border:"1.5px solid #fca5a5",borderRadius:12,padding:"12px 16px"}}>
+              <div style={{fontWeight:800,fontSize:13,color:"#dc2626",marginBottom:10}}>🔀 Clientes duplicados ({duplicados.length})</div>
+              {duplicados.map((g,i)=>{
+                const nomes=[...g.nomes];
+                // Principal = nome mais longo e formatado
+                const principal=g.ags.sort((a,b)=>(b.cli||"").length-(a.cli||"").length)[0];
+                const outros=g.ags.filter(a=>(a.cli||"").trim().toLowerCase()!==principal.cli?.trim().toLowerCase());
+                return(
+                  <div key={i} style={{padding:"10px 0",borderBottom:"1px solid #fecaca"}}>
+                    <div style={{fontSize:13,fontWeight:700,color:"#1a1f2e",marginBottom:4}}>
+                      {nomes.join(" · ")}
+                    </div>
+                    <div style={{fontSize:11,color:"#6b7280",marginBottom:8}}>
+                      {g.tel&&`📱 ${g.tel}`}{g.cpf&&` · CPF ${g.cpf}`} · {g.ags.length} reservas
+                    </div>
+                    <div style={{fontSize:11,color:"#6b7280",marginBottom:8}}>
+                      Unificar como: <strong style={{color:"#1a1f2e"}}>{principal.cli}</strong>
+                    </div>
+                    <button onClick={()=>mesclarClientes(principal, outros)}
+                      style={{background:"#dc2626",color:"white",border:"none",borderRadius:8,padding:"7px 14px",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                      🔀 Mesclar {outros.length} duplicata(s)
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>}
 
       {/* ── COMPLEXO ── */}
-      {pg==="complexo"&&<div style={{padding:16,paddingBottom:80}}>
+      {pg==="cfg"&&subCfg==="complexo"&&<div style={{padding:16,paddingBottom:80}}>
+        <SubTabs aba={subCfg} setAba={setSubCfg} tabs={[["cfg","⚙️ Config"],["complexo","🏟️ Complexo"],["galeria","📸 Galeria"]]}/>
         <Card>
           <CardH title="🏟️ Informações do Complexo"/>
           <div style={{padding:16}}>
@@ -1234,7 +1322,8 @@ export default function App(){
       </div>}
 
       {/* ── GALERIA ── */}
-      {pg==="galeria"&&<div style={{padding:16,paddingBottom:80}}>
+      {pg==="cfg"&&subCfg==="galeria"&&<div style={{padding:16,paddingBottom:80}}>
+        <SubTabs aba={subCfg} setAba={setSubCfg} tabs={[["cfg","⚙️ Config"],["complexo","🏟️ Complexo"],["galeria","📸 Galeria"]]}/>
         <Card>
           <CardH title="📸 Galeria de Fotos"/>
           <div style={{padding:16}}>
@@ -1262,7 +1351,8 @@ export default function App(){
       </div>}
 
       {/* ── CONFIG ── */}
-      {pg==="cfg"&&<div style={{padding:16,paddingBottom:80}}>
+      {pg==="cfg"&&subCfg==="cfg"&&<div style={{padding:16,paddingBottom:80}}>
+        <SubTabs aba={subCfg} setAba={setSubCfg} tabs={[["cfg","⚙️ Config"],["complexo","🏟️ Complexo"],["galeria","📸 Galeria"]]}/>
         <Card>
           <CardH title="Configurações"/>
           <div style={{padding:16}}>
@@ -1614,18 +1704,7 @@ Até lá! 👋`)}`} target="_blank"
           </select>
         </div>
 
-        {/* Tipo de bloqueio */}
-        <div style={{marginBottom:14}}>
-          <label style={lbl}>Tipo de bloqueio</label>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-            {[{id:"periodo",label:"📅 Período"},{id:"diasemana",label:"🔁 Dias da semana"}].map(t=>(
-              <button key={t.id} onClick={()=>setBTipo(t.id)}
-                style={{padding:"10px",borderRadius:10,border:`2px solid ${bTipo===t.id?V:"#e0e3e8"}`,background:bTipo===t.id?"#f0fdf4":"white",fontWeight:700,fontSize:13,cursor:"pointer",color:bTipo===t.id?V:"#374151"}}>
-                {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
+
 
         {/* Datas */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
@@ -1637,20 +1716,19 @@ Até lá! 👋`)}`} target="_blank"
           </div>
         </div>
 
-        {/* Dias da semana */}
-        {bTipo==="diasemana"&&(
-          <div style={{marginBottom:14}}>
-            <label style={lbl}>Dias da semana</label>
-            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-              {["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].map((d,i)=>(
-                <button key={i} onClick={()=>setBDiasSemana(prev=>prev.includes(i)?prev.filter(x=>x!==i):[...prev,i])}
-                  style={{padding:"8px 12px",borderRadius:8,border:`2px solid ${bDiasSemana.includes(i)?V:"#e0e3e8"}`,background:bDiasSemana.includes(i)?"#f0fdf4":"white",fontWeight:700,fontSize:13,cursor:"pointer",color:bDiasSemana.includes(i)?V:"#374151"}}>
-                  {d}
-                </button>
-              ))}
-            </div>
+        {/* Dias da semana — opcional, deixe em branco para bloquear todos os dias do período */}
+        <div style={{marginBottom:14}}>
+          <label style={lbl}>Dias da semana (opcional — selecione para filtrar)</label>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].map((d,i)=>(
+              <button key={i} onClick={()=>setBDiasSemana(prev=>prev.includes(i)?prev.filter(x=>x!==i):[...prev,i])}
+                style={{padding:"8px 12px",borderRadius:8,border:`2px solid ${bDiasSemana.includes(i)?V:"#e0e3e8"}`,background:bDiasSemana.includes(i)?"#f0fdf4":"white",fontWeight:700,fontSize:13,cursor:"pointer",color:bDiasSemana.includes(i)?V:"#374151"}}>
+                {d}
+              </button>
+            ))}
           </div>
-        )}
+          {bDiasSemana.length===0&&<div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>Sem seleção = bloqueia todos os dias do período</div>}
+        </div>
 
         {/* Horário (opcional) */}
         <div style={{marginBottom:6}}>
@@ -1715,7 +1793,7 @@ Até lá! 👋`)}`} target="_blank"
       </Modal>
 
 
-        {pg==="fech"&&(()=>{
+        {pg==="hoje"&&subHoje==="fechamento"&&(()=>{
           // ── ABA FECHAMENTO DO DIA ──
           const agsFech=ags.filter(a=>a.data===ds&&a.st==="confirmado");
           const quadraFech=(qid)=>agsFech.filter(a=>a.qid===qid);
