@@ -1943,7 +1943,7 @@ Até lá! 👋`)}`} target="_blank"
               )}
             </div>
           );
-        }}</div>
+        })()}
 
       <Toast msg={toast}/>
     </div>
