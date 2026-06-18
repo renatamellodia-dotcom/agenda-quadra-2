@@ -1810,7 +1810,7 @@ Até lá! 👋`)}`} target="_blank"
 
 
 
-        {pg==="hoje"&&subHoje==="fechamento"&&<div></div>
+        {pg==="hoje"&&subHoje==="fechamento"&&(()=>{
           // ── ABA FECHAMENTO DO DIA ──
           const agsFech=ags.filter(a=>a.data===dsFech&&a.st==="confirmado");
           const quadraFech=(qid)=>agsFech.filter(a=>a.qid===qid);
