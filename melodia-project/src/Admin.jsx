@@ -1810,7 +1810,7 @@ Até lá! 👋`)}`} target="_blank"
 
 
 
-        {pg==="hoje"&&subHoje==="fechamento"&&(()=>{
+        {pg==="hoje"&&subHoje==="fechamento"&&<div></div>
           // ── ABA FECHAMENTO DO DIA ──
           const agsFech=ags.filter(a=>a.data===dsFech&&a.st==="confirmado");
           const quadraFech=(qid)=>agsFech.filter(a=>a.qid===qid);
@@ -1943,7 +1943,7 @@ Até lá! 👋`)}`} target="_blank"
               )}
             </div>
           );
-        })()}
+        }}</div>
 
       <Toast msg={toast}/>
     </div>
