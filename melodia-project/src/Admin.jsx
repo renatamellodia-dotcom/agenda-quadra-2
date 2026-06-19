@@ -767,6 +767,7 @@ if(ds===toDS(new Date())){
             </div>
             );
           })();
+        if(soAgendados) return null;
           return(
             <div key={hr} style={{display:"flex",alignItems:"center",padding:"8px 12px",borderRadius:8,marginBottom:6,cursor:"pointer",border:"1px solid #e8f5e9",background:"#fafffe"}} onClick={()=>abrirNovoAg(q.id,hr,hf,ds)}>
               <div style={{fontWeight:600,fontSize:13,color:"#9ca3af"}}>{hr}</div>
