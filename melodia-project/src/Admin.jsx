@@ -961,8 +961,7 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
             ))}
           </div>
         )}
-
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+ <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
 {(()=>{
   const semPagHoje=ags.filter(a=>a.data===hjDS&&a.st==="confirmado"&&a.pag==="pendente").length;
   return [["Hoje",sHoje,"agenda",semPagHoje],["Este Mês",sMes,null,0],["A Receber","R$"+sRec.toFixed(0),null,0],["Recebido Mês","R$"+sRecm.toFixed(0),null,0]].map(([l,v,aba,alerta])=>(
@@ -975,6 +974,7 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
     </div>
   ));
 })()}
+ </div>
            <div key={l} onClick={()=>{if(aba){setPg("hoje");setSubHoje("agenda");setSoAgendados(true);}}}
               style={{background:"white",borderRadius:12,padding:16,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center",cursor:aba?"pointer":"default",border:aba?"1.5px solid #bbf7d0":"none"}}>
               <div style={{fontWeight:800,fontSize:28,color:VE}}>{v}</div>
