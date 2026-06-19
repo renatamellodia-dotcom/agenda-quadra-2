@@ -959,7 +959,7 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
 
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
           {[["Hoje",sHoje,"agenda"],["Este Mês",sMes,null],["A Receber","R$"+sRec.toFixed(0),null],["Recebido Mês","R$"+sRecm.toFixed(0),null]].map(([l,v,aba])=>(
-            <div key={l} onClick={()=>{if(aba){setDs(toDS(new Date()));setPg("hoje");setSubHoje("agenda");}}}
+           <div key={l} onClick={()=>{if(aba){setPg("hoje");setSubHoje("agenda");}}}
               style={{background:"white",borderRadius:12,padding:16,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center",cursor:aba?"pointer":"default",border:aba?"1.5px solid #bbf7d0":"none"}}>
               <div style={{fontWeight:800,fontSize:28,color:VE}}>{v}</div>
               <div style={{fontSize:12,color:"#6b7280",marginTop:2,fontWeight:600}}>{l}</div>
