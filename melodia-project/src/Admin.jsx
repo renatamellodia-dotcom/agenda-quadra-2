@@ -749,8 +749,11 @@ if(ds===toDS(new Date())){
                   <div style={{fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ag.cli||"Reservado"}</div>
                   <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
                     <span style={{fontSize:10,fontWeight:700,color:orig.cor,background:orig.bg,borderRadius:4,padding:"1px 5px"}}>{orig.label}</span>
-                    {ag.pess&&<span style={{fontSize:10,color:"#6b7280"}}>👥 {ag.pess}</span>}
-                    {saunaQtd>0&&<span style={{fontSize:10,color:"#16a34a"}}>🧖 {saunaQtd}p</span>}
+                   {ag.pess&&<span style={{fontSize:10,color:"#6b7280"}}>👥 {ag.pess}</span>}
+<span onClick={async e=>{e.stopPropagation();const qtd=parseInt(prompt("Quantas pessoas vão usar a sauna? (0 para remover)",ag.saunaQtd||0));if(isNaN(qtd))return;await updateDoc(doc(db,"agendamentos",ag.id),{sauna:qtd>0,saunaQtd:qtd});showToast(qtd>0?"🧖 Sauna registrada!":"🧖 Sauna removida!");}}
+  style={{fontSize:10,color:saunaQtd>0?"#16a34a":"#9ca3af",cursor:"pointer",background:saunaQtd>0?"#f0fdf4":"#f9fafb",borderRadius:4,padding:"1px 5px",border:`1px solid ${saunaQtd>0?"#bbf7d0":"#e0e3e8"}`}}>
+  🧖 {saunaQtd>0?saunaQtd+"p":"sauna"}
+</span>
                   </div>
                   <div style={{fontSize:10,color:falta>0?"#dc2626":"#16a34a",marginTop:2,fontWeight:600}}>{label}</div>
                 </div>
@@ -960,7 +963,18 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
         )}
 
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
-          {[["Hoje",sHoje,"agenda"],["Este Mês",sMes,null],["A Receber","R$"+sRec.toFixed(0),null],["Recebido Mês","R$"+sRecm.toFixed(0),null]].map(([l,v,aba])=>(
+{(()=>{
+  const semPagHoje=ags.filter(a=>a.data===hjDS&&a.st==="confirmado"&&a.pag==="pendente").length;
+  return [["Hoje",sHoje,"agenda",semPagHoje],["Este Mês",sMes,null,0],["A Receber","R$"+sRec.toFixed(0),null,0],["Recebido Mês","R$"+sRecm.toFixed(0),null,0]].map(([l,v,aba,alerta])=>(
+    <div key={l} onClick={()=>{if(aba){setPg("hoje");setSubHoje("agenda");setSoAgendados(true);}}}
+      style={{background:"white",borderRadius:12,padding:16,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center",cursor:aba?"pointer":"default",border:alerta>0?"1.5px solid #fca5a5":"none",position:"relative"}}>
+      {alerta>0&&<span style={{position:"absolute",top:-6,right:-6,background:"#dc2626",color:"white",fontSize:10,fontWeight:900,borderRadius:10,padding:"2px 6px"}}>{alerta} sem pag</span>}
+      <div style={{fontWeight:800,fontSize:28,color:VE}}>{v}</div>
+      <div style={{fontSize:12,color:"#6b7280",marginTop:2,fontWeight:600}}>{l}</div>
+      {aba&&<div style={{fontSize:10,color:"#16a34a",marginTop:4,fontWeight:700}}>ver agenda →</div>}
+    </div>
+  ));
+})()}
            <div key={l} onClick={()=>{if(aba){setPg("hoje");setSubHoje("agenda");setSoAgendados(true);}}}
               style={{background:"white",borderRadius:12,padding:16,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center",cursor:aba?"pointer":"default",border:aba?"1.5px solid #bbf7d0":"none"}}>
               <div style={{fontWeight:800,fontSize:28,color:VE}}>{v}</div>
