@@ -707,18 +707,17 @@ export default function App(){
           const mmf=(totalMinFim%60).toString().padStart(2,"0");
           const hf=`${hhf}:${mmf}`;
           // Slots passados: some se livre, fica se ocupado
-          if(ds===toDS(new Date())){
-            const agoraMin=new Date().getHours()*60+new Date().getMinutes();
-            if(totalMinFim<=agoraMin){
-              // Só mantém se tiver reserva (ag) ou bloqueio (bl)
-              const agPass=dq.find(x=>x.ini<=hr&&x.fim>hr);
-              const blPass=blackouts.filter(b=>b.qid===q.id).find(x=>{
-                if(!x.ini||!x.fim) return true;
-                return x.ini<=hr&&x.fim>hr;
-              });
-              if(!agPass&&!blPass) return null;
-            }
-          }
+if(ds===toDS(new Date())){
+  const agoraMin=new Date().getHours()*60+new Date().getMinutes();
+  if(totalMinFim<=agoraMin){
+    const agPass=dq.find(x=>x.ini<=hr&&x.fim>hr);
+    const blPass=blackouts.filter(b=>b.qid===q.id||b.qid==="todas").find(x=>{
+      if(!x.ini||!x.fim) return true;
+      return x.ini<=hr&&x.fim>hr;
+    });
+    if(!agPass&&!blPass) return null;
+  }
+}
           const agoraMinSlot=new Date().getHours()*60+new Date().getMinutes();
           const passou=ds===toDS(new Date())&&totalMinFim<=agoraMinSlot;
           const ag=dq.find(x=>x.ini<=hr&&x.fim>hr);
