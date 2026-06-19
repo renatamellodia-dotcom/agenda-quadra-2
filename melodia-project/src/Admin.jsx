@@ -986,8 +986,9 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
                 {lg.msg}
                 <div style={{fontSize:11,color:"#6b7280",marginTop:2}}>{new Date(lg.em).toLocaleString("pt-BR")}</div>
               </div>
-            ))}
-          </div>
+            ))
+            }
+          </div>}
         </Card>
 
         {/* CHURRASQUEIRAS */}
