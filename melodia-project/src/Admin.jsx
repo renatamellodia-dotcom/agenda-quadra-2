@@ -889,7 +889,7 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
       )}
 
       <div style={{background:"white",display:"flex",borderBottom:"2px solid #e0e3e8",overflowX:"auto",position:"sticky",top:56,zIndex:99}}>
-        {TABS.map(t=><button key={t.id} onClick={()=>setPg(t.id)} style={{flex:"none",padding:"12px 14px",fontSize:13,fontWeight:600,color:pg===t.id?V:"#6b7280",cursor:"pointer",border:"none",background:"none",borderBottom:pg===t.id?`3px solid ${V}`:"3px solid transparent",marginBottom:-2,whiteSpace:"nowrap"}}>{t.lbl}</button>)}
+        {TABS.map(t=><button key={t.id} onClick={()=>setPg(t.id);setSoagendados(false);}}} style={{flex:"none",padding:"12px 14px",fontSize:13,fontWeight:600,color:pg===t.id?V:"#6b7280",cursor:"pointer",border:"none",background:"none",borderBottom:pg===t.id?`3px solid ${V}`:"3px solid transparent",marginBottom:-2,whiteSpace:"nowrap"}}>{t.lbl}</button>)}
       </div>
 
       {/* ── AGENDA ── */}
