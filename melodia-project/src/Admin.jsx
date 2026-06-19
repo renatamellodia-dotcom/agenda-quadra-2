@@ -975,12 +975,6 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
   ));
 })()}
  </div>
-           <div key={l} onClick={()=>{if(aba){setPg("hoje");setSubHoje("agenda");setSoAgendados(true);}}}
-              style={{background:"white",borderRadius:12,padding:16,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center",cursor:aba?"pointer":"default",border:aba?"1.5px solid #bbf7d0":"none"}}>
-              <div style={{fontWeight:800,fontSize:28,color:VE}}>{v}</div>
-              <div style={{fontSize:12,color:"#6b7280",marginTop:2,fontWeight:600}}>{l}</div>
-              {aba&&<div style={{fontSize:10,color:"#16a34a",marginTop:4,fontWeight:700}}>ver agenda →</div>}
-            </div>
           ))}
         </div>
         <Card>
