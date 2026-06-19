@@ -28,7 +28,6 @@ const QP=[
 ];
 const CFG0={
   nome:"Complexo Esportivo Melodia",pix:"(22) 99900-8085",wpp:"(22) 99900-8085",
-  // Preços centrais (sincronizados com Firebase)
   precoSocietyDia:120, precoSocietyNoite:130, horaNoite:"16:00",
   precoAreia:60, limiteAreia:12, precoExcedente:10, precoSauna:15,
   descricao:"Um campo em grama sintética e uma quadra de areia disponíveis para aluguel todos os dias da semana.\nFuncionamento da Sauna: Segunda a Sexta de 17h às 22h · Sábado 9h às 16h.\nReserva de Churrasqueira: (22) 99900-8085.\nNÃO é permitida a entrada de crianças nas quadras.",
@@ -42,7 +41,6 @@ function hoje(){const d=new Date();d.setHours(0,0,0,0);return d;}
 function toDS(d){return d.toISOString().split("T")[0];}
 function agora(){return new Date().toISOString();}
 
-// Quanto foi pago online (usa valPagoOnline/valOriginal fixos se disponíveis)
 function pagoPeloSite(ag){
   if(!ag) return 0;
   const pag=ag.pag||"";
@@ -56,7 +54,6 @@ function pagoPeloSite(ag){
   return 0;
 }
 
-// Quanto falta receber (considera pagoMaquina/pagoDinheiro)
 function saldoRestante(ag){
   if(!ag) return 0;
   const val=parseFloat(ag.val)||0;
@@ -65,7 +62,6 @@ function saldoRestante(ag){
   return falta<0.01?0:falta;
 }
 
-// Label de pagamento detalhado
 function labelPag(ag){
   const pag=ag.pag||"";
   const falta=saldoRestante(ag);
@@ -84,7 +80,6 @@ function labelPag(ag){
   return `💰 Falta R$${falta.toFixed(2)}`;
 }
 
-// Origem da reserva
 function origemTag(ag){
   if(ag.tp==="balcao") return {label:"🏟️ Balcão", cor:"#92400e", bg:"#fef3c7"};
   if(ag.tp==="admin"||ag.tp==="manual"||ag.origem==="admin") return {label:"⚙️ Admin", cor:"#1e40af", bg:"#eff6ff"};
@@ -94,7 +89,6 @@ function origemTag(ag){
 function isPago(pag){ return ["mp_total","mp_pix","mp_cartao","mp_total_pix","mp_total_cartao","mp_total_dinheiro","mp_total_misto"].includes(pag); }
 function isParcial(pag){ return pag==="mp_50"; }
 
-// Quanto foi pago online (usa valPagoOnline fixo se disponível)
 function calcPagoOnline(ag) {
   const pag = ag.pag||"";
   if(isParcial(pag)) {
@@ -108,14 +102,12 @@ function calcPagoOnline(ag) {
   return 0;
 }
 
-// Total já recebido (online + balcão)
 function calcTotalRecebido(ag) {
   const maquina = parseFloat(ag.pagoMaquina)||0;
   const dinheiro = parseFloat(ag.pagoDinheiro)||0;
   if(ag.pagoMaquina !== undefined || ag.pagoDinheiro !== undefined) {
     return calcPagoOnline(ag) + maquina + dinheiro;
   }
-  // Fallback reservas antigas
   const pag = ag.pag||"";
   if(isPago(pag)) return parseFloat(ag.val)||0;
   if(isParcial(pag)) {
@@ -125,7 +117,6 @@ function calcTotalRecebido(ag) {
   return 0;
 }
 
-// Total valor real da reserva (quadra + extras pagos)
 function calcValorTotal(ag) {
   return parseFloat(ag.val)||0;
 }
@@ -256,13 +247,13 @@ export default function App(){
   const [editQ,setEditQ]=useState(null);
   const [editAg,setEditAg]=useState(null);
   const [finMes,setFinMes]=useState(new Date().toISOString().slice(0,7));
-  const [finTipo,setFinTipo]=useState("mes"); // mes | semana | quinzena | custom
+  const [finTipo,setFinTipo]=useState("mes");
   const [finDe,setFinDe]=useState(toDS(hoje()));
   const [finAte,setFinAte]=useState(toDS(hoje()));
   const [busca,setBusca]=useState("");
   const [churrasqueiras,setChurrasqueiras]=useState([]);
   const [modalChur,setModalChur]=useState(false);
-  const [modalReag,setModalReag]=useState(null); // reserva a reagendar
+  const [modalReag,setModalReag]=useState(null);
   const [reagData,setReagData]=useState("");
   const [reagIni,setReagIni]=useState("");
   const [reagFim,setReagFim]=useState("");
@@ -345,16 +336,16 @@ export default function App(){
   const [hintP,setHintP]=useState("");
   const [fRepetir,setFRepetir]=useState(false);
   const [fRepAte,setFRepAte]=useState("");
-  const [fRepDia,setFRepDia]=useState("semanal"); // semanal | quinzenal | mensal
+  const [fRepDia,setFRepDia]=useState("semanal");
 
   const [subHoje,setSubHoje]=useState("agenda");
   const [soAgendados,setSoAgendados]=useState(false);
-  const [qFiltAgenda,setQFiltAgenda]=useState("todas"); // todas | q1 | q2
-  const [dsFech,setDsFech]=useState(toDS(new Date())); // data separada para o Fechamento // agenda | painel | fechamento
-  const [subAgend,setSubAgend]=useState("lista"); // lista | contatos
-  const [subCfg,setSubCfg]=useState("cfg"); // cfg | complexo | galeria
+  const [qFiltAgenda,setQFiltAgenda]=useState("todas");
+  const [dsFech,setDsFech]=useState(toDS(new Date()));
+  const [subAgend,setSubAgend]=useState("lista");
+  const [subCfg,setSubCfg]=useState("cfg");
   const [bQid,setBQid]=useState(qds[0]?.id||"");
-  const [bTipo,setBTipo]=useState("periodo"); // periodo | diasemana
+  const [bTipo,setBTipo]=useState("periodo");
   const [bDataFim,setBDataFim]=useState("");
   const [bDiasSemana,setBDiasSemana]=useState([]);
   const [bData,setBData]=useState(toDS(hoje()));
@@ -390,11 +381,8 @@ export default function App(){
   }
 
   function isDiaBloqueado(ds, qid){
-    // Só bloqueia o DIA no calendário se não tiver horário específico (bloqueio dia todo)
     return blackouts.some(b=>b.data===ds&&(b.qid==="todas"||b.qid===qid)&&(!b.ini||!b.fim));
   }
-
-  
 
   function calcValorAdmin(ini,fim,qid,pess){
     if(!ini||!fim)return;
@@ -404,7 +392,6 @@ export default function App(){
     if(durMin<=0)return;
     const horas=durMin/60;
     if(qid==="q2"){
-      // Areia: usa preços centrais
       const precoAreia=cfg.precoAreia||60;
       const limiteAreia=cfg.limiteAreia||12;
       const precoExcedente=cfg.precoExcedente||10;
@@ -415,7 +402,6 @@ export default function App(){
       setFVal((base+extra).toFixed(2));
       return;
     }
-    // Society: usa preços centrais
     const horaNoite=cfg.horaNoite||"16:00";
     const precoPorHora=ini>=horaNoite?(cfg.precoSocietyNoite||130):(cfg.precoSocietyDia||120);
     setFVal(((precoPorHora/60)*durMin).toFixed(2));
@@ -459,7 +445,6 @@ export default function App(){
         setModalA(false);showToast("✅ Agendamento salvo!");
         return;
       }
-      // Criar reservas — únicas ou repetidas
       const datas=[];
       const dataInicio=new Date(fData+"T12:00:00");
       datas.push(fData);
@@ -471,7 +456,6 @@ export default function App(){
           if(intervalo){
             cur=new Date(cur.getTime()+intervalo*24*60*60*1000);
           } else {
-            // mensal — mesmo dia do mês seguinte
             cur=new Date(cur);
             cur.setMonth(cur.getMonth()+1);
           }
@@ -486,7 +470,6 @@ export default function App(){
         });
       }
       addLog(`📅 ${datas.length>1?datas.length+"x ":""}Agendamento: ${fCli||"Avulso"} — ${q?.nome} ${fd(fData)} ${fIni}${datas.length>1?" (recorrente até "+fd(fRepAte)+")":""}`);
-      // WhatsApp opcional — disponível no modal de detalhe
       setModalA(false);
       showToast(datas.length>1?`✅ ${datas.length} reservas criadas!`:"✅ Agendamento salvo!");
     } catch(e){ showToast("❌ Erro ao salvar!"); }
@@ -536,7 +519,6 @@ export default function App(){
     if(bTipo==="diasemana" && bDiasSemana.length===0){showToast("⚠️ Selecione ao menos um dia da semana!");return;}
     const q=qds.find(x=>x.id===bQid);
 
-    // Gerar lista de datas a bloquear
     const datas=[];
     const dataInicio=new Date(bData+"T12:00:00");
     const dataFim=bDataFim?new Date(bDataFim+"T12:00:00"):dataInicio;
@@ -544,18 +526,16 @@ export default function App(){
     let cur=new Date(dataInicio);
     while(cur<=dataFim){
       const ds=toDS(cur);
-      // Se dias da semana selecionados, filtrar — independente do tipo
       if(bDiasSemana.length>0){
         if(bDiasSemana.includes(cur.getDay())) datas.push(ds);
       } else {
-        datas.push(ds); // sem filtro de dia = bloqueia todo o período
+        datas.push(ds);
       }
       cur=new Date(cur.getTime()+24*60*60*1000);
     }
 
     if(datas.length===0){showToast("⚠️ Nenhuma data encontrada!");return;}
 
-    // Criar bloqueios no Firebase
     try {
       for(const data of datas){
         await addDoc(collection(db,"blackouts"),{
@@ -614,7 +594,6 @@ export default function App(){
   else if(filtro==="parcial")agFilt=agFilt.filter(a=>isParcial(a.pag)&&a.st!=="cancelado");
   else if(filtro==="pago")agFilt=agFilt.filter(a=>isPago(a.pag));
 
-  // Calcular período selecionado
   const finPeriodo = (()=>{
     const hj = toDS(hoje());
     if(finTipo==="mes") {
@@ -642,7 +621,6 @@ export default function App(){
   const finPend=finL.filter(a=>a.pag==="pendente"&&a.st!=="cancelado").reduce((s,a)=>s+(a.val||0),0);
   const finSite=finL.filter(a=>a.st!=="cancelado").reduce((s,a)=>s+calcPagoOnline(a),0);
   const finBalcao=finL.filter(a=>a.st!=="cancelado").reduce((s,a)=>s+(parseFloat(a.pagoMaquina)||0)+(parseFloat(a.pagoDinheiro)||0),0);
-  // Breakdown por quadra
   const finSociety=finL.filter(a=>a.qid==="q1"&&a.st!=="cancelado").reduce((s,a)=>s+calcTotalRecebido(a),0);
   const finAreia=finL.filter(a=>a.qid==="q2"&&a.st!=="cancelado").reduce((s,a)=>s+calcTotalRecebido(a),0);
   const finSauna=finL.filter(a=>a.st!=="cancelado"&&(parseInt(a.saunaQtd)||0)>0).reduce((s,a)=>s+((parseInt(a.saunaQtd)||0)*15),0);
@@ -669,7 +647,6 @@ export default function App(){
   const cts=Object.entries(ctMap).map(([n,d])=>({n,...d,count:ctCount[n]||0}));
   const clientesFrequentes=cts.filter(c=>c.count>=10).sort((a,b)=>b.count-a.count);
 
-  // Mensalistas vencendo em até 5 dias
   const hoje5 = new Date();
   const em5dias = new Date(hoje5.getTime()+5*24*60*60*1000);
   const ds5 = toDS(em5dias);
@@ -678,7 +655,6 @@ export default function App(){
     a.tp==="mensalista" && a.repAte && a.st!=="cancelado" &&
     a.repAte>=dsHoje && a.repAte<=ds5
   ).reduce((acc,a)=>{
-    // Deduplicar por cliente+quadra
     const key = `${a.cli}|${a.qid}`;
     if(!acc.find(x=>x.key===key)) acc.push({key, cli:a.cli, qnm:a.qnm, repAte:a.repAte, tel:a.tel});
     return acc;
@@ -707,25 +683,23 @@ export default function App(){
           const hhf=Math.floor(totalMinFim/60).toString().padStart(2,"0");
           const mmf=(totalMinFim%60).toString().padStart(2,"0");
           const hf=`${hhf}:${mmf}`;
-          // Slots passados: some se livre, fica se ocupado
-if(ds===toDS(new Date())){
-  const agoraMin=new Date().getHours()*60+new Date().getMinutes();
-  if(totalMinFim<=agoraMin){
-    const agPass=dq.find(x=>x.ini<=hr&&x.fim>hr);
-    const blPass=blackouts.filter(b=>b.qid===q.id||b.qid==="todas").find(x=>{
-      if(!x.ini||!x.fim) return true;
-      return x.ini<=hr&&x.fim>hr;
-    });
-    if(!agPass&&!blPass) return null;
-  }
-}
+          if(ds===toDS(new Date())){
+            const agoraMin=new Date().getHours()*60+new Date().getMinutes();
+            if(totalMinFim<=agoraMin){
+              const agPass=dq.find(x=>x.ini<=hr&&x.fim>hr);
+              const blPass=blackouts.filter(b=>b.qid===q.id||b.qid==="todas").find(x=>{
+                if(!x.ini||!x.fim) return true;
+                return x.ini<=hr&&x.fim>hr;
+              });
+              if(!agPass&&!blPass) return null;
+            }
+          }
           const agoraMinSlot=new Date().getHours()*60+new Date().getMinutes();
           const passou=ds===toDS(new Date())&&totalMinFim<=agoraMinSlot;
           const ag=dq.find(x=>x.ini<=hr&&x.fim>hr);
-          // Bloqueio: sem horário = dia todo, com horário = intervalo específico
           const bl=bq.find(x=>{
-            if(!x.ini||!x.fim) return true; // dia todo bloqueado
-            return x.ini<=hr&&x.fim>hr;     // bloqueio por horário
+            if(!x.ini||!x.fim) return true;
+            return x.ini<=hr&&x.fim>hr;
           });
           if(ag&&ag.ini!==hr)return null;
           if(bl&&bl.ini!==hr)return null;
@@ -749,11 +723,11 @@ if(ds===toDS(new Date())){
                   <div style={{fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ag.cli||"Reservado"}</div>
                   <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
                     <span style={{fontSize:10,fontWeight:700,color:orig.cor,background:orig.bg,borderRadius:4,padding:"1px 5px"}}>{orig.label}</span>
-                   {ag.pess&&<span style={{fontSize:10,color:"#6b7280"}}>👥 {ag.pess}</span>}
-<span onClick={async e=>{e.stopPropagation();const qtd=parseInt(prompt("Quantas pessoas vão usar a sauna? (0 para remover)",ag.saunaQtd||0));if(isNaN(qtd))return;await updateDoc(doc(db,"agendamentos",ag.id),{sauna:qtd>0,saunaQtd:qtd});showToast(qtd>0?"🧖 Sauna registrada!":"🧖 Sauna removida!");}}
-  style={{fontSize:10,color:saunaQtd>0?"#16a34a":"#9ca3af",cursor:"pointer",background:saunaQtd>0?"#f0fdf4":"#f9fafb",borderRadius:4,padding:"1px 5px",border:`1px solid ${saunaQtd>0?"#bbf7d0":"#e0e3e8"}`}}>
-  🧖 {saunaQtd>0?saunaQtd+"p":"sauna"}
-</span>
+                    {ag.pess&&<span style={{fontSize:10,color:"#6b7280"}}>👥 {ag.pess}</span>}
+                    <span onClick={async e=>{e.stopPropagation();const qtd=parseInt(prompt("Quantas pessoas vão usar a sauna? (0 para remover)",ag.saunaQtd||0));if(isNaN(qtd))return;await updateDoc(doc(db,"agendamentos",ag.id),{sauna:qtd>0,saunaQtd:qtd});showToast(qtd>0?"🧖 Sauna registrada!":"🧖 Sauna removida!");}}
+                      style={{fontSize:10,color:saunaQtd>0?"#16a34a":"#9ca3af",cursor:"pointer",background:saunaQtd>0?"#f0fdf4":"#f9fafb",borderRadius:4,padding:"1px 5px",border:`1px solid ${saunaQtd>0?"#bbf7d0":"#e0e3e8"}`}}>
+                      🧖 {saunaQtd>0?saunaQtd+"p":"sauna"}
+                    </span>
                   </div>
                   <div style={{fontSize:10,color:falta>0?"#dc2626":"#16a34a",marginTop:2,fontWeight:600}}>{label}</div>
                 </div>
@@ -770,7 +744,7 @@ if(ds===toDS(new Date())){
             </div>
             );
           })();
-        if(soAgendados) return null;
+          if(soAgendados) return null;
           return(
             <div key={hr} style={{display:"flex",alignItems:"center",padding:"8px 12px",borderRadius:8,marginBottom:6,cursor:"pointer",border:"1px solid #e8f5e9",background:"#fafffe"}} onClick={()=>abrirNovoAg(q.id,hr,hf,ds)}>
               <div style={{fontWeight:600,fontSize:13,color:"#9ca3af"}}>{hr}</div>
@@ -781,11 +755,7 @@ if(ds===toDS(new Date())){
     );
   }
 
-  
-
-
-
-if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");setLogado(true);}}/>;
+  if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");setLogado(true);}}/>;
 
   function exportarCSV() {
     const periodo = finTipo==="mes" ? finMes : finTipo==="semana" ? "7dias" : finTipo==="quinzena" ? "15dias" : finDe+"_"+finAte;
@@ -804,7 +774,6 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
     showToast("✅ Exportado!");
   }
 
-  // Slots de horário de funcionamento baseados na data selecionada
   const fDataObj = fData ? new Date(fData+'T12:00:00') : new Date();
   const fDow = fDataObj.getDay();
   const fFds = fDow===0||fDow===6;
@@ -812,7 +781,6 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
   const adminSlots = Array.from({length:50},(_,i)=>{ const m=i*30; const h=Math.floor(m/60).toString().padStart(2,'0'); const min=(m%60).toString().padStart(2,'0'); return h+':'+min; }).filter(s=>{ const[h,m]=s.split(':').map(Number); const min=h*60+m; return min>=fHA*60&&min<=fHB*60; });
   const bloqueioSlots = Array.from({length:50},(_,i)=>{ const m=i*30; const h=Math.floor(m/60).toString().padStart(2,'0'); const min=(m%60).toString().padStart(2,'0'); return h+':'+min; }).filter(s=>{ const[h]=s.split(':').map(Number); return h>=9&&h<=23; });
 
-  // Componente sub-tabs inline
   function SubTabs({aba, setAba, tabs}){
     return(
       <div style={{display:"flex",gap:6,marginBottom:16,background:"white",borderRadius:10,padding:4,boxShadow:"0 1px 4px rgba(0,0,0,.06)"}}>
@@ -827,7 +795,6 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
     );
   }
 
-  // Mesclar clientes duplicados por CPF ou telefone
   async function mesclarClientes(principal, duplicados){
     if(!window.confirm("Mesclar "+duplicados.length+" reserva(s) para "+principal.cli+"?")) return;
     try {
@@ -868,7 +835,6 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
         </div>
       </div>
 
-      {/* PAINEL DE NOTIFICAÇÕES */}
       {showNotif&&(
         <div style={{position:"fixed",top:56,right:0,width:320,maxHeight:"70vh",overflowY:"auto",background:"white",boxShadow:"0 4px 20px rgba(0,0,0,0.15)",zIndex:200,borderRadius:"0 0 0 12px"}}>
           <div style={{padding:"12px 16px",borderBottom:"1px solid #e0e3e8",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -918,9 +884,6 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
           <Btn sm onClick={()=>setDtA(hoje())}>Hoje</Btn>
         </div>
 
-        
-
-        {/* Aviso de dia bloqueado */}
         {qds.filter(q=>qFiltAgenda==="todas"||q.id===qFiltAgenda).map(q=>{
           const bl=blackouts.find(b=>b.data===ds&&(b.qid==="todas"||b.qid===q.id)&&(!b.ini||!b.fim));
           if(!bl) return <SlotAgenda key={q.id} q={q}/>;
@@ -937,13 +900,11 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
             </div>
           );
         })}
+        </div>}
       </div>}
 
-      </div>}
       {/* ── PAINEL ── */}
       {pg==="hoje"&&subHoje==="painel"&&<div style={{padding:16,paddingBottom:80}}>
-
-        {/* MENSALISTAS VENCENDO */}
         {mensalistasVencendo.length>0&&(
           <div style={{background:"#fef2f2",border:"1.5px solid #fca5a5",borderRadius:12,padding:"12px 16px",marginBottom:16}}>
             <div style={{fontWeight:800,fontSize:14,color:"#dc2626",marginBottom:8}}>🔴 Mensalistas vencendo em 5 dias</div>
@@ -961,41 +922,38 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
             ))}
           </div>
         )}
- <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
-{(()=>{
-  const semPagHoje=ags.filter(a=>a.data===hjDS&&a.st==="confirmado"&&a.pag==="pendente").length;
-  return [["Hoje",sHoje,"agenda",semPagHoje],["Este Mês",sMes,null,0],["A Receber","R$"+sRec.toFixed(0),null,0],["Recebido Mês","R$"+sRecm.toFixed(0),null,0]].map(([l,v,aba,alerta])=>(
-    <div key={l} onClick={()=>{if(aba){setPg("hoje");setSubHoje("agenda");setSoAgendados(true);}}}
-      style={{background:"white",borderRadius:12,padding:16,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center",cursor:aba?"pointer":"default",border:alerta>0?"1.5px solid #fca5a5":"none",position:"relative"}}>
-      {alerta>0&&<span style={{position:"absolute",top:-6,right:-6,background:"#dc2626",color:"white",fontSize:10,fontWeight:900,borderRadius:10,padding:"2px 6px"}}>{alerta} sem pag</span>}
-      <div style={{fontWeight:800,fontSize:28,color:VE}}>{v}</div>
-      <div style={{fontSize:12,color:"#6b7280",marginTop:2,fontWeight:600}}>{l}</div>
-      {aba&&<div style={{fontSize:10,color:"#16a34a",marginTop:4,fontWeight:700}}>ver agenda →</div>}
-    </div>
-  ));
-})()}
- </div>
-          ))}
-       </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+          {(()=>{
+            const semPagHoje=ags.filter(a=>a.data===hjDS&&a.st==="confirmado"&&a.pag==="pendente").length;
+            return [["Hoje",sHoje,"agenda",semPagHoje],["Este Mês",sMes,null,0],["A Receber","R$"+sRec.toFixed(0),null,0],["Recebido Mês","R$"+sRecm.toFixed(0),null,0]].map(([l,v,aba,alerta])=>(
+              <div key={l} onClick={()=>{if(aba){setPg("hoje");setSubHoje("agenda");setSoAgendados(true);}}}
+                style={{background:"white",borderRadius:12,padding:16,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center",cursor:aba?"pointer":"default",border:alerta>0?"1.5px solid #fca5a5":"none",position:"relative"}}>
+                {alerta>0&&<span style={{position:"absolute",top:-6,right:-6,background:"#dc2626",color:"white",fontSize:10,fontWeight:900,borderRadius:10,padding:"2px 6px"}}>{alerta} sem pag</span>}
+                <div style={{fontWeight:800,fontSize:28,color:VE}}>{v}</div>
+                <div style={{fontSize:12,color:"#6b7280",marginTop:2,fontWeight:600}}>{l}</div>
+                {aba&&<div style={{fontSize:10,color:"#16a34a",marginTop:4,fontWeight:700}}>ver agenda →</div>}
+              </div>
+            ));
+          })()}
+        </div>
         <Card>
           <CardH title="📋 Atividade Recente"/>
           <div style={{padding:16}}>
-            {(cfg.logs||[]).length===0&&<div style={{textAlign:"center",color:"#6b7280",padding:24}}>Nenhuma atividade ainda</div>}
-            {(cfg.logs||[]).map((lg,i)=>(
+            {logs.length===0&&<div style={{textAlign:"center",color:"#6b7280",padding:24}}>Nenhuma atividade ainda</div>}
+            {logs.map((lg,i)=>(
               <div key={i} style={{padding:"10px 0",borderBottom:"1px solid #e0e3e8",fontSize:13}}>
                 {lg.msg}
-                <div style={{fontSize:11,color:"#6b7280",marginTop:2}}>{new Date(lg.em).toLocaleString("pt-BR")}</div>
+                <div style={{fontSize:11,color:"#6b7280",marginTop:2}}>{lg.em ? new Date(lg.em.seconds?lg.em.seconds*1000:lg.em).toLocaleString("pt-BR") : ""}</div>
               </div>
             ))}
           </div>
         </Card>
-        {/* CHURRASQUEIRAS */}
+
         {(()=>{
           const ds2=toDS(dtA);
           const chDia=churrasqueiras.filter(c=>c.data===ds2);
           const CHURS=[{id:"ch1",label:"🔥 Churrasqueira 1"},{id:"ch2",label:"🔥 Churrasqueira 2"},{id:"cha",label:"🔥 Churrasqueira da Areia"}];
-      if(soAgendados) return null;   
-      return(
+          return(
             <div style={{marginTop:16}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                 <div style={{fontWeight:700,fontSize:13,color:"#374151"}}>🔥 Churrasqueiras</div>
@@ -1072,8 +1030,6 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
 
       {/* ── FINANCEIRO ── */}
       {pg==="fin"&&<div style={{padding:16,paddingBottom:80}}>
-
-        {/* Seletor de período — topo */}
         <div style={{display:"flex",gap:8,marginBottom:12,overflowX:"auto",paddingBottom:4}}>
           {[["mes","📅 Mês"],["semana","7 dias"],["quinzena","15 dias"],["custom","Personalizado"]].map(([k,l])=>(
             <div key={k} onClick={()=>setFinTipo(k)}
@@ -1094,8 +1050,6 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
             📅 {finTipo==="semana"?"Últimos 7 dias":"Últimos 15 dias"} — até hoje
           </div>
         )}
-
-        {/* 1. Resumo do período — 3 cards grandes */}
         {(()=>{
           const totalRecebido = finRec + finParcial;
           const totalAReceber = finPend + finL.filter(a=>isParcial(a.pag)&&a.st!=="cancelado").reduce((s,a)=>s+saldoRestante(a),0);
@@ -1117,8 +1071,6 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
             </div>
           );
         })()}
-
-        {/* 2. Por Canal */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
           <div style={{background:"#eff6ff",borderRadius:12,padding:14,textAlign:"center",border:"1.5px solid #bfdbfe"}}>
             <div style={{fontSize:13,marginBottom:2}}>💻</div>
@@ -1131,8 +1083,6 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
             <div style={{fontSize:10,color:"#6b7280",fontWeight:700,marginTop:2,textTransform:"uppercase"}}>Balcão</div>
           </div>
         </div>
-
-        {/* 3. Por Quadra */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
           <div style={{background:"#f0fdf4",borderRadius:12,padding:12,textAlign:"center",border:"1.5px solid #bbf7d0"}}>
             <div style={{fontSize:16,marginBottom:2}}>⚽</div>
@@ -1150,8 +1100,6 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
             <div style={{fontSize:10,color:"#6b7280",fontWeight:700,marginTop:2,textTransform:"uppercase"}}>Sauna</div>
           </div>
         </div>
-
-        {/* 4. Por Dia */}
         {finDias.length>0&&(
           <div style={{marginBottom:16}}>
             <div style={{fontWeight:700,fontSize:11,color:"#9ca3af",textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Por dia</div>
@@ -1180,10 +1128,8 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
             })}
           </div>
         )}
-
         <Btn c="v" full onClick={exportarCSV}>⬇️ Exportar CSV</Btn>
       </div>}
-
 
       {/* ── CONTATOS ── */}
       {pg==="agend"&&subAgend==="contatos"&&<div style={{padding:16,paddingBottom:80}}>
@@ -1216,10 +1162,7 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
             </div>
           ))}
         </Card>
-
-        {/* MESCLAR CLIENTES DUPLICADOS */}
         {(()=>{
-          // Agrupar clientes por telefone (normalizado) para encontrar duplicatas
           const grupos={};
           ags.forEach(a=>{
             if(!a.cli&&!a.tel) return;
@@ -1238,7 +1181,6 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
               <div style={{fontWeight:800,fontSize:13,color:"#dc2626",marginBottom:10}}>🔀 Clientes duplicados ({duplicados.length})</div>
               {duplicados.map((g,i)=>{
                 const nomes=[...g.nomes];
-                // Principal = nome mais longo e formatado
                 const principal=g.ags.sort((a,b)=>(b.cli||"").length-(a.cli||"").length)[0];
                 const outros=g.ags.filter(a=>(a.cli||"").trim().toLowerCase()!==principal.cli?.trim().toLowerCase());
                 return(
@@ -1283,8 +1225,6 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
           </div>
         </Card>
         <Btn c="v" full onClick={()=>showToast("✅ Informações salvas!")}>💾 Salvar</Btn>
-
-        {/* BLACKOUT DE DATAS */}
         <div style={{marginTop:20}}>
           <Card>
             <CardH title="🚫 Bloquear Dia Inteiro"/>
@@ -1307,7 +1247,6 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
               <Btn c="r" full onClick={salvarBlackout}>🚫 Bloquear dia inteiro</Btn>
             </div>
           </Card>
-
           {blackouts.length>0&&(
             <Card>
               <CardH title="Dias bloqueados"/>
@@ -1471,7 +1410,7 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
         {qds.find(x=>x.id===fQid)?.cob==="pessoas"&&(
           <div style={{marginBottom:14}}>
             <label style={lbl}>Número de pessoas</label>
-            <input type="number" style={inp} value={fPess} placeholder="Ex: 10" onChange={e=>{setFPess(e.target.value);calcAreia(e.target.value,fQid);calcValorAdmin(fIni,fFim,fQid,e.target.value);}}/>
+            <input type="number" style={inp} value={fPess} placeholder="Ex: 10" onChange={e=>{setFPess(e.target.value);calcValorAdmin(fIni,fFim,fQid,e.target.value);}}/>
             <div style={{fontSize:11,color:"#92400e",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:6,padding:"8px 10px",marginTop:6,lineHeight:1.5}}>
               ⚠️ <strong>Conta toda pessoa na extensão da quadra:</strong> quem está jogando, no deck e na churrasqueira privativa.
             </div>
@@ -1573,8 +1512,6 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
             {modalD.cpf&&<div style={{fontSize:13,color:"#6b7280",marginTop:2}}>CPF: {modalD.cpf}</div>}
             {modalD.tel&&<div style={{fontSize:13,color:"#6b7280"}}>📱 {modalD.tel}</div>}
           </div>
-
-          {/* Breakdown financeiro */}
           <div style={{background:"#f9fafb",borderRadius:12,padding:14,marginBottom:14}}>
             <div style={{fontWeight:700,fontSize:13,color:"#6b7280",marginBottom:10,textTransform:"uppercase",letterSpacing:0.5}}>Financeiro</div>
             <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #e0e3e8"}}>
@@ -1606,15 +1543,12 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
               </div>
             )}
           </div>
-
           <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
             <Badge t={modalD.st||"confirmado"}>{modalD.st}</Badge>
             <BadgePag ag={modalD}/>
             {modalD.churr&&<Badge t="confirmado">🍖 Churrasqueira</Badge>}
           </div>
           {modalD.obs&&<div style={{background:"#f9fafb",padding:12,borderRadius:8,fontSize:13,marginBottom:16}}><strong>Obs:</strong> {modalD.obs}</div>}
-
-          {/* Histórico de alterações */}
           {(modalD.historico||[]).length>0&&(
             <div style={{marginBottom:16}}>
               <div style={{fontWeight:700,fontSize:13,color:"#6b7280",textTransform:"uppercase",letterSpacing:0.5,marginBottom:8}}>📋 Histórico</div>
@@ -1629,14 +1563,7 @@ if(!logado) return <Login onLogin={()=>{sessionStorage.setItem("adm_auth","1");s
             </div>
           )}
           {modalD.tel&&(
-            <a href={`https://wa.me/55${modalD.tel.replace(/\D/g,"")}?text=${encodeURIComponent(`Olá ${modalD.cli}! ✅ Reserva confirmada!
-
-🏟️ ${modalD.qnm}
-📅 ${fd(modalD.data)}
-🕐 ${modalD.ini} às ${modalD.fim}
-💰 R$${(modalD.val||0).toFixed(2)}
-
-Até lá! 👋`)}`} target="_blank"
+            <a href={`https://wa.me/55${modalD.tel.replace(/\D/g,"")}?text=${encodeURIComponent(`Olá ${modalD.cli}! ✅ Reserva confirmada!\n\n🏟️ ${modalD.qnm}\n📅 ${fd(modalD.data)}\n🕐 ${modalD.ini} às ${modalD.fim}\n💰 R$${(modalD.val||0).toFixed(2)}\n\nAté lá! 👋`)}`} target="_blank"
               style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",padding:"12px",background:"#16a34a",color:"white",borderRadius:8,fontSize:14,fontWeight:700,textDecoration:"none",marginBottom:8}}>
               💬 Enviar confirmação por WhatsApp
             </a>
@@ -1680,7 +1607,6 @@ Até lá! 👋`)}`} target="_blank"
           <Btn c="v" full onClick={async()=>{
             if(!reagData||!reagIni||!reagFim){showToast("⚠️ Preencha data e horário!");return;}
             try {
-              // 1. Criar nova reserva idêntica com nova data/horário
               const novaReserva = {
                 qid:modalReag.qid, qnm:modalReag.qnm,
                 data:reagData, ini:reagIni, fim:reagFim,
@@ -1700,7 +1626,6 @@ Até lá! 👋`)}`} target="_blank"
                 historico:[{msg:"🌧️ Criado por reagendamento de chuva",de:fd(modalReag.data)+" "+modalReag.ini+"–"+modalReag.fim,em:agora()}]
               };
               await addDoc(collection(db,"agendamentos"),novaReserva);
-              // 2. Cancelar reserva original marcando como chuva
               await updateDoc(doc(db,"agendamentos",modalReag.id),{
                 st:"cancelado", motivoCancelamento:"chuva",
                 chuvaNovaData:reagData, chuvaNovaIni:reagIni
@@ -1719,28 +1644,20 @@ Até lá! 👋`)}`} target="_blank"
       {/* ── MODAL BLOQUEIO ── */}
       <Modal open={!!modalB} onClose={()=>setModalB(false)}>
         <div style={{fontWeight:800,fontSize:20,marginBottom:16}}>🔒 Bloquear Dias/Horários</div>
-
-        {/* Quadra */}
         <div style={{marginBottom:14}}><label style={lbl}>Quadra</label>
           <select style={inp} value={bQid} onChange={e=>setBQid(e.target.value)}>
             {qds.map(q=><option key={q.id} value={q.id}>{q.nome}</option>)}
             <option value="todas">Todas as quadras</option>
           </select>
         </div>
-
-
-
-        {/* Datas */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
-          <div><label style={lbl}>"Data início"</label>
+          <div><label style={lbl}>Data início</label>
             <input type="date" style={inp} value={bData} onChange={e=>setBData(e.target.value)}/>
           </div>
           <div><label style={lbl}>Data fim</label>
             <input type="date" style={inp} value={bDataFim} onChange={e=>setBDataFim(e.target.value)}/>
           </div>
         </div>
-
-        {/* Dias da semana — opcional, deixe em branco para bloquear todos os dias do período */}
         <div style={{marginBottom:14}}>
           <label style={lbl}>Dias da semana (opcional — selecione para filtrar)</label>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -1753,8 +1670,6 @@ Até lá! 👋`)}`} target="_blank"
           </div>
           {bDiasSemana.length===0&&<div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>Sem seleção = bloqueia todos os dias do período</div>}
         </div>
-
-        {/* Horário (opcional) */}
         <div style={{marginBottom:6}}>
           <label style={lbl}>Horário (opcional — deixe em branco para bloquear o dia todo)</label>
         </div>
@@ -1772,11 +1687,9 @@ Até lá! 👋`)}`} target="_blank"
             </select>
           </div>
         </div>
-
         <div style={{marginBottom:16}}><label style={lbl}>Motivo (opcional)</label>
           <input style={inp} value={bMotivo} placeholder="Ex: Chuva, manutenção, evento..." onChange={e=>setBMotivo(e.target.value)}/>
         </div>
-
         <Btn c="v" full onClick={salvarBloqueio}>🔒 Bloquear</Btn>
         <div style={{height:8}}/>
         <Btn full onClick={()=>setModalB(false)}>Cancelar</Btn>
@@ -1816,143 +1729,133 @@ Até lá! 👋`)}`} target="_blank"
         <Btn full onClick={()=>setModalQ(false)}>Cancelar</Btn>
       </Modal>
 
+      {/* ── FECHAMENTO ── */}
+      {pg==="hoje"&&subHoje==="fechamento"&&(()=>{
+        const agsFech=(ags||[]).filter(a=>a.data===dsFech&&a.st==="confirmado");
+        const quadraFech=(qid)=>agsFech.filter(a=>a.qid===qid);
+        const totalVal=(lista)=>lista.reduce((s,a)=>s+(parseFloat(a.val)||0),0);
+        const totalOnline=(lista)=>lista.reduce((s,a)=>s+calcPagoOnline(a),0);
+        const totalBalcao=(lista)=>lista.reduce((s,a)=>s+(parseFloat(a.pagoMaquina)||0)+(parseFloat(a.pagoDinheiro)||0),0);
+        const totalFalta=(lista)=>lista.reduce((s,a)=>s+saldoRestante(a),0);
+        const totalSauna=(lista)=>lista.reduce((s,a)=>s+(parseInt(a.saunaQtd)||0),0)*15;
+        const q1=quadraFech("q1"), q2=quadraFech("q2");
+        const todos=[...q1,...q2];
+        const gTotal=totalVal(todos), gOnline=totalOnline(todos), gBalcao=totalBalcao(todos), gFalta=totalFalta(todos);
 
-
-
-        {pg==="hoje"&&subHoje==="fechamento"&&(()=>{
-          // ── ABA FECHAMENTO DO DIA ──
-          const agsFech=(ags||[]).filter(a=>a.data===dsFech&&a.st==="confirmado");
-          const quadraFech=(qid)=>agsFech.filter(a=>a.qid===qid);
-          const totalVal=(lista)=>lista.reduce((s,a)=>s+(parseFloat(a.val)||0),0);
-          const totalOnline=(lista)=>lista.reduce((s,a)=>s+calcPagoOnline(a),0);
-          const totalBalcao=(lista)=>lista.reduce((s,a)=>s+(parseFloat(a.pagoMaquina)||0)+(parseFloat(a.pagoDinheiro)||0),0);
-          const totalFalta=(lista)=>lista.reduce((s,a)=>s+saldoRestante(a),0);
-          const totalSauna=(lista)=>lista.reduce((s,a)=>s+(parseInt(a.saunaQtd)||0),0)*15;
-          const q1=quadraFech("q1"), q2=quadraFech("q2");
-          const todos=[...q1,...q2];
-          const gTotal=totalVal(todos), gOnline=totalOnline(todos), gBalcao=totalBalcao(todos), gFalta=totalFalta(todos);
-
-          const CardFech=({titulo,lista,cor})=>{
-            if(lista.length===0)return null;
-            const vTotal=totalVal(lista), vOnline=totalOnline(lista), vBalcao=totalBalcao(lista), vFalta=totalFalta(lista);
-            return(
-              <div style={{background:"white",borderRadius:12,padding:16,marginBottom:12,boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
-                <div style={{fontWeight:800,fontSize:14,color:cor,marginBottom:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <span>{titulo} — {lista.length} jogo{lista.length>1?"s":""}</span>
-                  <span style={{fontSize:16,color:"#1a1f2e"}}>R${vTotal.toFixed(0)}</span>
-                </div>
-                {lista.map((a,i)=>{
-                  const online=calcPagoOnline(a);
-                  const balcao=(parseFloat(a.pagoMaquina)||0)+(parseFloat(a.pagoDinheiro)||0);
-                  const falta=saldoRestante(a);
-                  return(
-                    <div key={a.id} onClick={()=>setModalD(a)} style={{padding:"10px 0",borderTop:"1px solid #f3f4f6",cursor:"pointer"}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                        <div>
-                          <div style={{fontWeight:700,fontSize:13,color:"#1a1f2e"}}>{a.ini}–{a.fim} · {a.cli||"Avulso"}</div>
-                          <div style={{fontSize:11,color:"#6b7280",marginTop:2}}>
-                            {a.pess?`👥 ${a.pess} pessoas · `:""}
-                            {(parseInt(a.saunaQtd)||0)>0?`🧖 sauna · `:""}
-                            {a.tp==="balcao"?"balcão":"online"}
-                          </div>
-                        </div>
-                        <div style={{textAlign:"right"}}>
-                          <div style={{fontWeight:800,fontSize:14,color:"#1a1f2e"}}>R${(a.val||0).toFixed(0)}</div>
-                          {falta>0&&<div style={{fontSize:10,color:"#dc2626",fontWeight:700}}>falta R${falta.toFixed(0)}</div>}
-                        </div>
-                      </div>
-                      <div style={{display:"flex",gap:8,marginTop:5,flexWrap:"wrap"}}>
-                        {online>0&&<span style={{fontSize:10,background:"#eff6ff",color:"#1d4ed8",borderRadius:6,padding:"2px 7px",fontWeight:700}}>💻 Online R${online.toFixed(0)}</span>}
-                        {balcao>0&&<span style={{fontSize:10,background:"#f0fdf4",color:"#065f46",borderRadius:6,padding:"2px 7px",fontWeight:700}}>🏟️ Balcão R${balcao.toFixed(0)}</span>}
-                        {falta>0&&<span style={{fontSize:10,background:"#fef2f2",color:"#dc2626",borderRadius:6,padding:"2px 7px",fontWeight:700}}>⏳ Pendente R${falta.toFixed(0)}</span>}
-                      </div>
-                    </div>
-                  );
-                })}
-                <div style={{marginTop:10,paddingTop:10,borderTop:"2px solid #f3f4f6",display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
-                  <div style={{textAlign:"center",background:"#eff6ff",borderRadius:8,padding:"8px 4px"}}>
-                    <div style={{fontWeight:800,fontSize:13,color:"#1d4ed8"}}>R${vOnline.toFixed(0)}</div>
-                    <div style={{fontSize:10,color:"#6b7280"}}>Online</div>
-                  </div>
-                  <div style={{textAlign:"center",background:"#f0fdf4",borderRadius:8,padding:"8px 4px"}}>
-                    <div style={{fontWeight:800,fontSize:13,color:"#065f46"}}>R${vBalcao.toFixed(0)}</div>
-                    <div style={{fontSize:10,color:"#6b7280"}}>Balcão</div>
-                  </div>
-                  <div style={{textAlign:"center",background:vFalta>0?"#fef2f2":"#f9fafb",borderRadius:8,padding:"8px 4px"}}>
-                    <div style={{fontWeight:800,fontSize:13,color:vFalta>0?"#dc2626":"#9ca3af"}}>R${vFalta.toFixed(0)}</div>
-                    <div style={{fontSize:10,color:"#6b7280"}}>Pendente</div>
-                  </div>
-                </div>
-              </div>
-            );
-          };
-
+        const CardFech=({titulo,lista,cor})=>{
+          if(lista.length===0)return null;
+          const vTotal=totalVal(lista), vOnline=totalOnline(lista), vBalcao=totalBalcao(lista), vFalta=totalFalta(lista);
           return(
-            <div style={{padding:16,paddingBottom:80}}>
-              {/* Seletor de data */}
-              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
-                <button onClick={()=>{const d=new Date(dsFech+"T12:00:00");d.setDate(d.getDate()-1);setDsFech(toDS(d));}} style={{background:"white",border:"1.5px solid #e0e3e8",borderRadius:8,width:36,height:36,cursor:"pointer",fontSize:18}}>‹</button>
-                <input type="date" value={dsFech} onChange={e=>setDsFech(e.target.value)} style={{flex:1,padding:"9px 12px",borderRadius:10,border:"1.5px solid #e0e3e8",fontSize:14,fontWeight:700,color:"#1a1f2e"}}/>
-                <button onClick={()=>{const d=new Date(dsFech+"T12:00:00");d.setDate(d.getDate()+1);setDsFech(toDS(d));}} style={{background:"white",border:"1.5px solid #e0e3e8",borderRadius:8,width:36,height:36,cursor:"pointer",fontSize:18}}>›</button>
+            <div style={{background:"white",borderRadius:12,padding:16,marginBottom:12,boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
+              <div style={{fontWeight:800,fontSize:14,color:cor,marginBottom:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span>{titulo} — {lista.length} jogo{lista.length>1?"s":""}</span>
+                <span style={{fontSize:16,color:"#1a1f2e"}}>R${vTotal.toFixed(0)}</span>
               </div>
-
-              {todos.length===0?(
-                <div style={{textAlign:"center",padding:40,color:"#9ca3af"}}>
-                  <div style={{fontSize:40,marginBottom:12}}>📭</div>
-                  <div style={{fontWeight:700,fontSize:16}}>Nenhum jogo neste dia</div>
-                </div>
-              ):(
-                <>
-                  {/* Resumo geral */}
-                  <div style={{background:"linear-gradient(135deg,#1a5248,#2E7D6B)",borderRadius:14,padding:16,marginBottom:16,color:"white"}}>
-                    <div style={{fontWeight:800,fontSize:16,marginBottom:12}}>📆 Fechamento do Dia</div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-                      <div style={{background:"rgba(255,255,255,0.12)",borderRadius:10,padding:12,textAlign:"center"}}>
-                        <div style={{fontWeight:800,fontSize:22}}>{todos.length}</div>
-                        <div style={{fontSize:11,opacity:.7}}>jogos</div>
+              {lista.map((a,i)=>{
+                const online=calcPagoOnline(a);
+                const balcao=(parseFloat(a.pagoMaquina)||0)+(parseFloat(a.pagoDinheiro)||0);
+                const falta=saldoRestante(a);
+                return(
+                  <div key={a.id} onClick={()=>setModalD(a)} style={{padding:"10px 0",borderTop:"1px solid #f3f4f6",cursor:"pointer"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div>
+                        <div style={{fontWeight:700,fontSize:13,color:"#1a1f2e"}}>{a.ini}–{a.fim} · {a.cli||"Avulso"}</div>
+                        <div style={{fontSize:11,color:"#6b7280",marginTop:2}}>
+                          {a.pess?`👥 ${a.pess} pessoas · `:""}
+                          {(parseInt(a.saunaQtd)||0)>0?`🧖 sauna · `:""}
+                          {a.tp==="balcao"?"balcão":"online"}
+                        </div>
                       </div>
-                      <div style={{background:"rgba(255,255,255,0.12)",borderRadius:10,padding:12,textAlign:"center"}}>
-                        <div style={{fontWeight:800,fontSize:22}}>R${gTotal.toFixed(0)}</div>
-                        <div style={{fontSize:11,opacity:.7}}>total do dia</div>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontWeight:800,fontSize:14,color:"#1a1f2e"}}>R${(a.val||0).toFixed(0)}</div>
+                        {falta>0&&<div style={{fontSize:10,color:"#dc2626",fontWeight:700}}>falta R${falta.toFixed(0)}</div>}
                       </div>
                     </div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-                      <div style={{background:"rgba(255,255,255,0.1)",borderRadius:8,padding:10,textAlign:"center"}}>
-                        <div style={{fontWeight:800,fontSize:15}}>R${gOnline.toFixed(0)}</div>
-                        <div style={{fontSize:10,opacity:.7}}>💻 Online</div>
-                      </div>
-                      <div style={{background:"rgba(255,255,255,0.1)",borderRadius:8,padding:10,textAlign:"center"}}>
-                        <div style={{fontWeight:800,fontSize:15}}>R${gBalcao.toFixed(0)}</div>
-                        <div style={{fontSize:10,opacity:.7}}>🏟️ Balcão</div>
-                      </div>
-                      <div style={{background:gFalta>0?"rgba(220,38,38,0.3)":"rgba(255,255,255,0.1)",borderRadius:8,padding:10,textAlign:"center"}}>
-                        <div style={{fontWeight:800,fontSize:15}}>R${gFalta.toFixed(0)}</div>
-                        <div style={{fontSize:10,opacity:.7}}>⏳ Pendente</div>
-                      </div>
+                    <div style={{display:"flex",gap:8,marginTop:5,flexWrap:"wrap"}}>
+                      {online>0&&<span style={{fontSize:10,background:"#eff6ff",color:"#1d4ed8",borderRadius:6,padding:"2px 7px",fontWeight:700}}>💻 Online R${online.toFixed(0)}</span>}
+                      {balcao>0&&<span style={{fontSize:10,background:"#f0fdf4",color:"#065f46",borderRadius:6,padding:"2px 7px",fontWeight:700}}>🏟️ Balcão R${balcao.toFixed(0)}</span>}
+                      {falta>0&&<span style={{fontSize:10,background:"#fef2f2",color:"#dc2626",borderRadius:6,padding:"2px 7px",fontWeight:700}}>⏳ Pendente R${falta.toFixed(0)}</span>}
                     </div>
                   </div>
-
-                  {/* Por quadra */}
-                  <CardFech titulo="⚽ Campo Society" lista={q1} cor="#2E7D6B"/>
-                  <CardFech titulo="🏐 Quadra de Areia" lista={q2} cor="#E8861A"/>
-
-                  {/* Sauna */}
-                  {(totalSauna(todos))>0&&(
-                    <div style={{background:"white",borderRadius:12,padding:14,marginBottom:12,boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                        <span style={{fontWeight:700,fontSize:14}}>🧖 Sauna</span>
-                        <span style={{fontWeight:800,fontSize:16,color:"#2E7D6B"}}>R${totalSauna(todos).toFixed(0)}</span>
-                      </div>
-                      <div style={{fontSize:12,color:"#6b7280",marginTop:4}}>
-                        {todos.filter(a=>(parseInt(a.saunaQtd)||0)>0).map(a=>`${a.cli||"Avulso"} (${a.saunaQtd}p)`).join(" · ")}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
+                );
+              })}
+              <div style={{marginTop:10,paddingTop:10,borderTop:"2px solid #f3f4f6",display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+                <div style={{textAlign:"center",background:"#eff6ff",borderRadius:8,padding:"8px 4px"}}>
+                  <div style={{fontWeight:800,fontSize:13,color:"#1d4ed8"}}>R${vOnline.toFixed(0)}</div>
+                  <div style={{fontSize:10,color:"#6b7280"}}>Online</div>
+                </div>
+                <div style={{textAlign:"center",background:"#f0fdf4",borderRadius:8,padding:"8px 4px"}}>
+                  <div style={{fontWeight:800,fontSize:13,color:"#065f46"}}>R${vBalcao.toFixed(0)}</div>
+                  <div style={{fontSize:10,color:"#6b7280"}}>Balcão</div>
+                </div>
+                <div style={{textAlign:"center",background:vFalta>0?"#fef2f2":"#f9fafb",borderRadius:8,padding:"8px 4px"}}>
+                  <div style={{fontWeight:800,fontSize:13,color:vFalta>0?"#dc2626":"#9ca3af"}}>R${vFalta.toFixed(0)}</div>
+                  <div style={{fontSize:10,color:"#6b7280"}}>Pendente</div>
+                </div>
+              </div>
             </div>
           );
-        })()}
+        };
+
+        return(
+          <div style={{padding:16,paddingBottom:80}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+              <button onClick={()=>{const d=new Date(dsFech+"T12:00:00");d.setDate(d.getDate()-1);setDsFech(toDS(d));}} style={{background:"white",border:"1.5px solid #e0e3e8",borderRadius:8,width:36,height:36,cursor:"pointer",fontSize:18}}>‹</button>
+              <input type="date" value={dsFech} onChange={e=>setDsFech(e.target.value)} style={{flex:1,padding:"9px 12px",borderRadius:10,border:"1.5px solid #e0e3e8",fontSize:14,fontWeight:700,color:"#1a1f2e"}}/>
+              <button onClick={()=>{const d=new Date(dsFech+"T12:00:00");d.setDate(d.getDate()+1);setDsFech(toDS(d));}} style={{background:"white",border:"1.5px solid #e0e3e8",borderRadius:8,width:36,height:36,cursor:"pointer",fontSize:18}}>›</button>
+            </div>
+            {todos.length===0?(
+              <div style={{textAlign:"center",padding:40,color:"#9ca3af"}}>
+                <div style={{fontSize:40,marginBottom:12}}>📭</div>
+                <div style={{fontWeight:700,fontSize:16}}>Nenhum jogo neste dia</div>
+              </div>
+            ):(
+              <>
+                <div style={{background:"linear-gradient(135deg,#1a5248,#2E7D6B)",borderRadius:14,padding:16,marginBottom:16,color:"white"}}>
+                  <div style={{fontWeight:800,fontSize:16,marginBottom:12}}>📆 Fechamento do Dia</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                    <div style={{background:"rgba(255,255,255,0.12)",borderRadius:10,padding:12,textAlign:"center"}}>
+                      <div style={{fontWeight:800,fontSize:22}}>{todos.length}</div>
+                      <div style={{fontSize:11,opacity:.7}}>jogos</div>
+                    </div>
+                    <div style={{background:"rgba(255,255,255,0.12)",borderRadius:10,padding:12,textAlign:"center"}}>
+                      <div style={{fontWeight:800,fontSize:22}}>R${gTotal.toFixed(0)}</div>
+                      <div style={{fontSize:11,opacity:.7}}>total do dia</div>
+                    </div>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                    <div style={{background:"rgba(255,255,255,0.1)",borderRadius:8,padding:10,textAlign:"center"}}>
+                      <div style={{fontWeight:800,fontSize:15}}>R${gOnline.toFixed(0)}</div>
+                      <div style={{fontSize:10,opacity:.7}}>💻 Online</div>
+                    </div>
+                    <div style={{background:"rgba(255,255,255,0.1)",borderRadius:8,padding:10,textAlign:"center"}}>
+                      <div style={{fontWeight:800,fontSize:15}}>R${gBalcao.toFixed(0)}</div>
+                      <div style={{fontSize:10,opacity:.7}}>🏟️ Balcão</div>
+                    </div>
+                    <div style={{background:gFalta>0?"rgba(220,38,38,0.3)":"rgba(255,255,255,0.1)",borderRadius:8,padding:10,textAlign:"center"}}>
+                      <div style={{fontWeight:800,fontSize:15}}>R${gFalta.toFixed(0)}</div>
+                      <div style={{fontSize:10,opacity:.7}}>⏳ Pendente</div>
+                    </div>
+                  </div>
+                </div>
+                <CardFech titulo="⚽ Campo Society" lista={q1} cor="#2E7D6B"/>
+                <CardFech titulo="🏐 Quadra de Areia" lista={q2} cor="#E8861A"/>
+                {(totalSauna(todos))>0&&(
+                  <div style={{background:"white",borderRadius:12,padding:14,marginBottom:12,boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <span style={{fontWeight:700,fontSize:14}}>🧖 Sauna</span>
+                      <span style={{fontWeight:800,fontSize:16,color:"#2E7D6B"}}>R${totalSauna(todos).toFixed(0)}</span>
+                    </div>
+                    <div style={{fontSize:12,color:"#6b7280",marginTop:4}}>
+                      {todos.filter(a=>(parseInt(a.saunaQtd)||0)>0).map(a=>`${a.cli||"Avulso"} (${a.saunaQtd}p)`).join(" · ")}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       <Toast msg={toast}/>
     </div>
