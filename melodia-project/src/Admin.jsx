@@ -183,7 +183,7 @@ function Switch({on,onChange,label}){
   </div>;
 }
 
-const SENHA_ADMIN = "renata proprietaria";
+const SENHA_ADMIN = "renata";
 
 function Login({onLogin}){
   const [senha,setSenha]=useState("");
