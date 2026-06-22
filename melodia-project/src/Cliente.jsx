@@ -549,9 +549,16 @@ export default function App() {
     return false;
   });
 
-  function isOcupado(hr) {
-    return ocupadosDia.some(r => r.ini <= hr && r.fim > hr);
-  }
+function isOcupado(hr) {
+  const agOcup = ocupadosDia.some(r => r.ini <= hr && r.fim > hr);
+  const blOcup = blackouts.some(b =>
+    b.data === toDS(dia) &&
+    (b.qid === "todas" || b.qid === quadra?.id) &&
+    b.ini && b.fim &&
+    b.ini <= hr && b.fim > hr
+  );
+  return agOcup || blOcup;
+}
 
   // ── TELA INÍCIO ──
   if (etapa === "inicio") return (
