@@ -250,7 +250,7 @@ export default function App() {
   function toMin(hr){ const[h,m]=hr.split(":").map(Number); return h*60+m; }
 
   function isDiaBloqueado(ds, qid) {
-    return blackouts.some(b=>b.data===ds&&(b.qid==="todas"||b.qid===qid));
+  return blackouts.some(b=>b.data===ds&&(b.qid==="todas"||b.qid===qid)&&(!b.ini||!b.fim));
   }
 
   // Verifica se um slot está dentro do horário de funcionamento
