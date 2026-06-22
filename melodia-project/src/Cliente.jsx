@@ -628,7 +628,7 @@ function isOcupado(hr) {
           <div style={{color:"rgba(255,255,255,0.7)",fontSize:13,lineHeight:1.5,marginBottom:10}}>
             Disponíveis para os clientes do Campo Society aproveitarem a resenha pós-jogo, mediante disponibilidade.
             <br/><br/>
-            <span style={{color:"#fde68a"}}>⚠️</span> Confraternizações com 16 ou mais pessoas são consideradas eventos e possuem regras e valores específicos de utilização.
+            <span style={{color:"#fde68a"}}>⚠️</span> Confraternizações com 18 ou mais participantes são consideradas evento e possuem regras e valores específicos de utilização.
             <br/><br/>
             📲 Consulte a disponibilidade e faça sua reserva pelo WhatsApp.
           </div>
