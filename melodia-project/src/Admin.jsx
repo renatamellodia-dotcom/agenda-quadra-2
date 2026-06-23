@@ -1543,11 +1543,12 @@ export default function App(){
               </div>
             )}
           </div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
-            <Badge t={modalD.st||"confirmado"}>{modalD.st}</Badge>
-            <BadgePag ag={modalD}/>
-            {modalD.churr&&<Badge t="confirmado">🍖 Churrasqueira</Badge>}
-          </div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
+  <Badge t={modalD.st||"confirmado"}>{modalD.st}</Badge>
+  <BadgePag ag={modalD}/>
+  {modalD.churr&&<Badge t="confirmado">🍖 Churrasqueira</Badge>}
+  {modalD.chuva&&<Badge t="pendente">🌧️ Reagendado por chuva</Badge>}
+</div>
           {modalD.obs&&<div style={{background:"#f9fafb",padding:12,borderRadius:8,fontSize:13,marginBottom:16}}><strong>Obs:</strong> {modalD.obs}</div>}
           {(modalD.historico||[]).length>0&&(
             <div style={{marginBottom:16}}>
