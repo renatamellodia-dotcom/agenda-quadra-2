@@ -915,7 +915,34 @@ return;
         <SubTabs aba={subHoje} setAba={setSubHoje} tabs={[["agenda","📅 Agenda"],["painel","📊 Painel"],["fechamento","📆 Fechamento"]]}/>
         {subHoje==="agenda"&&<div>
         <div style={{display:"flex",gap:6,marginBottom:12}}>
-          {[["todas","Todas"],["q1","⚽ Society"],["q2","🏐 Areia"]].map(([id,lbl])=>(
+  <button onClick={()=>{
+    const data = dtA.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"});
+    const q1d = ddDia.filter(a=>a.qid==="q1");
+    const q2d = ddDia.filter(a=>a.qid==="q2");
+    let msg = `📅 Agenda ${data}\n`;
+    if(q1d.length>0){
+      msg += `\n⚽ Campo Society\n`;
+      q1d.sort((a,b)=>a.ini.localeCompare(b.ini)).forEach(a=>{
+        const falta = saldoRestante(a);
+        const status = falta>0 ? `⏳ Falta R$ ${falta.toFixed(2)}` : `✅ Quitado`;
+        msg += `${a.ini}–${a.fim} · ${a.cli||"Avulso"} · R$ ${(a.val||0).toFixed(2)} · ${status}\n`;
+      });
+    }
+    if(q2d.length>0){
+      msg += `\n🏐 Quadra de Areia\n`;
+      q2d.sort((a,b)=>a.ini.localeCompare(b.ini)).forEach(a=>{
+        const falta = saldoRestante(a);
+        const status = falta>0 ? `⏳ Falta R$ ${falta.toFixed(2)}` : `✅ Quitado`;
+        msg += `${a.ini}–${a.fim} · ${a.cli||"Avulso"} · R$ ${(a.val||0).toFixed(2)} · ${status}\n`;
+      });
+    }
+    if(ddDia.length===0) msg += `\nNenhum jogo hoje.`;
+    window.open(`https://wa.me/55${(cfg.wpp||"").replace(/\D/g,"")}?text=${encodeURIComponent(msg)}`,"_blank");
+  }}
+    style={{background:"#25d366",border:"none",borderRadius:8,padding:"8px 12px",fontSize:12,fontWeight:700,color:"white",cursor:"pointer",flexShrink:0}}>
+    📲 Enviar agenda
+  </button>
+  {[["todas","Todas"],["q1","⚽ Society"],["q2","🏐 Areia"]].map(([id,lbl])=>(
             <button key={id} onClick={()=>setQFiltAgenda(id)}
               style={{flex:1,padding:"8px 4px",borderRadius:8,border:"none",fontWeight:700,fontSize:12,cursor:"pointer",
                 background:qFiltAgenda===id?VE:"#f0f4f8",color:qFiltAgenda===id?"white":"#6b7280",transition:"all .15s"}}>
