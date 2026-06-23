@@ -365,7 +365,7 @@ useEffect(()=>{
       alert("Erro ao registrar pagamento: "+e.message);
     }
   }
-  async function desfazerPag(id) {
+async function desfazerPag(id) {
     if(!window.confirm("Desfazer recebimento?")) return;
     const agE = getAg(id);
     const update = {pag: agE.pagOriginal||"pendente", pagoMaquina:0, pagoDinheiro:0};
@@ -373,7 +373,7 @@ useEffect(()=>{
     setAgendamentos(prev=>prev.map(a=>a.id===id?{...a,...update}:a));
     try {
       await updateDoc(doc(db,"agendamentos",id),update);
-      gravarLog(`⏱️ Alterou tempo: ${agE.cli||"cliente"} ${agE.data||""} → ${iniAtual} às ${novoFim} (R$${novoVal.toFixed(2)})`);
+      gravarLog(`↩️ Desfez pagamento: ${agE.cli||"cliente"} ${agE.data||""} ${agE.ini||""}`);
     } catch(e){}
   }
   async function salvarPP(id, qtd) {
