@@ -713,9 +713,10 @@ if(qid==="q1") {
                   )}
                 </div>
 
-                <div style={{fontWeight:800,fontSize:17,color:"#1a1f2e",textTransform:"uppercase",marginBottom:4}}>
-                  {agE.cli||a.cli}
-                </div>
+               <div style={{fontWeight:800,fontSize:17,color:"#1a1f2e",textTransform:"uppercase",marginBottom:4,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+  {agE.cli||a.cli}
+  {agE.chuva&&<span style={{fontSize:11,fontWeight:700,background:"#fef3c7",color:"#92400e",borderRadius:6,padding:"2px 8px",textTransform:"none"}}>🌧️ Reagendado</span>}
+</div>
 
                 {(agE.tel||a.tel) && (
                   <a href={`https://wa.me/55${(agE.tel||a.tel).replace(/\D/g,"")}`} target="_blank"
