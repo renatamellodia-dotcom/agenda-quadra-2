@@ -1254,7 +1254,7 @@ function isDiaBloqueado(ds, qid){
                 <div key={b.id} style={{padding:"12px 14px",borderBottom:"1px solid #e0e3e8",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                   <div>
                     <div style={{fontWeight:700,fontSize:14,color:"#dc2626"}}>🚫 {fd(b.data)}</div>
-                    <div style={{fontSize:12,color:"#6b7280"}}>{b.qid==="todas"?"Todas as quadras":(qds.find(x=>x.id===b.qid)?.nome||b.qid)}{b.motivo?" — "+b.motivo:""}</div>
+                    <div style={{fontSize:12,color:"#6b7280"}}>{b.qid==="todas"?"Todas as quadras":(qds.find(x=>x.id===b.qid)?.nome||b.qid)}{b.ini&&b.fim?" · "+b.ini+"–"+b.fim:" · Dia todo"}{b.motivo?" — "+b.motivo:""}</div>
                   </div>
                   <button onClick={()=>removerBlackout(b.id)}
                     style={{background:"none",border:"1.5px solid #dc2626",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:700,color:"#dc2626",cursor:"pointer"}}>
