@@ -1604,31 +1604,22 @@ export default function App(){
               </select>
             </div>
           </div>
-          <Btn c="v" full onClick={async()=>{
+          <Btn c="v" fullonClick={async()=>{
             if(!reagData||!reagIni||!reagFim){showToast("⚠️ Preencha data e horário!");return;}
             try {
-              const novaReserva = {
-                qid:modalReag.qid, qnm:modalReag.qnm,
-                data:reagData, ini:reagIni, fim:reagFim,
-                cli:modalReag.cli, tel:modalReag.tel||"", cpf:modalReag.cpf||"",
-                email:modalReag.email||"", obs:modalReag.obs||"",
-                pess:modalReag.pess||null, sauna:modalReag.sauna||false,
-                saunaQtd:modalReag.saunaQtd||0,
-                val:modalReag.val||0, valOriginal:modalReag.valOriginal||modalReag.val||0,
-                pag:modalReag.pag||"pendente",
-                valPagoOnline:modalReag.valPagoOnline||0,
-                pagoMaquina:modalReag.pagoMaquina||0,
-                pagoDinheiro:modalReag.pagoDinheiro||0,
-                st:"confirmado", tp:modalReag.tp||"avulso",
-                origem:"admin", chuva:true,
-                chuvaOrigId:modalReag.id,
-                criadoEm:agora(),
-                historico:[{msg:"🌧️ Criado por reagendamento de chuva",de:fd(modalReag.data)+" "+modalReag.ini+"–"+modalReag.fim,em:agora()}]
+              const historico = modalReag.historico || [];
+              const entrada = {
+                msg:"🌧️ Reagendado por chuva",
+                de:fd(modalReag.data)+" "+modalReag.ini+"–"+modalReag.fim,
+                para:fd(reagData)+" "+reagIni+"–"+reagFim,
+                em:agora()
               };
-              await addDoc(collection(db,"agendamentos"),novaReserva);
               await updateDoc(doc(db,"agendamentos",modalReag.id),{
-                st:"cancelado", motivoCancelamento:"chuva",
-                chuvaNovaData:reagData, chuvaNovaIni:reagIni
+                data:reagData, ini:reagIni, fim:reagFim,
+                chuva:true,
+                dataOriginal:modalReag.dataOriginal||modalReag.data,
+                iniOriginal:modalReag.iniOriginal||modalReag.ini,
+                historico:[entrada,...historico].slice(0,20)
               });
               addLog("🌧️ Reagendado por chuva: "+modalReag.cli+" — "+modalReag.qnm+" de "+fd(modalReag.data)+" para "+fd(reagData));
               setModalReag(null);
