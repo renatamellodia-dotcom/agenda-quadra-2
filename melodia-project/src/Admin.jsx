@@ -380,9 +380,9 @@ export default function App(){
     } catch(e){ showToast("❌ Erro ao remover!"); }
   }
 
-  function isDiaBloqueado(ds, qid){
-    return blackouts.some(b=>b.data===ds&&(b.qid==="todas"||b.qid===qid)&&(!b.ini||!b.fim));
-  }
+function isDiaBloqueado(ds, qid){
+  return blackouts.some(b=>b.data===ds&&(b.qid==="todas"||b.qid===qid)&&!b.ini&&!b.fim);
+}
 
   function calcValorAdmin(ini,fim,qid,pess){
     if(!ini||!fim)return;
@@ -885,7 +885,7 @@ export default function App(){
         </div>
 
         {qds.filter(q=>qFiltAgenda==="todas"||q.id===qFiltAgenda).map(q=>{
-          const bl=blackouts.find(b=>b.data===ds&&(b.qid==="todas"||b.qid===q.id)&&(!b.ini||!b.fim));
+          const bl=blackouts.find(b=>b.data===ds&&(b.qid==="todas"||b.qid===q.id)&&(!b.ini&&!b.fim));
           if(!bl) return <SlotAgenda key={q.id} q={q}/>;
           return (
             <div key={q.id} style={{background:"#fee2e2",border:"1.5px solid #fca5a5",borderRadius:12,padding:16,marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
