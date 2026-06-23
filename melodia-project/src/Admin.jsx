@@ -432,19 +432,29 @@ function isDiaBloqueado(ds, qid){
     const q=qds.find(x=>x.id===fQid);
     const base={tp:fTipo,origem:"admin",qid:fQid,qnm:q?.nome||"",ini:fIni,fim:fFim,cli:fCli,tel:fTel,cpf:fCpf,val:parseFloat(fVal)||0,pess:parseInt(fPess)||null,st:fSt,pag:fPag,obs:fObs,churr:fChurr,criadoEm:serverTimestamp()};
     try {
-      if(editAg){
-        const historico = editAg.historico || [];
-        const entrada = {
-          msg: `✏️ Editado por Admin`,
-          de: `${editAg.ini}–${editAg.fim} · R$${editAg.val||0}`,
-          para: `${fIni}–${fFim} · R$${fVal}`,
-          em: agora()
-        };
-        await updateDoc(doc(db,"agendamentos",editAg.id),{...base,data:fData,historico:[entrada,...historico].slice(0,20)});
-        addLog(`✏️ Agendamento editado: ${fCli||"Avulso"} — ${q?.nome} ${fd(fData)} ${fIni}`);
-        setModalA(false);showToast("✅ Agendamento salvo!");
-        return;
-      }
+if(editAg){
+  const historico = editAg.historico || [];
+  const entrada = {
+    msg: `✏️ Editado por Admin`,
+    de: `${editAg.ini}–${editAg.fim} · R$${editAg.val||0}`,
+    para: `${fIni}–${fFim} · R$${fVal}`,
+    em: agora()
+  };
+  const camposPreservados = {
+    valPagoOnline: editAg.valPagoOnline??null,
+    pagoMaquina: editAg.pagoMaquina??null,
+    pagoDinheiro: editAg.pagoDinheiro??null,
+    chuva: editAg.chuva??null,
+    dataOriginal: editAg.dataOriginal??null,
+    iniOriginal: editAg.iniOriginal??null,
+    chuvaOrigId: editAg.chuvaOrigId??null,
+    repAte: editAg.repAte??null,
+  };
+  await updateDoc(doc(db,"agendamentos",editAg.id),{...base,data:fData,...camposPreservados,historico:[entrada,...historico].slice(0,20)});
+  addLog(`✏️ Agendamento editado: ${fCli||"Avulso"} — ${q?.nome} ${fd(fData)} ${fIni}`);
+  setModalA(false);showToast("✅ Agendamento salvo!");
+  return;
+}
       const datas=[];
       const dataInicio=new Date(fData+"T12:00:00");
       datas.push(fData);
