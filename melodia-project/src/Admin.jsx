@@ -1621,7 +1621,7 @@ export default function App(){
                 iniOriginal:modalReag.iniOriginal||modalReag.ini,
                 historico:[entrada,...historico].slice(0,20)
               });
-              addLog("🌧️ Reagendado por chuva: "+modalReag.cli+" — "+modalReag.qnm+" de "+fd(modalReag.data)+" para "+fd(reagData));
+             addLog("🌧️ Reagendado por chuva: "+modalReag.cli+" — "+modalReag.qnm+" de "+fd(modalReag.data)+" "+modalReag.ini+"–"+modalReag.fim+" para "+fd(reagData)+" "+reagIni+"–"+reagFim);
               setModalReag(null);
               setReagData(""); setReagIni(""); setReagFim("");
               showToast("✅ Reagendado com sucesso!");
