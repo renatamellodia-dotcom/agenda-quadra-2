@@ -1066,7 +1066,7 @@ return;
                     style={{background:"#e0f2fe",border:"none",borderRadius:6,padding:"4px 8px",fontSize:12,fontWeight:700,cursor:"pointer",color:"#0369a1"}}
                     title="Reagendar por chuva">🌧️ Chuva</button>}
                   <div style={{textAlign:"right"}}>
-                    <span style={{fontWeight:700,fontSize:14,color:"#16a34a"}}>R$ {((parseInt(modalD.saunaQtd)||0)*15).toFixed(2)}</span>
+                  <span style={{fontWeight:700,fontSize:16,color:VE}}>R$ {(a.val||0).toFixed(2)}</span>
                     {isParcial(a.pag)&&<div style={{fontSize:11,color:"#854d0e",marginTop:2}}>falta R$ {(a.val*0.5).toFixed(2)} na chegada</div>}
                   </div>
                 </div>
