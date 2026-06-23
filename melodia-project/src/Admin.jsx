@@ -462,10 +462,36 @@ if(editAg){
     chuvaOrigId: editAg.chuvaOrigId??null,
     repAte: editAg.repAte??null,
   };
-  await updateDoc(doc(db,"agendamentos",editAg.id),{...base,data:fData,...camposPreservados,historico:[entrada,...historico].slice(0,20)});
-  addLog(`✏️ Agendamento editado: ${fCli||"Avulso"} — ${q?.nome} ${fd(fData)} ${fIni}`);
-  setModalA(false);showToast("✅ Agendamento salvo!");
-  return;
+await updateDoc(doc(db,"agendamentos",editAg.id),{...base,data:fData,...camposPreservados,historico:[entrada,...historico].slice(0,20)});
+addLog(`✏️ Agendamento editado: ${fCli||"Avulso"} — ${q?.nome} ${fd(fData)} ${fIni}`);
+
+if(editAg.tp==="mensalista"&&editAg.repAte){
+  const outras=ags.filter(a=>
+    a.id!==editAg.id &&
+    a.cli===editAg.cli &&
+    a.qid===editAg.qid &&
+    a.tp==="mensalista" &&
+    a.st!=="cancelado" &&
+    a.data>fData
+  );
+  if(outras.length>0){
+    const atualizar=window.confirm(`Este cliente tem mais ${outras.length} reserva(s) futura(s) na mesma quadra. Deseja atualizar o horário de todas?`);
+    if(atualizar){
+      for(const o of outras){
+        await updateDoc(doc(db,"agendamentos",o.id),{ini:fIni,fim:fFim,val:parseFloat(fVal)||0});
+      }
+      showToast(`✅ ${outras.length+1} reservas atualizadas!`);
+    } else {
+      showToast("✅ Agendamento salvo!");
+    }
+  } else {
+    showToast("✅ Agendamento salvo!");
+  }
+} else {
+  showToast("✅ Agendamento salvo!");
+}
+setModalA(false);
+return;
 }
       const datas=[];
       const dataInicio=new Date(fData+"T12:00:00");
