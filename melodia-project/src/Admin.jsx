@@ -1018,7 +1018,7 @@ export default function App(){
                     style={{background:"#e0f2fe",border:"none",borderRadius:6,padding:"4px 8px",fontSize:12,fontWeight:700,cursor:"pointer",color:"#0369a1"}}
                     title="Reagendar por chuva">🌧️ Chuva</button>}
                   <div style={{textAlign:"right"}}>
-                    <span style={{fontWeight:700,fontSize:16,color:VE}}>R$ {(a.val||0).toFixed(2)}</span>
+                    <span style={{fontWeight:700,fontSize:14,color:"#16a34a"}}>R$ {((parseInt(modalD.saunaQtd)||0)*15).toFixed(2)}</span>
                     {isParcial(a.pag)&&<div style={{fontSize:11,color:"#854d0e",marginTop:2}}>falta R$ {(a.val*0.5).toFixed(2)} na chegada</div>}
                   </div>
                 </div>
@@ -1539,7 +1539,7 @@ export default function App(){
             {(saldoRestante(modalD)>0||modalD.sauna)&&(
               <div style={{display:"flex",justifyContent:"space-between",background:"#fef3c7",borderRadius:8,padding:"10px 12px",marginTop:8}}>
                 <span style={{fontSize:14,fontWeight:700,color:"#92400e"}}>💰 Total a cobrar no local</span>
-                <span style={{fontWeight:800,fontSize:16,color:"#92400e"}}>R$ {(saldoRestante(modalD)+(modalD.sauna?15:0)).toFixed(2)}</span>
+                <span style={{fontWeight:800,fontSize:16,color:"#92400e"}}>R$ {(saldoRestante(modalD)+((parseInt(modalD.saunaQtd)||0)*15)).toFixed(2)}</span>
               </div>
             )}
           </div>
@@ -1604,7 +1604,7 @@ export default function App(){
               </select>
             </div>
           </div>
-          <Btn c="v" fullonClick={async()=>{
+          <Btn c="v" full onClick={async()=>{
             if(!reagData||!reagIni||!reagFim){showToast("⚠️ Preencha data e horário!");return;}
             try {
               const historico = modalReag.historico || [];
