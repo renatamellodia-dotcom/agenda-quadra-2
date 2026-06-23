@@ -430,7 +430,19 @@ function isDiaBloqueado(ds, qid){
   async function salvarAg(){
     if(!fData||!fIni||!fFim){showToast("⚠️ Preencha data e horário!");return;}
     const q=qds.find(x=>x.id===fQid);
-    const base={tp:fTipo,origem:"admin",qid:fQid,qnm:q?.nome||"",ini:fIni,fim:fFim,cli:fCli,tel:fTel,cpf:fCpf,val:parseFloat(fVal)||0,pess:parseInt(fPess)||null,st:fSt,pag:fPag,obs:fObs,churr:fChurr,criadoEm:serverTimestamp()};
+const conflito = ags.find(a=>
+  a.data===fData &&
+  a.qid===fQid &&
+  a.st!=="cancelado" &&
+  a.id!==(editAg?.id||"") &&
+  a.ini < fFim &&
+  a.fim > fIni
+);
+if(conflito){
+  showToast(`⚠️ Conflito! ${conflito.cli||"Avulso"} já tem reserva das ${conflito.ini}–${conflito.fim}`);
+  return;
+}
+const base={tp:fTipo,origem:"admin",qid:fQid,qnm:q?.nome||"",ini:fIni,fim:fFim,cli:fCli,tel:fTel,cpf:fCpf,val:parseFloat(fVal)||0,pess:parseInt(fPess)||null,st:fSt,pag:fPag,obs:fObs,churr:fChurr,criadoEm:serverTimestamp()};
     try {
 if(editAg){
   const historico = editAg.historico || [];
