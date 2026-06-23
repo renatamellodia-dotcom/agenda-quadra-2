@@ -762,7 +762,7 @@ return;
             const orig=origemTag(ag);
             const label=labelPag(ag);
             const falta=saldoRestante(ag);
-            const saunaQtd=parseInt(ag.saunaQtd)||0;
+            const saunaQtd=parseInt(ag?.saunaQtd)||0;
             return(
             <div key={hr} style={{display:"flex",alignItems:"center",padding:"10px 12px",borderRadius:8,marginBottom:6,border:`1.5px solid ${passou?"#d1d5db":falta>0?"#fca5a5":"#bbf7d0"}`,background:passou?"#f3f4f6":falta>0?"#fff7ed":"#f0fdf4",opacity:passou?0.7:1}}>
               <div style={{flex:1,display:"flex",alignItems:"center",cursor:"pointer"}} onClick={()=>setModalD(ag)}>
