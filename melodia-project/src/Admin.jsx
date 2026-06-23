@@ -937,7 +937,7 @@ return;
       });
     }
     if(ddDia.length===0) msg += `\nNenhum jogo hoje.`;
-    window.open(`https://wa.me/55${(cfg.wpp||"").replace(/\D/g,"")}?text=${encodeURIComponent(msg)}`,"_blank");
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`,"_blank");
   }}
     style={{background:"#25d366",border:"none",borderRadius:8,padding:"8px 12px",fontSize:12,fontWeight:700,color:"white",cursor:"pointer",flexShrink:0}}>
     📲 Enviar agenda
