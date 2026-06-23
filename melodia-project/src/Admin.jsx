@@ -1001,11 +1001,11 @@ export default function App(){
             <div key={a.id} style={{padding:14,borderBottom:"1px solid #e0e3e8",opacity:a.st==="cancelado"?0.6:1}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:6,cursor:"pointer"}} onClick={()=>abrirEditAg(a)}>
                 <div>
-                  <div style={{fontWeight:700,fontSize:15,display:"flex",alignItems:"center",gap:5}}>
-                    {a.chuva&&<span title="Reagendado por chuva">🌧️</span>}
-                    {a.motivoCancelamento==="chuva"&&<span title="Cancelado por chuva — reagendado">🌧️❌</span>}
-                    {a.cli||"Avulso"}
-                  </div>
+                 <div style={{fontWeight:700,fontSize:15,display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
+  {a.chuva&&<span style={{fontSize:10,fontWeight:700,background:"#fef3c7",color:"#92400e",borderRadius:6,padding:"1px 7px"}}>🌧️ Reagendado</span>}
+  {a.motivoCancelamento==="chuva"&&<span style={{fontSize:10,fontWeight:700,background:"#fee2e2",color:"#991b1b",borderRadius:6,padding:"1px 7px"}}>🌧️ Cancelado</span>}
+  {a.cli||"Avulso"}
+</div>
                   <div style={{fontSize:13,color:"#6b7280"}}>{a.qnm} · {fd(a.data)}</div>
                   <div style={{fontSize:13,color:"#6b7280"}}>{a.ini} às {a.fim}{a.pess?` · ${a.pess} pessoas`:""}</div>
                 </div>
