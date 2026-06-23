@@ -732,10 +732,10 @@ export default function App(){
                   <div style={{fontSize:10,color:falta>0?"#dc2626":"#16a34a",marginTop:2,fontWeight:600}}>{label}</div>
                 </div>
                 <div style={{textAlign:"right",minWidth:72}}>
-                  <div style={{fontWeight:800,fontSize:14,color:"#1a1f2e"}}>R${(ag.val||0).toFixed(0)}</div>
-                  {calcPagoOnline(ag)>0&&<div style={{fontSize:10,color:"#1d4ed8",fontWeight:700}}>💻R${calcPagoOnline(ag).toFixed(0)}</div>}
-                  {((parseFloat(ag.pagoMaquina)||0)+(parseFloat(ag.pagoDinheiro)||0))>0&&<div style={{fontSize:10,color:"#065f46",fontWeight:700}}>🏟️R${((parseFloat(ag.pagoMaquina)||0)+(parseFloat(ag.pagoDinheiro)||0)).toFixed(0)}</div>}
-                  {falta>0&&<div style={{fontSize:10,color:"#dc2626",fontWeight:700}}>⏳R${falta.toFixed(0)}</div>}
+                  <div style={{fontWeight:800,fontSize:14,color:"#1a1f2e"}}>R${(ag.val||0).toFixed(2)}</div>
+                  {calcPagoOnline(ag)>0&&<div style={{fontSize:10,color:"#1d4ed8",fontWeight:700}}>💻R${calcPagoOnline(ag).toFixed(2)}</div>}
+                  {((parseFloat(ag.pagoMaquina)||0)+(parseFloat(ag.pagoDinheiro)||0))>0&&<div style={{fontSize:10,color:"#065f46",fontWeight:700}}>🏟️R${((parseFloat(ag.pagoMaquina)||0)+(parseFloat(ag.pagoDinheiro)||0)).toFixed(2)}</div>}
+                  {falta>0&&<div style={{fontSize:10,color:"#dc2626",fontWeight:700}}>⏳R${falta.toFixed(2)}</div>}
                 </div>
               </div>
               <button onClick={e=>{e.stopPropagation();setReagData(ag.data);setReagIni(ag.ini);setReagFim(ag.fim);setModalReag(ag);}}
@@ -925,7 +925,7 @@ export default function App(){
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
           {(()=>{
             const semPagHoje=ags.filter(a=>a.data===hjDS&&a.st==="confirmado"&&a.pag==="pendente").length;
-            return [["Hoje",sHoje,"agenda",semPagHoje],["Este Mês",sMes,null,0],["A Receber","R$"+sRec.toFixed(0),null,0],["Recebido Mês","R$"+sRecm.toFixed(0),null,0]].map(([l,v,aba,alerta])=>(
+            return [["Hoje",sHoje,"agenda",semPagHoje],["Este Mês",sMes,null,0],["A Receber","R$"+sRec.toFixed(2),null,0],["Recebido Mês","R$"+sRecm.toFixed(2),null,0]].map(([l,v,aba,alerta])=>(
               <div key={l} onClick={()=>{if(aba){setPg("hoje");setSubHoje("agenda");setSoAgendados(true);}}}
                 style={{background:"white",borderRadius:12,padding:16,boxShadow:"0 2px 12px rgba(0,0,0,.08)",textAlign:"center",cursor:aba?"pointer":"default",border:alerta>0?"1.5px solid #fca5a5":"none",position:"relative"}}>
                 {alerta>0&&<span style={{position:"absolute",top:-6,right:-6,background:"#dc2626",color:"white",fontSize:10,fontWeight:900,borderRadius:10,padding:"2px 6px"}}>{alerta} sem pag</span>}
@@ -1057,15 +1057,15 @@ export default function App(){
           return(
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}}>
               <div style={{background:"#f0fdf4",borderRadius:14,padding:14,textAlign:"center",border:"1.5px solid #bbf7d0"}}>
-                <div style={{fontWeight:800,fontSize:20,color:"#065f46"}}>R${totalRecebido.toFixed(0)}</div>
+                <div style={{fontWeight:800,fontSize:20,color:"#065f46"}}>R${totalRecebido.toFixed(2)}</div>
                 <div style={{fontSize:10,color:"#6b7280",fontWeight:700,marginTop:3,textTransform:"uppercase"}}>Recebido</div>
               </div>
               <div style={{background:"#fef2f2",borderRadius:14,padding:14,textAlign:"center",border:"1.5px solid #fca5a5"}}>
-                <div style={{fontWeight:800,fontSize:20,color:"#dc2626"}}>R${totalAReceber.toFixed(0)}</div>
+                <div style={{fontWeight:800,fontSize:20,color:"#dc2626"}}>R${totalAReceber.toFixed(2)}</div>
                 <div style={{fontSize:10,color:"#6b7280",fontWeight:700,marginTop:3,textTransform:"uppercase"}}>A Receber</div>
               </div>
               <div style={{background:"white",borderRadius:14,padding:14,textAlign:"center",boxShadow:"0 2px 8px rgba(0,0,0,.08)"}}>
-                <div style={{fontWeight:800,fontSize:20,color:"#1a1f2e"}}>R${totalGeral.toFixed(0)}</div>
+                <div style={{fontWeight:800,fontSize:20,color:"#1a1f2e"}}>R${totalGeral.toFixed(2)}</div>
                 <div style={{fontSize:10,color:"#6b7280",fontWeight:700,marginTop:3,textTransform:"uppercase"}}>Total Geral</div>
               </div>
             </div>
@@ -1074,29 +1074,29 @@ export default function App(){
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
           <div style={{background:"#eff6ff",borderRadius:12,padding:14,textAlign:"center",border:"1.5px solid #bfdbfe"}}>
             <div style={{fontSize:13,marginBottom:2}}>💻</div>
-            <div style={{fontWeight:800,fontSize:18,color:"#1e40af"}}>R${finSite.toFixed(0)}</div>
+            <div style={{fontWeight:800,fontSize:18,color:"#1e40af"}}>R${finSite.toFixed(2)}</div>
             <div style={{fontSize:10,color:"#6b7280",fontWeight:700,marginTop:2,textTransform:"uppercase"}}>Site</div>
           </div>
           <div style={{background:"#f0fdf4",borderRadius:12,padding:14,textAlign:"center",border:"1.5px solid #bbf7d0"}}>
             <div style={{fontSize:13,marginBottom:2}}>🏟️</div>
-            <div style={{fontWeight:800,fontSize:18,color:"#065f46"}}>R${finBalcao.toFixed(0)}</div>
+            <div style={{fontWeight:800,fontSize:18,color:"#065f46"}}>R${finBalcao.toFixed(2)}</div>
             <div style={{fontSize:10,color:"#6b7280",fontWeight:700,marginTop:2,textTransform:"uppercase"}}>Balcão</div>
           </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
           <div style={{background:"#f0fdf4",borderRadius:12,padding:12,textAlign:"center",border:"1.5px solid #bbf7d0"}}>
             <div style={{fontSize:16,marginBottom:2}}>⚽</div>
-            <div style={{fontWeight:800,fontSize:17,color:"#065f46"}}>R${finSociety.toFixed(0)}</div>
+            <div style={{fontWeight:800,fontSize:17,color:"#065f46"}}>R${finSociety.toFixed(2)}</div>
             <div style={{fontSize:10,color:"#6b7280",fontWeight:700,marginTop:2,textTransform:"uppercase"}}>Society</div>
           </div>
           <div style={{background:"#fff7ed",borderRadius:12,padding:12,textAlign:"center",border:"1.5px solid #fed7aa"}}>
             <div style={{fontSize:16,marginBottom:2}}>🏐</div>
-            <div style={{fontWeight:800,fontSize:17,color:"#c2410c"}}>R${finAreia.toFixed(0)}</div>
+            <div style={{fontWeight:800,fontSize:17,color:"#c2410c"}}>R${finAreia.toFixed(2)}</div>
             <div style={{fontSize:10,color:"#6b7280",fontWeight:700,marginTop:2,textTransform:"uppercase"}}>Areia</div>
           </div>
           <div style={{background:"#fef9c3",borderRadius:12,padding:12,textAlign:"center",border:"1.5px solid #fde68a"}}>
             <div style={{fontSize:16,marginBottom:2}}>🧖</div>
-            <div style={{fontWeight:800,fontSize:17,color:"#854d0e"}}>R${finSauna.toFixed(0)}</div>
+            <div style={{fontWeight:800,fontSize:17,color:"#854d0e"}}>R${finSauna.toFixed(2)}</div>
             <div style={{fontSize:10,color:"#6b7280",fontWeight:700,marginTop:2,textTransform:"uppercase"}}>Sauna</div>
           </div>
         </div>
@@ -1114,14 +1114,14 @@ export default function App(){
                       {new Date(d+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"short",day:"numeric",month:"short"})}
                     </div>
                     <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
-                      {v.society>0&&<span style={{fontSize:10,fontWeight:700,color:"#065f46",background:"#f0fdf4",borderRadius:5,padding:"1px 6px"}}>⚽ R${v.society.toFixed(0)}</span>}
-                      {v.areia>0&&<span style={{fontSize:10,fontWeight:700,color:"#92400e",background:"#fff7ed",borderRadius:5,padding:"1px 6px"}}>🏐 R${v.areia.toFixed(0)}</span>}
-                      {v.sauna>0&&<span style={{fontSize:10,fontWeight:700,color:"#854d0e",background:"#fef9c3",borderRadius:5,padding:"1px 6px"}}>🧖 R${v.sauna.toFixed(0)}</span>}
+                      {v.society>0&&<span style={{fontSize:10,fontWeight:700,color:"#065f46",background:"#f0fdf4",borderRadius:5,padding:"1px 6px"}}>⚽ R${v.society.toFixed(2)}</span>}
+                      {v.areia>0&&<span style={{fontSize:10,fontWeight:700,color:"#92400e",background:"#fff7ed",borderRadius:5,padding:"1px 6px"}}>🏐 R${v.areia.toFixed(2)}</span>}
+                      {v.sauna>0&&<span style={{fontSize:10,fontWeight:700,color:"#854d0e",background:"#fef9c3",borderRadius:5,padding:"1px 6px"}}>🧖 R${v.sauna.toFixed(2)}</span>}
                     </div>
                   </div>
                   <div style={{textAlign:"right"}}>
-                    <div style={{fontWeight:800,fontSize:14,color:"#065f46"}}>R${recDia.toFixed(0)}</div>
-                    {pendDia>0&&<div style={{fontSize:10,color:"#dc2626",fontWeight:700,marginTop:2}}>⏳ R${pendDia.toFixed(0)}</div>}
+                    <div style={{fontWeight:800,fontSize:14,color:"#065f46"}}>R${recDia.toFixed(2)}</div>
+                    {pendDia>0&&<div style={{fontSize:10,color:"#dc2626",fontWeight:700,marginTop:2}}>⏳ R${pendDia.toFixed(2)}</div>}
                   </div>
                 </div>
               );
@@ -1734,7 +1734,7 @@ export default function App(){
         const agsFech=(ags||[]).filter(a=>a.data===dsFech&&a.st==="confirmado");
         const quadraFech=(qid)=>agsFech.filter(a=>a.qid===qid);
         const totalVal=(lista)=>lista.reduce((s,a)=>s+(parseFloat(a.val)||0),0);
-        const totalOnline=(lista)=>lista.reduce((s,a)=>s+calcPagoOnline(a),0);
+        const totalOnline=(lista)=>lista.reduce((s,a)=>s+pagoPeloSite(a),0);
         const totalBalcao=(lista)=>lista.reduce((s,a)=>s+(parseFloat(a.pagoMaquina)||0)+(parseFloat(a.pagoDinheiro)||0),0);
         const totalFalta=(lista)=>lista.reduce((s,a)=>s+saldoRestante(a),0);
         const totalSauna=(lista)=>lista.reduce((s,a)=>s+(parseInt(a.saunaQtd)||0),0)*15;
@@ -1749,7 +1749,7 @@ export default function App(){
             <div style={{background:"white",borderRadius:12,padding:16,marginBottom:12,boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
               <div style={{fontWeight:800,fontSize:14,color:cor,marginBottom:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <span>{titulo} — {lista.length} jogo{lista.length>1?"s":""}</span>
-                <span style={{fontSize:16,color:"#1a1f2e"}}>R${vTotal.toFixed(0)}</span>
+                <span style={{fontSize:16,color:"#1a1f2e"}}>R${vTotal.toFixed(2)}</span>
               </div>
               {lista.map((a,i)=>{
                 const online=calcPagoOnline(a);
@@ -1767,29 +1767,29 @@ export default function App(){
                         </div>
                       </div>
                       <div style={{textAlign:"right"}}>
-                        <div style={{fontWeight:800,fontSize:14,color:"#1a1f2e"}}>R${(a.val||0).toFixed(0)}</div>
-                        {falta>0&&<div style={{fontSize:10,color:"#dc2626",fontWeight:700}}>falta R${falta.toFixed(0)}</div>}
+                        <div style={{fontWeight:800,fontSize:14,color:"#1a1f2e"}}>R${(a.val||0).toFixed(2)}</div>
+                        {falta>0&&<div style={{fontSize:10,color:"#dc2626",fontWeight:700}}>falta R${falta.toFixed(2)}</div>}
                       </div>
                     </div>
                     <div style={{display:"flex",gap:8,marginTop:5,flexWrap:"wrap"}}>
-                      {online>0&&<span style={{fontSize:10,background:"#eff6ff",color:"#1d4ed8",borderRadius:6,padding:"2px 7px",fontWeight:700}}>💻 Online R${online.toFixed(0)}</span>}
-                      {balcao>0&&<span style={{fontSize:10,background:"#f0fdf4",color:"#065f46",borderRadius:6,padding:"2px 7px",fontWeight:700}}>🏟️ Balcão R${balcao.toFixed(0)}</span>}
-                      {falta>0&&<span style={{fontSize:10,background:"#fef2f2",color:"#dc2626",borderRadius:6,padding:"2px 7px",fontWeight:700}}>⏳ Pendente R${falta.toFixed(0)}</span>}
+                      {online>0&&<span style={{fontSize:10,background:"#eff6ff",color:"#1d4ed8",borderRadius:6,padding:"2px 7px",fontWeight:700}}>💻 Online R${online.toFixed(2)}</span>}
+                      {balcao>0&&<span style={{fontSize:10,background:"#f0fdf4",color:"#065f46",borderRadius:6,padding:"2px 7px",fontWeight:700}}>🏟️ Balcão R${balcao.toFixed(2)}</span>}
+                      {falta>0&&<span style={{fontSize:10,background:"#fef2f2",color:"#dc2626",borderRadius:6,padding:"2px 7px",fontWeight:700}}>⏳ Pendente R${falta.toFixed(2)}</span>}
                     </div>
                   </div>
                 );
               })}
               <div style={{marginTop:10,paddingTop:10,borderTop:"2px solid #f3f4f6",display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
                 <div style={{textAlign:"center",background:"#eff6ff",borderRadius:8,padding:"8px 4px"}}>
-                  <div style={{fontWeight:800,fontSize:13,color:"#1d4ed8"}}>R${vOnline.toFixed(0)}</div>
+                  <div style={{fontWeight:800,fontSize:13,color:"#1d4ed8"}}>R${vOnline.toFixed(2)}</div>
                   <div style={{fontSize:10,color:"#6b7280"}}>Online</div>
                 </div>
                 <div style={{textAlign:"center",background:"#f0fdf4",borderRadius:8,padding:"8px 4px"}}>
-                  <div style={{fontWeight:800,fontSize:13,color:"#065f46"}}>R${vBalcao.toFixed(0)}</div>
+                  <div style={{fontWeight:800,fontSize:13,color:"#065f46"}}>R${vBalcao.toFixed(2)}</div>
                   <div style={{fontSize:10,color:"#6b7280"}}>Balcão</div>
                 </div>
                 <div style={{textAlign:"center",background:vFalta>0?"#fef2f2":"#f9fafb",borderRadius:8,padding:"8px 4px"}}>
-                  <div style={{fontWeight:800,fontSize:13,color:vFalta>0?"#dc2626":"#9ca3af"}}>R${vFalta.toFixed(0)}</div>
+                  <div style={{fontWeight:800,fontSize:13,color:vFalta>0?"#dc2626":"#9ca3af"}}>R${vFalta.toFixed(2)}</div>
                   <div style={{fontSize:10,color:"#6b7280"}}>Pendente</div>
                 </div>
               </div>
@@ -1819,21 +1819,21 @@ export default function App(){
                       <div style={{fontSize:11,opacity:.7}}>jogos</div>
                     </div>
                     <div style={{background:"rgba(255,255,255,0.12)",borderRadius:10,padding:12,textAlign:"center"}}>
-                      <div style={{fontWeight:800,fontSize:22}}>R${gTotal.toFixed(0)}</div>
+                      <div style={{fontWeight:800,fontSize:22}}>R${gTotal.toFixed(2)}</div>
                       <div style={{fontSize:11,opacity:.7}}>total do dia</div>
                     </div>
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
                     <div style={{background:"rgba(255,255,255,0.1)",borderRadius:8,padding:10,textAlign:"center"}}>
-                      <div style={{fontWeight:800,fontSize:15}}>R${gOnline.toFixed(0)}</div>
+                      <div style={{fontWeight:800,fontSize:15}}>R${gOnline.toFixed(2)}</div>
                       <div style={{fontSize:10,opacity:.7}}>💻 Online</div>
                     </div>
                     <div style={{background:"rgba(255,255,255,0.1)",borderRadius:8,padding:10,textAlign:"center"}}>
-                      <div style={{fontWeight:800,fontSize:15}}>R${gBalcao.toFixed(0)}</div>
+                      <div style={{fontWeight:800,fontSize:15}}>R${gBalcao.toFixed(2)}</div>
                       <div style={{fontSize:10,opacity:.7}}>🏟️ Balcão</div>
                     </div>
                     <div style={{background:gFalta>0?"rgba(220,38,38,0.3)":"rgba(255,255,255,0.1)",borderRadius:8,padding:10,textAlign:"center"}}>
-                      <div style={{fontWeight:800,fontSize:15}}>R${gFalta.toFixed(0)}</div>
+                      <div style={{fontWeight:800,fontSize:15}}>R${gFalta.toFixed(2)}</div>
                       <div style={{fontSize:10,opacity:.7}}>⏳ Pendente</div>
                     </div>
                   </div>
@@ -1844,7 +1844,7 @@ export default function App(){
                   <div style={{background:"white",borderRadius:12,padding:14,marginBottom:12,boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                       <span style={{fontWeight:700,fontSize:14}}>🧖 Sauna</span>
-                      <span style={{fontWeight:800,fontSize:16,color:"#2E7D6B"}}>R${totalSauna(todos).toFixed(0)}</span>
+                      <span style={{fontWeight:800,fontSize:16,color:"#2E7D6B"}}>R${totalSauna(todos).toFixed(2)}</span>
                     </div>
                     <div style={{fontSize:12,color:"#6b7280",marginTop:4}}>
                       {todos.filter(a=>(parseInt(a.saunaQtd)||0)>0).map(a=>`${a.cli||"Avulso"} (${a.saunaQtd}p)`).join(" · ")}
