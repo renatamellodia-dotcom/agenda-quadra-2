@@ -631,10 +631,17 @@ if(qid==="q1") {
         )}
 
         {/* BOTÃO FECHAMENTO DO DIA */}
-        <button onClick={()=>{
-            if(totalFalta>0.01){ alert("🔒 Existem R$ "+totalFalta.toFixed(2)+" pendentes de cobrança.\n\nQuite todas as reservas antes de fechar o caixa."); return; }
-            setModalFechamento(true);
-          }}
+      <button onClick={()=>{
+    const faltaBalcao = agsDia.reduce((s,a)=>{
+      const agE = getAg(a.id);
+      const pp = getPP(agE);
+      const cobrar = faltaReceber(agE, pp);
+      const jaEncerrada = toMin(agE.fim||a.fim) <= hora.getHours()*60+hora.getMinutes();
+      return jaEncerrada ? s + cobrar : s;
+    },0);
+    if(faltaBalcao>0.01){ alert("🔒 Existem R$ "+faltaBalcao.toFixed(2)+" pendentes de cobrança.\n\nQuite todas as reservas encerradas antes de fechar o caixa."); return; }
+    setModalFechamento(true);
+  }}
           style={{width:"100%",padding:"10px",background:totalFalta>0?"rgba(255,255,255,0.05)":"rgba(255,255,255,0.1)",border:"1.5px solid rgba(255,255,255,0.25)",borderRadius:10,color:totalFalta>0?"rgba(255,255,255,0.5)":"white",fontWeight:700,fontSize:13,cursor:"pointer",marginBottom:10}}>
           {totalFalta>0 ? "🔒 Fechamento do dia (pendências)" : "📋 Fechamento do dia"}
         </button>
