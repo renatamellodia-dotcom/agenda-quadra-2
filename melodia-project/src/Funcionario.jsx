@@ -436,11 +436,14 @@ async function desfazerPag(id) {
     // Recalcula o valor da quadra para a nova duração (do zero, sempre)
     const duracaoNovaMin = novoFimMin - toMin(iniAtual);
     let novoVal;
-    if(qid==="q1") {
+if(qid==="q1") {
       const precoHora = iniAtual>=HORA_NOITE ? SOC_NOITE : SOC_DIA;
       novoVal = parseFloat((precoHora*(duracaoNovaMin/60)).toFixed(2));
     } else {
-      novoVal = parseFloat((AREIA_P*(duracaoNovaMin/60)).toFixed(2)); // Areia: preço central
+      const horasNovas = Math.floor(duracaoNovaMin/60);
+      const ppAtual = getPP(agE);
+      const excNovo = ppAtual > AREIA_LIM && horasNovas >= 1 ? (ppAtual - AREIA_LIM) * AREIA_EXC * horasNovas : 0;
+      novoVal = parseFloat(((AREIA_P*(duracaoNovaMin/60)) + excNovo).toFixed(2));
     }
     // Guarda valOriginal na primeira vez que o tempo é alterado
     const update = {fim:novoFim, val:novoVal};
