@@ -411,7 +411,14 @@ async function desfazerPag(id) {
       setTimeout(()=>setToast(""),3000);
     } catch(e){ alert("Erro ao criar reserva: "+e.message); }
   }
-
+  // Preços centralizados (lidos do Firebase)
+  const SAUNA_P = precos.precoSauna||15;
+  const AREIA_P = precos.precoAreia||60;
+  const AREIA_LIM = precos.limiteAreia||12;
+  const AREIA_EXC = precos.precoExcedente||10;
+  const SOC_DIA = precos.precoSocietyDia||120;
+  const SOC_NOITE = precos.precoSocietyNoite||130;
+  const HORA_NOITE = precos.horaNoite||"16:00";
   async function adicionarTempo(id, mins) {
     const agE = getAg(id);
     const fimAtual = agE.fim || agendamentos.find(x=>x.id===id)?.fim || "";
@@ -484,14 +491,6 @@ if(qid==="q1") {
     return d.toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"});
   }
 
-  // Preços centralizados (lidos do Firebase)
-  const SAUNA_P = precos.precoSauna||15;
-  const AREIA_P = precos.precoAreia||60;
-  const AREIA_LIM = precos.limiteAreia||12;
-  const AREIA_EXC = precos.precoExcedente||10;
-  const SOC_DIA = precos.precoSocietyDia||120;
-  const SOC_NOITE = precos.precoSocietyNoite||130;
-  const HORA_NOITE = precos.horaNoite||"16:00";
 
   // Cálculos para modal de nova reserva no balcão
   const nrDataObj = nrDataHoje ? new Date(nrDataHoje+'T12:00:00') : new Date();
