@@ -97,7 +97,7 @@ const REGRAS_AREIA = [
   { num:"3", titulo:"Consumo no Local", texto:"Não é permitida a entrada de bebidas. O consumo deverá ser realizado através do bar do complexo." },
   { num:"4", titulo:"Crianças", texto:"Por questões de segurança, não é permitida a permanência de crianças nas quadras durante os jogos." },
   { num:"5", titulo:"Eventos e Comemorações", texto:"A locação das quadras destina-se à prática esportiva e confraternização entre os participantes da reserva. Aniversários, confraternizações, eventos corporativos, comemorações e reuniões com convidados externos possuem condições e valores específicos e devem ser contratados separadamente." },
-  { num:"6", titulo:"Chuva? Sem preocupação!", texto:"Se estiver chovendo no dia da sua reserva, reagendamos sem nenhuma burocracia. Fique tranquilo, seu jogo não será perdido! 🌧️" },
+  { num:"6", titulo:"Chuva? Sem preocupação!", texto:"Se estiver chovendo próximo ao horário da sua reserva, reagendamos sem nenhuma burocracia. Fique tranquilo, seu jogo não será perdido! 🌧️" },
 ];
 
 const REGRAS_SOCIETY = [
