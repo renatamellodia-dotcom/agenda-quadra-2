@@ -97,6 +97,7 @@ const REGRAS_AREIA = [
   { num:"3", titulo:"Consumo no Local", texto:"Não é permitida a entrada de bebidas. O consumo deverá ser realizado através do bar do complexo." },
   { num:"4", titulo:"Crianças", texto:"Por questões de segurança, não é permitida a permanência de crianças nas quadras durante os jogos." },
   { num:"5", titulo:"Eventos e Comemorações", texto:"A locação das quadras destina-se à prática esportiva e confraternização entre os participantes da reserva. Aniversários, confraternizações, eventos corporativos, comemorações e reuniões com convidados externos possuem condições e valores específicos e devem ser contratados separadamente." },
+  { num:"6", titulo:"Chuva? Sem preocupação!", texto:"Se estiver chovendo no dia da sua reserva, reagendamos sem nenhuma burocracia. Fique tranquilo, seu jogo não será perdido! 🌧️" },
 ];
 
 const REGRAS_SOCIETY = [
@@ -104,6 +105,7 @@ const REGRAS_SOCIETY = [
   { num:"1", titulo:"Consumo no Local", texto:"Não é permitida a entrada de bebidas. O consumo deverá ser realizado através do bar do complexo." },
   { num:"2", titulo:"Crianças", texto:"Por questões de segurança, não é permitida a permanência de crianças nas quadras durante os jogos." },
   { num:"3", titulo:"Eventos e Comemorações", texto:"A locação das quadras destina-se à prática esportiva. Eventos com convidados externos possuem condições específicas." },
+  { num:"4", titulo:"Chuva? Sem preocupação!", texto:"Se estiver chovendo próximo ao horário da sua reserva, reagendamos sem nenhuma burocracia. Fique tranquilo, seu jogo não será perdido! 🌧️" },
 ];
 
 export default function App() {
@@ -610,6 +612,7 @@ function isOcupado(hr) {
           ["🚗","Estacionamento gratuito",""],
           ["📶","Wi-Fi gratuito","Senha: jogadorcaro"],
           ["🍻","Bar","Bebidas e petiscos"],
+          ["🧒","Área Kids",""],
         ].map(([ic,nm,det])=>(
           <div key={nm} style={{display:"flex",alignItems:"center",gap:12,padding:"8px 0",borderBottom:"1px solid rgba(255,255,255,0.07)"}}>
             <span style={{fontSize:20,width:28,textAlign:"center",flexShrink:0}}>{ic}</span>
